@@ -1,0 +1,192 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="/ui/admin/admin.css" />
+    <script>
+      globalThis.adminShell = function adminShell() {
+        return {
+          dragPointerId: null,
+          dragging: false,
+          layout: "horizontal",
+          portraitQuery: null,
+          splitRatios: {
+            horizontal: 0.34,
+            vertical: 0.32
+          },
+          syncLayoutHandler: null,
+
+          init() {
+            this.portraitQuery = window.matchMedia("(orientation: portrait)");
+            this.syncLayoutHandler = () => this.syncLayout();
+
+            window.addEventListener("resize", this.syncLayoutHandler);
+
+            if (typeof this.portraitQuery.addEventListener === "function") {
+              this.portraitQuery.addEventListener("change", this.syncLayoutHandler);
+            } else if (typeof this.portraitQuery.addListener === "function") {
+              this.portraitQuery.addListener(this.syncLayoutHandler);
+            }
+
+            this.syncLayout();
+          },
+
+          destroy() {
+            this.stopDrag();
+
+            if (!this.syncLayoutHandler) {
+              return;
+            }
+
+            window.removeEventListener("resize", this.syncLayoutHandler);
+
+            if (!this.portraitQuery) {
+              return;
+            }
+
+            if (typeof this.portraitQuery.removeEventListener === "function") {
+              this.portraitQuery.removeEventListener("change", this.syncLayoutHandler);
+            } else if (typeof this.portraitQuery.removeListener === "function") {
+              this.portraitQuery.removeListener(this.syncLayoutHandler);
+            }
+          },
+
+          getLayout() {
+            return this.portraitQuery?.matches ? "vertical" : "horizontal";
+          },
+
+          getAxisSize() {
+            return this.getLayout() === "horizontal" ? window.innerWidth : window.innerHeight;
+          },
+
+          getMinPaneSize() {
+            return this.getLayout() === "horizontal" ? 280 : 220;
+          },
+
+          getMaxSplitSize() {
+            const axisSize = this.getAxisSize();
+            const minPaneSize = this.getMinPaneSize();
+            return Math.max(minPaneSize, axisSize - minPaneSize - 12);
+          },
+
+          clamp(value, min, max) {
+            return Math.min(Math.max(value, min), max);
+          },
+
+          getCurrentSplitSize() {
+            const currentSize = parseFloat(
+              getComputedStyle(document.documentElement).getPropertyValue("--split-size")
+            );
+
+            if (Number.isFinite(currentSize) && currentSize > 0) {
+              return currentSize;
+            }
+
+            return this.getAxisSize() * (this.splitRatios[this.layout] || 0.34);
+          },
+
+          applySplitSize(size) {
+            const axisSize = Math.max(this.getAxisSize(), 1);
+            const nextSize = this.clamp(size, this.getMinPaneSize(), this.getMaxSplitSize());
+
+            document.documentElement.style.setProperty("--split-size", `${nextSize}px`);
+            this.splitRatios[this.layout] = nextSize / axisSize;
+          },
+
+          syncLayout() {
+            this.layout = this.getLayout();
+            document.documentElement.dataset.layout = this.layout;
+
+            const ratio = this.splitRatios[this.layout] || (this.layout === "horizontal" ? 0.34 : 0.32);
+            this.applySplitSize(this.getAxisSize() * ratio);
+          },
+
+          startDrag(event) {
+            this.dragging = true;
+            this.dragPointerId = typeof event.pointerId === "number" ? event.pointerId : null;
+            document.body.dataset.dragging = "true";
+            event.target.setPointerCapture?.(event.pointerId);
+          },
+
+          handlePointerMove(event) {
+            if (!this.dragging) {
+              return;
+            }
+
+            const nextSize = this.layout === "horizontal" ? event.clientX : event.clientY;
+            this.applySplitSize(nextSize);
+          },
+
+          stopDrag(event) {
+            if (!this.dragging) {
+              return;
+            }
+
+            if (event && this.dragPointerId !== null && event.pointerId !== this.dragPointerId) {
+              return;
+            }
+
+            this.dragging = false;
+            this.dragPointerId = null;
+            delete document.body.dataset.dragging;
+          },
+
+          nudge(sizeDelta) {
+            this.applySplitSize(this.getCurrentSplitSize() + sizeDelta);
+          },
+
+          reloadMain() {
+            const mainFrame = this.$refs.mainFrame;
+
+            if (!mainFrame) {
+              return;
+            }
+
+            if (mainFrame.contentWindow) {
+              try {
+                mainFrame.contentWindow.location.replace("/index.html");
+                return;
+              } catch (_error) {
+                // Fall back to replacing the src below.
+              }
+            }
+
+            mainFrame.src = "/index.html";
+          }
+        };
+      };
+    </script>
+  </head>
+  <body>
+    <div
+      class="admin-shell"
+      x-data="adminShell()"
+      x-init="init()"
+      x-destroy="destroy()"
+      @agent-one-admin-reload-index.window="reloadMain()"
+      @pointermove.window="handlePointerMove($event)"
+      @pointerup.window="stopDrag($event)"
+      @pointercancel.window="stopDrag($event)"
+    >
+      <aside class="pane admin-pane" aria-label="Admin panel">
+        <main class="admin-panel">
+          <x-component path="/ui/admin/admin-workbench.html"></x-component>
+        </main>
+      </aside>
+      <div class="divider">
+        <button
+          class="divider-handle"
+          type="button"
+          aria-label="Resize split view"
+          title="Drag to resize panels"
+          @pointerdown="startDrag($event)"
+          @keydown.left.prevent="nudge(-32)"
+          @keydown.right.prevent="nudge(32)"
+          @keydown.up.prevent="nudge(-32)"
+          @keydown.down.prevent="nudge(32)"
+        ></button>
+      </div>
+      <section class="pane main-pane" aria-label="Main application">
+        <iframe x-ref="mainFrame" class="main-frame" title="Agent One main app" src="/index.html"></iframe>
+      </section>
+    </div>
+  </body>
+</html>

@@ -1,4 +1,4 @@
-const { listAppFiles } = require("../app-files");
+const { listAppFiles } = require("../lib/app-files.cjs");
 
 function readRequestedPaths(context) {
   const payload =

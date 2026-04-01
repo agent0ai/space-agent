@@ -32,11 +32,6 @@ function loadDotEnvFile(filePath) {
     return;
   }
 
-  if (typeof process.loadEnvFile === "function") {
-    process.loadEnvFile(filePath);
-    return;
-  }
-
   const contents = fsSync.readFileSync(filePath, "utf8");
   const lines = contents.split(/\r?\n/);
 

@@ -1,4 +1,4 @@
-const { listAppFiles, normalizePathSegment } = require("../app-files");
+const { listAppFiles, normalizePathSegment } = require("../lib/app-files.cjs");
 
 function readPayload(context) {
   if (!context.body || typeof context.body !== "object" || Buffer.isBuffer(context.body)) {

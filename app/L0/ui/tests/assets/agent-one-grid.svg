@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
+  <title id="title">Agent One Backend Asset</title>
+  <desc id="desc">A simple SVG served directly by the Node server assets folder.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f5efe4" />
+      <stop offset="100%" stop-color="#dfece4" />
+    </linearGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M 48 0 L 0 0 0 48" fill="none" stroke="rgba(17,54,43,0.12)" stroke-width="1" />
+    </pattern>
+  </defs>
+  <rect width="960" height="540" fill="url(#bg)" />
+  <rect width="960" height="540" fill="url(#grid)" />
+  <circle cx="224" cy="176" r="92" fill="#0b6e4f" opacity="0.9" />
+  <rect x="348" y="112" width="388" height="212" rx="28" fill="rgba(255,255,255,0.84)" stroke="rgba(17,54,43,0.1)" />
+  <text x="392" y="184" fill="#1b1b18" font-size="52" font-family="Georgia, serif">Agent One</text>
+  <text x="392" y="236" fill="#4e5f57" font-size="24" font-family="Georgia, serif">Direct server asset</text>
+  <text x="72" y="444" fill="#4e5f57" font-size="22" font-family="Georgia, serif">Served from /ui/tests/assets/agent-one-grid.svg</text>
+</svg>

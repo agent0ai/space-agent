@@ -1,5 +1,5 @@
 const { Readable } = require("node:stream");
-const { readRequestBody, requestCanHaveBody } = require("../http/request-body");
+const { readRequestBody, requestCanHaveBody } = require("./request-body");
 
 const UPSTREAM_REQUEST_HEADERS_TO_STRIP = new Set([
   "accept-encoding",

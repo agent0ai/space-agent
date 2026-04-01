@@ -1,5 +1,4 @@
 paths:
   - /app/L0/mod/**/*
-  - /app/L1/mod/**/*
-  - /app/L1/grp/*/mod/**/*
-  - /app/L2/usr/*/mod/**/*
+  - /app/L1/*/mod/**/*
+  - /app/L2/*/mod/**/*

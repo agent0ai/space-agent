@@ -1,0 +1,256 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="/ui/chat/chat.css" />
+    <script type="module" src="/ui/chat/chat-page.js"></script>
+  </head>
+  <body>
+    <div x-data>
+      <template x-if="$store.chatStore">
+        <main
+          class="chat-shell"
+          x-cloak
+          x-init="$nextTick(() => $store.chatStore.mount({ thread: $refs.thread, input: $refs.input, attachmentInput: $refs.attachmentInput, systemDialog: $refs.systemDialog, settingsDialog: $refs.settingsDialog, historyDialog: $refs.historyDialog, rawDialog: $refs.rawDialog }))"
+          x-destroy="$store.chatStore.unmount()"
+        >
+          <section class="chat-thread-wrap">
+            <div class="chat-thread" x-ref="thread" data-chat-thread @click="$store.chatStore.handleThreadClick($event)"></div>
+          </section>
+
+          <footer class="chat-composer-wrap" x-ref="composerWrap">
+            <div class="chat-composer-inner">
+              <form class="chat-composer" @submit.prevent="$store.chatStore.submitMessage()">
+                <input
+                  x-ref="attachmentInput"
+                  type="file"
+                  multiple
+                  class="composer-attachment-input"
+                  @change="$store.chatStore.handleAttachmentInput($event)"
+                />
+                <textarea
+                  x-ref="input"
+                  x-create="$nextTick(() => $el.focus({ preventScroll: true }))"
+                  name="message"
+                  rows="1"
+                  aria-label="Message Agent One"
+                  :placeholder="$store.chatStore.composerPlaceholder"
+                  x-model="$store.chatStore.draft"
+                  :disabled="$store.chatStore.isComposerInputDisabled"
+                  @input="$store.chatStore.handleDraftInput($event)"
+                  @keydown="$store.chatStore.handleComposerKeydown($event)"
+                ></textarea>
+                <template x-if="$store.chatStore.draftAttachments.length">
+                  <div class="composer-attachments" aria-label="Selected attachments">
+                    <template x-for="attachment in $store.chatStore.draftAttachments" :key="attachment.id">
+                      <button
+                        type="button"
+                        class="composer-attachment"
+                        @click="$store.chatStore.removeDraftAttachment(attachment.id)"
+                        :title="`Remove ${attachment.name}`"
+                      >
+                        <span class="composer-attachment-name" x-text="attachment.name"></span>
+                        <span class="composer-attachment-meta" x-text="attachment.type || 'file'"></span>
+                        <x-icon>close</x-icon>
+                      </button>
+                    </template>
+                  </div>
+                </template>
+                <div class="chat-composer-actions">
+                  <div class="composer-action-group">
+                    <button
+                      type="button"
+                      class="secondary-button"
+                      :disabled="$store.chatStore.isSending || $store.chatStore.isLoadingDefaultSystemPrompt"
+                      @click="$store.chatStore.openAttachmentPicker()"
+                    >
+                      Attach
+                    </button>
+                    <span class="composer-hint">Enter to send, Shift+Enter for newline</span>
+                  </div>
+                  <button
+                    type="submit"
+                    class="primary-button"
+                    :disabled="$store.chatStore.isComposerSubmitDisabled"
+                  >
+                    Send
+                  </button>
+                </div>
+              </form>
+              <header class="chat-header">
+                <section class="chat-meta" aria-label="Chat options">
+                  <button type="button" class="chat-option chat-option-llm" @click="$store.chatStore.openSettingsDialog()">
+                    <span class="chat-option-label">LLM</span>
+                    <span class="chat-option-value" x-text="$store.chatStore.llmSummary"></span>
+                    <x-icon>edit</x-icon>
+                  </button>
+                  <button type="button" class="chat-option chat-option-prompt" @click="$store.chatStore.openSystemDialog()">
+                    <span class="chat-option-label">System Prompt</span>
+                    <span class="chat-option-value" x-text="$store.chatStore.promptSummary"></span>
+                    <x-icon>edit</x-icon>
+                  </button>
+                </section>
+
+                <div class="chat-header-actions">
+                  <button
+                    type="button"
+                    class="secondary-button chat-history-button"
+                    @click="$store.chatStore.openPromptHistoryDialog()"
+                  >
+                    History
+                  </button>
+                  <button
+                    type="button"
+                    class="secondary-button danger chat-clear-button"
+                    @click="$store.chatStore.handleClearClick()"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </header>
+            </div>
+          </footer>
+
+          <dialog class="chat-dialog" x-ref="systemDialog" @cancel.prevent="$store.chatStore.closeSystemDialog()">
+            <form method="dialog" class="dialog-card" @submit.prevent="$store.chatStore.saveSystemPromptFromDialog()">
+              <header class="dialog-header">
+                <div>
+                  <p class="page-eyebrow">System Prompt</p>
+                  <h2>Edit system instructions</h2>
+                </div>
+              </header>
+              <label class="field">
+                <span>Prompt</span>
+                <textarea rows="12" x-model="$store.chatStore.systemPromptDraft"></textarea>
+              </label>
+              <div class="dialog-actions">
+                <button
+                  type="button"
+                  class="secondary-button"
+                  :disabled="$store.chatStore.isLoadingDefaultSystemPrompt"
+                  @click="$store.chatStore.loadDefaultSystemPromptIntoEditor()"
+                >
+                  Default
+                </button>
+                <button type="button" class="secondary-button" @click="$store.chatStore.closeSystemDialog()">Cancel</button>
+                <button type="submit" class="primary-button">Save Prompt</button>
+              </div>
+            </form>
+          </dialog>
+
+          <dialog class="chat-dialog" x-ref="settingsDialog" @cancel.prevent="$store.chatStore.closeSettingsDialog()">
+            <form method="dialog" class="dialog-card" @submit.prevent="$store.chatStore.saveSettingsFromDialog()">
+              <header class="dialog-header">
+                <div>
+                  <p class="page-eyebrow">LLM</p>
+                  <h2>Provider, model, credentials, and params</h2>
+                </div>
+              </header>
+              <label class="field">
+                <span>Provider API Endpoint URL</span>
+                <input type="url" x-model="$store.chatStore.settingsDraft.apiEndpoint" />
+              </label>
+              <label class="field">
+                <span>Model Name</span>
+                <input type="text" x-model="$store.chatStore.settingsDraft.model" />
+              </label>
+              <label class="field">
+                <span>API Key</span>
+                <input type="password" x-model="$store.chatStore.settingsDraft.apiKey" />
+              </label>
+              <label class="field">
+                <span>Params</span>
+                <textarea
+                  rows="6"
+                  spellcheck="false"
+                  placeholder="temperature:0.2"
+                  x-model="$store.chatStore.settingsDraft.paramsText"
+                ></textarea>
+                <p class="field-note">
+                  YAML format. Example: <code>temperature:0.2</code>
+                </p>
+              </label>
+              <p class="dialog-note">
+                These values are stored in <code>localStorage</code> on this device for convenience.
+              </p>
+              <div class="dialog-actions">
+                <button type="button" class="secondary-button" @click="$store.chatStore.closeSettingsDialog()">Cancel</button>
+                <button type="submit" class="primary-button">Save Settings</button>
+              </div>
+            </form>
+          </dialog>
+
+          <dialog class="chat-dialog" x-ref="rawDialog" @cancel.prevent="$store.chatStore.closeRawDialog()">
+            <div class="dialog-card dialog-card-raw">
+              <header class="dialog-header">
+                <div>
+                  <p class="page-eyebrow">LLM Output</p>
+                  <h2 x-text="$store.chatStore.rawOutputTitle"></h2>
+                </div>
+              </header>
+              <div class="raw-output-frame">
+                <pre class="raw-output" x-text="$store.chatStore.rawOutputContent || '[No raw output available]'"></pre>
+              </div>
+              <div class="dialog-actions">
+                <button type="button" class="secondary-button" @click="$store.chatStore.closeRawDialog()">Close</button>
+              </div>
+            </div>
+          </dialog>
+
+          <dialog class="chat-dialog" x-ref="historyDialog" @cancel.prevent="$store.chatStore.closePromptHistoryDialog()">
+            <div class="dialog-card dialog-card-raw">
+              <header class="dialog-header">
+                <div>
+                  <p class="page-eyebrow">Prompt History</p>
+                  <h2 x-text="$store.chatStore.promptHistoryTitle"></h2>
+                </div>
+                <div class="dialog-header-actions">
+                  <div class="dialog-segmented-control" role="tablist" aria-label="Prompt history mode">
+                    <button
+                      type="button"
+                      class="secondary-button dialog-segmented-button"
+                      :class="{ 'is-active': $store.chatStore.promptHistoryMode === 'text' }"
+                      @click="$store.chatStore.setPromptHistoryMode('text')"
+                    >
+                      Text
+                    </button>
+                    <button
+                      type="button"
+                      class="secondary-button dialog-segmented-button"
+                      :class="{ 'is-active': $store.chatStore.promptHistoryMode === 'json' }"
+                      @click="$store.chatStore.setPromptHistoryMode('json')"
+                    >
+                      JSON
+                    </button>
+                  </div>
+                  <button type="button" class="secondary-button" @click="$store.chatStore.copyPromptHistory()">
+                    Copy
+                  </button>
+                </div>
+              </header>
+              <div class="raw-output-frame">
+                <template x-if="$store.chatStore.promptHistoryMode === 'text'">
+                  <div class="prompt-history-list">
+                    <template x-if="!$store.chatStore.promptHistorySections.length">
+                      <pre class="raw-output"></pre>
+                    </template>
+                    <template x-for="(section, index) in $store.chatStore.promptHistorySections" :key="`${section.role}-${index}`">
+                      <section class="prompt-history-section">
+                        <div class="prompt-history-role" x-text="`${section.role}:`"></div>
+                        <pre class="prompt-history-body" x-text="section.content"></pre>
+                      </section>
+                    </template>
+                  </div>
+                </template>
+                <template x-if="$store.chatStore.promptHistoryMode === 'json'">
+                  <pre class="raw-output" x-text="$store.chatStore.promptHistoryContent || '[]'"></pre>
+                </template>
+              </div>
+              <div class="dialog-actions">
+                <button type="button" class="secondary-button" @click="$store.chatStore.closePromptHistoryDialog()">Close</button>
+              </div>
+            </div>
+          </dialog>
+        </main>
+      </template>
+    </div>
+  </body>
+</html>

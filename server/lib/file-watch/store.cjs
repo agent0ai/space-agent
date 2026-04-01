@@ -1,6 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
-const { globToRegExp, normalizePathSegment } = require("../../app-files");
+const { globToRegExp, normalizePathSegment } = require("../app-files.cjs");
 
 const REFRESH_DEBOUNCE_MS = 75;
 const RECONCILE_INTERVAL_MS = 1_000;
@@ -36,6 +36,14 @@ function normalizeProjectPath(input) {
 
 function toProjectPath(projectRoot, absolutePath) {
   return normalizeProjectPath(path.relative(projectRoot, absolutePath));
+}
+
+function getStatsSignature(stats) {
+  if (!stats) {
+    return "";
+  }
+
+  return `${Math.trunc(stats.mtimeMs)}:${stats.size}`;
 }
 
 function parseScalar(value) {
@@ -207,22 +215,31 @@ function createCompiledPatterns(patterns) {
 function createFileAggregateStore(options = {}) {
   const projectRoot = path.resolve(options.projectRoot || path.join(__dirname, "..", "..", ".."));
   const configPath = path.resolve(options.configPath || path.join(__dirname, "config.yaml"));
-  const reconcileIntervalMs = Number(options.reconcileIntervalMs || RECONCILE_INTERVAL_MS);
+  const reconcileIntervalMs = Number(options.reconcileIntervalMs ?? RECONCILE_INTERVAL_MS);
+  const watchConfig = options.watchConfig !== false;
   let compiledPatterns = [];
   let matchedPathIndex = Object.create(null);
+  let lastConfigSignature = "";
   let started = false;
   let refreshInProgress = false;
   let pendingRefresh = false;
   let refreshTimer = null;
+  let pathSyncInProgress = false;
+  let pathSyncTimer = null;
   let reconcileTimer = null;
   let configWatcher = null;
+  const pendingChangedPaths = new Set();
   const directoryWatchers = new Map();
   const aggregateBuilders = new Map();
   const aggregateValues = new Map();
 
-  function coversPath(projectPath) {
+  function matchesProjectPath(projectPath) {
     const normalized = normalizePathSegment(projectPath);
     return Boolean(normalized && compiledPatterns.some(({ matcher }) => matcher.test(normalized)));
+  }
+
+  function coversPath(projectPath) {
+    return matchesProjectPath(projectPath);
   }
 
   function hasPath(projectPath) {
@@ -270,6 +287,43 @@ function createFileAggregateStore(options = {}) {
     return aggregateValues.get(name);
   }
 
+  function removeMatchedEntries(projectPath) {
+    if (!projectPath) {
+      return false;
+    }
+
+    const prefix = `${projectPath}/`;
+    let changed = false;
+
+    for (const existingPath of Object.keys(matchedPathIndex)) {
+      if (existingPath === projectPath || existingPath.startsWith(prefix)) {
+        delete matchedPathIndex[existingPath];
+        changed = true;
+      }
+    }
+
+    return changed;
+  }
+
+  function upsertMatchedFileEntry(filePath) {
+    const projectPath = toProjectPath(projectRoot, filePath);
+
+    if (!projectPath) {
+      return false;
+    }
+
+    if (!matchesProjectPath(projectPath)) {
+      return removeMatchedEntries(projectPath);
+    }
+
+    if (matchedPathIndex[projectPath] === true) {
+      return false;
+    }
+
+    matchedPathIndex[projectPath] = true;
+    return true;
+  }
+
   function rebuildMatchedPathIndex() {
     const nextMatchedPathIndex = Object.create(null);
     const scanRoots = new Set();
@@ -282,13 +336,11 @@ function createFileAggregateStore(options = {}) {
     for (const scanRoot of scanRoots) {
       walkFiles(scanRoot, (filePath) => {
         const projectPath = toProjectPath(projectRoot, filePath);
-        const normalized = normalizePathSegment(projectPath);
-
-        if (!normalized) {
+        if (!projectPath) {
           return;
         }
 
-        if (!compiledPatterns.some(({ matcher }) => matcher.test(normalized))) {
+        if (!matchesProjectPath(projectPath)) {
           return;
         }
 
@@ -297,6 +349,70 @@ function createFileAggregateStore(options = {}) {
     }
 
     matchedPathIndex = nextMatchedPathIndex;
+  }
+
+  function removeDirectoryWatchersUnder(directoryPath) {
+    const prefix = `${directoryPath}${path.sep}`;
+
+    for (const [watchedPath, watcher] of directoryWatchers.entries()) {
+      if (watchedPath === directoryPath || watchedPath.startsWith(prefix)) {
+        watcher.close();
+        directoryWatchers.delete(watchedPath);
+      }
+    }
+  }
+
+  function schedulePathSync(targetPath) {
+    if (targetPath) {
+      pendingChangedPaths.add(targetPath);
+    }
+
+    if (pathSyncTimer) {
+      clearTimeout(pathSyncTimer);
+    }
+
+    pathSyncTimer = setTimeout(() => {
+      pathSyncTimer = null;
+      void processPendingPathChangesSafely();
+    }, REFRESH_DEBOUNCE_MS);
+  }
+
+  function watchDirectory(directoryPath) {
+    if (directoryWatchers.has(directoryPath)) {
+      return;
+    }
+
+    try {
+      const watcher = fs.watch(directoryPath, (eventType, fileName) => {
+        if (!fileName) {
+          schedulePathSync(directoryPath);
+          return;
+        }
+
+        schedulePathSync(path.join(directoryPath, String(fileName)));
+      });
+
+      watcher.on("error", () => {
+        watcher.close();
+        directoryWatchers.delete(directoryPath);
+        schedulePathSync(directoryPath);
+      });
+
+      directoryWatchers.set(directoryPath, watcher);
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        throw error;
+      }
+    }
+  }
+
+  function watchDirectoryTree(startDir) {
+    const nextDirectories = new Set();
+    walkDirectories(startDir, nextDirectories);
+
+    for (const directoryPath of nextDirectories) {
+      watchDirectory(directoryPath);
+    }
   }
 
   function closeRemovedWatchers(nextDirectorySet) {
@@ -310,8 +426,38 @@ function createFileAggregateStore(options = {}) {
     }
   }
 
+  function syncAbsolutePath(targetPath) {
+    const projectPath = toProjectPath(projectRoot, targetPath);
+    if (!projectPath) {
+      return false;
+    }
+
+    const stats = tryStat(targetPath);
+
+    if (!stats) {
+      removeDirectoryWatchersUnder(targetPath);
+      return removeMatchedEntries(projectPath);
+    }
+
+    if (stats.isDirectory()) {
+      let changed = removeMatchedEntries(projectPath);
+
+      watchDirectoryTree(targetPath);
+      walkFiles(targetPath, (filePath) => {
+        if (upsertMatchedFileEntry(filePath)) {
+          changed = true;
+        }
+      });
+
+      return changed;
+    }
+
+    removeDirectoryWatchersUnder(targetPath);
+    return upsertMatchedFileEntry(targetPath);
+  }
+
   async function refresh() {
-    if (refreshInProgress) {
+    if (refreshInProgress || pathSyncInProgress) {
       pendingRefresh = true;
       return;
     }
@@ -320,7 +466,9 @@ function createFileAggregateStore(options = {}) {
 
     try {
       const nextConfig = loadFileWatchConfig(configPath);
+      const configStats = tryStat(configPath);
       compiledPatterns = createCompiledPatterns(nextConfig.patterns);
+      lastConfigSignature = getStatsSignature(configStats);
       rebuildMatchedPathIndex();
 
       const nextDirectories = new Set();
@@ -334,25 +482,7 @@ function createFileAggregateStore(options = {}) {
       closeRemovedWatchers(nextDirectories);
 
       for (const directoryPath of nextDirectories) {
-        if (directoryWatchers.has(directoryPath)) {
-          continue;
-        }
-
-        try {
-          const watcher = fs.watch(directoryPath, () => {
-            scheduleRefresh();
-          });
-
-          watcher.on("error", () => {
-            scheduleRefresh();
-          });
-
-          directoryWatchers.set(directoryPath, watcher);
-        } catch (error) {
-          if (error.code !== "ENOENT") {
-            throw error;
-          }
-        }
+        watchDirectory(directoryPath);
       }
 
       rebuildAggregates();
@@ -375,6 +505,61 @@ function createFileAggregateStore(options = {}) {
     }
   }
 
+  async function processPendingPathChanges() {
+    if (pathSyncInProgress || refreshInProgress) {
+      if (refreshInProgress) {
+        schedulePathSync();
+      }
+
+      return;
+    }
+
+    pathSyncInProgress = true;
+
+    try {
+      const pathsToSync = [...pendingChangedPaths];
+      pendingChangedPaths.clear();
+
+      if (pathsToSync.length === 0) {
+        return;
+      }
+
+      let changed = false;
+
+      for (const targetPath of pathsToSync) {
+        if (syncAbsolutePath(targetPath)) {
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        rebuildAggregates();
+      }
+    } finally {
+      pathSyncInProgress = false;
+
+      if (pendingRefresh) {
+        pendingRefresh = false;
+        await refresh();
+        return;
+      }
+
+      if (pendingChangedPaths.size > 0) {
+        schedulePathSync();
+      }
+    }
+  }
+
+  async function processPendingPathChangesSafely() {
+    try {
+      await processPendingPathChanges();
+    } catch (error) {
+      console.error("Failed to apply watched file changes incrementally.");
+      console.error(error);
+      scheduleRefresh();
+    }
+  }
+
   function scheduleRefresh() {
     if (refreshTimer) {
       clearTimeout(refreshTimer);
@@ -387,20 +572,17 @@ function createFileAggregateStore(options = {}) {
   }
 
   function startConfigWatcher() {
-    const configDirectory = path.dirname(configPath);
-    const configFileName = path.basename(configPath);
-
-    configWatcher = fs.watch(configDirectory, (eventType, fileName) => {
-      if (fileName && String(fileName) !== configFileName) {
+    configWatcher = (currentStats) => {
+      const nextConfigSignature = getStatsSignature(currentStats);
+      if (!nextConfigSignature || nextConfigSignature === lastConfigSignature) {
         return;
       }
 
+      lastConfigSignature = nextConfigSignature;
       scheduleRefresh();
-    });
+    };
 
-    configWatcher.on("error", () => {
-      scheduleRefresh();
-    });
+    fs.watchFile(configPath, { interval: Math.max(REFRESH_DEBOUNCE_MS, 100) }, configWatcher);
   }
 
   function startReconcileLoop() {
@@ -419,7 +601,9 @@ function createFileAggregateStore(options = {}) {
     }
 
     await refresh();
-    startConfigWatcher();
+    if (watchConfig) {
+      startConfigWatcher();
+    }
     startReconcileLoop();
     started = true;
   }
@@ -430,8 +614,13 @@ function createFileAggregateStore(options = {}) {
       refreshTimer = null;
     }
 
+    if (pathSyncTimer) {
+      clearTimeout(pathSyncTimer);
+      pathSyncTimer = null;
+    }
+
     if (configWatcher) {
-      configWatcher.close();
+      fs.unwatchFile(configPath, configWatcher);
       configWatcher = null;
     }
 

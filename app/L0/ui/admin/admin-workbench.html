@@ -1,0 +1,171 @@
+<div
+  class="admin-card admin-workbench"
+  x-data="{ darkMode: document.body.classList.contains('dark-mode'), activeTab: 'agent' }"
+>
+  <div class="admin-header">
+    <div>
+      <p class="admin-kicker">Browser admin</p>
+      <h1><x-icon>support_agent</x-icon> Admin control room</h1>
+      <p class="admin-muted">
+        Operator chat and framework tools for the browser runtime.
+      </p>
+    </div>
+  </div>
+
+  <ul class="nav nav-tabs" role="tablist" aria-label="Admin panel tabs">
+    <li class="nav-item" role="presentation">
+      <button
+        id="admin-agent-tab"
+        class="nav-link"
+        :class="{ active: activeTab === 'agent' }"
+        :aria-selected="String(activeTab === 'agent')"
+        :tabindex="activeTab === 'agent' ? 0 : -1"
+        type="button"
+        role="tab"
+        aria-controls="admin-agent-panel"
+        @click="activeTab = 'agent'"
+      >
+        <x-icon>smart_toy</x-icon>
+        Admin agent
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button
+        id="admin-framework-tab"
+        class="nav-link"
+        :class="{ active: activeTab === 'framework' }"
+        :aria-selected="String(activeTab === 'framework')"
+        :tabindex="activeTab === 'framework' ? 0 : -1"
+        type="button"
+        role="tab"
+        aria-controls="admin-framework-panel"
+        @click="activeTab = 'framework'"
+      >
+        <x-icon>deployed_code</x-icon>
+        Framework lab
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+    <section
+      id="admin-agent-panel"
+      class="tab-pane fade"
+      :class="{ 'show active': activeTab === 'agent' }"
+      x-show="activeTab === 'agent'"
+      x-cloak
+      role="tabpanel"
+      aria-labelledby="admin-agent-tab"
+    >
+      <div class="admin-agent-stage">
+        <section class="admin-console" aria-label="Admin agent preview">
+          <div class="admin-chat-thread">
+            <article class="admin-message-row user">
+              <div class="admin-message-bubble">
+                <p class="admin-message-text">Create a temporary billing support user and show me the result.</p>
+              </div>
+            </article>
+
+            <section class="admin-exec-card" aria-label="Example code execution">
+              <div class="admin-exec-bar">
+                <span>browser-exec</span>
+                <span>create user</span>
+              </div>
+
+              <div class="admin-exec-section">
+                <p class="admin-exec-label">Input</p>
+                <pre class="admin-exec-code">const user = {
+  id: "usr_1042",
+  name: "Mara Ellison",
+  role: "billing_support"
+};
+
+return `created ${user.id} for ${user.name}`;</pre>
+              </div>
+
+              <div class="admin-exec-section">
+                <p class="admin-exec-label">Output</p>
+                <pre class="admin-exec-result">created usr_1042 for Mara Ellison</pre>
+              </div>
+            </section>
+
+            <article class="admin-message-row assistant">
+              <div class="admin-message-bubble">
+                <p class="admin-message-text">Created usr_1042 with billing_support. Next step: send an invite link.</p>
+              </div>
+            </article>
+          </div>
+
+          <div class="admin-chat-composer">
+            <textarea
+              id="admin-agent-draft-input"
+              rows="4"
+              disabled
+              placeholder="Ask the admin agent to inspect runtime state, create a safe plan, or dry-run an admin action."
+            ></textarea>
+            <div class="admin-chat-composer-actions">
+              <div class="admin-chat-secondary">
+                <button class="admin-button" type="button" disabled>Attach</button>
+                <span class="admin-chat-hint">Enter to send</span>
+              </div>
+              <button class="admin-button is-primary" type="button" disabled>Send</button>
+            </div>
+          </div>
+        </section>
+
+        <div class="admin-inline-actions">
+          <button
+            class="admin-button"
+            type="button"
+            @click="
+              darkMode = !darkMode;
+              document.body.classList.toggle('dark-mode', darkMode);
+              document.body.classList.toggle('light-mode', !darkMode);
+            "
+          >
+            <x-icon x-text="darkMode ? 'light_mode' : 'dark_mode'"></x-icon>
+            <span x-text="darkMode ? 'Light mode' : 'Dark mode'"></span>
+          </button>
+          <button class="admin-button" type="button" @click="$dispatch('agent-one-admin-reload-index')">Reload app</button>
+          <a class="admin-button" href="/ui/admin/framework-modal.html" data-modal-content>
+            <x-icon>open_in_new</x-icon>
+            Open modal
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section
+      id="admin-framework-panel"
+      class="tab-pane fade"
+      :class="{ 'show active': activeTab === 'framework' }"
+      x-show="activeTab === 'framework'"
+      x-cloak
+      role="tabpanel"
+      aria-labelledby="admin-framework-tab"
+    >
+      <div class="admin-tab-stack">
+        <section class="admin-card admin-card--subtle">
+          <h2>Nested component</h2>
+          <p class="admin-muted">
+            The nested component demo now lives in this tab so it does not compete with the
+            admin agent concept.
+          </p>
+          <x-component
+            path="/ui/admin/nested-note.html"
+            message="Nested component rendered through another component."
+          ></x-component>
+        </section>
+
+        <section class="admin-card admin-card--subtle">
+          <h2>HTML extension point</h2>
+          <p class="admin-muted">
+            The extension point below renders every matching HTML file from
+            <code>/extensions/admin-demo/</code>.
+          </p>
+          <x-extension id="admin-demo"></x-extension>
+        </section>
+      </div>
+    </section>
+  </div>
+</div>

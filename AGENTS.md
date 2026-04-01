@@ -19,14 +19,29 @@ The browser app is the primary runtime. The Node.js server exists only as thin i
 
 ## Layered Browser Model
 
-The browser app is being organized into layers:
+The browser runtime is moving to a modular three-layer model:
 
-- `app/L0/`: firmware layer
-  This is the currently active browser runtime. It contains the shell, pages, runtime bootstrap, fetch proxy client code, chat UI, and test suite.
-- `app/L1/`: system layer
-  Reserved for admin-managed shared files and data. Not active yet.
-- `app/L2/`: user layer
-  Reserved for user-specific files and data. Not active yet.
+- `app/L0/`: immutable firmware
+  Only changed via updates. Firmware group buckets live under `app/L0/mod/<group-id>/`.
+- `app/L1/`: group customware
+  Editable at runtime. Group folders live under `app/L1/<group-id>/`.
+- `app/L2/`: user customware
+  Editable at runtime. User folders live under `app/L2/<username>/`.
+
+Special groups `_all` and `_admin` are always present.
+Groups may include users and other groups.
+Groups may also declare managers, and managers may be either users or groups.
+
+Users should only read through their effective group chain in `L0` and `L1`.
+Users should only write inside their own `L2/<username>/` area.
+Group managers should only gain write access to that managed group's `L1` area.
+
+Every group or user may contain a `mod/` folder.
+Modules are the only supported extension mechanism, and they are namespaced as `mod/<author>/<repo>/...`.
+
+Frontend code should fetch browser resources through `/mod/<author>/<repo>/...`.
+The intended inheritance chain is `L0 -> L1 -> L2`, including group inclusion.
+The current codebase only implements the first simplified slice of that plan: `/mod/...` resolves from `app/L0/mod/_all/`.
 
 Default rule: browser first, server last.
 
@@ -92,6 +107,7 @@ Command modules live in `commands/` and export:
 
 - keep as much agent logic in the browser as possible
 - treat the server as infrastructure
+- treat modules as the browser-facing delivery unit for code, markup, styles, and assets
 - prefer explicit, small contracts between browser and server
 - prefer maintainable filesystem structure over clever routing shortcuts
 - when changing architecture, update the relevant `AGENTS.md` files alongside the code

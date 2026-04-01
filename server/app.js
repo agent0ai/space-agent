@@ -8,10 +8,10 @@ const {
   FILE_WATCH_CONFIG_PATH,
   PROJECT_ROOT
 } = require("./config");
-const { loadApiRegistry } = require("./api-registry");
+const { loadApiRegistry } = require("./lib/api/registry.cjs");
 const { createFileIndex } = require("./lib/file-watch/path-index.cjs");
-const { sendJson } = require("./http/handlers");
-const { createRequestHandler } = require("./http/router");
+const { sendJson } = require("./proxy/handlers");
+const { createRequestHandler } = require("./proxy/router");
 
 function resolveBrowserHost(host) {
   if (host === "0.0.0.0" || host === "::" || host === "[::]") {

@@ -1,0 +1,23 @@
+@import "./google-icons.css";
+
+[x-cloak] {
+  display: none !important;
+}
+
+x-component,
+x-extension {
+  display: contents;
+}
+
+.loading,
+.error {
+  padding: 0.75rem;
+}
+
+.loading {
+  color: var(--color-text-muted);
+}
+
+.error {
+  color: var(--color-danger);
+}

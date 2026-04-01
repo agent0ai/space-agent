@@ -1,0 +1,30 @@
+body,
+body.light-mode {
+  color-scheme: light;
+  --color-background: #f4f6f8;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f7f9fb;
+  --color-border: rgba(24, 33, 44, 0.14);
+  --color-text: #18212c;
+  --color-text-muted: #5f6c7b;
+  --color-primary: #1f6feb;
+  --color-success: #1a7f37;
+  --color-warning: #9a6700;
+  --color-danger: #b42318;
+  --color-overlay: rgba(17, 24, 39, 0.32);
+}
+
+body.dark-mode {
+  color-scheme: dark;
+  --color-background: #12171d;
+  --color-surface: #1a2129;
+  --color-surface-subtle: #222b35;
+  --color-border: rgba(208, 217, 226, 0.18);
+  --color-text: #e6edf3;
+  --color-text-muted: #9daab6;
+  --color-primary: #4c8dff;
+  --color-success: #3fb950;
+  --color-warning: #d29922;
+  --color-danger: #f85149;
+  --color-overlay: rgba(0, 0, 0, 0.48);
+}

@@ -70,5 +70,8 @@
   },
   "dependencies": {
     "isomorphic-git": "^1.37.4"
+  },
+  "optionalDependencies": {
+    "nodegit": "^0.27.0"
   }
 }

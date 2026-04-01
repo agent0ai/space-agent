@@ -1,18 +1,21 @@
 const { createFileAggregateStore, normalizeProjectPath, toProjectPath } = require("./store.cjs");
 
 function buildPathIndexAggregate(context) {
-  return context.matchedPathIndex;
+  return context.getMatchedPathIndex();
 }
 
 function createFileIndex(options = {}) {
   const store = createFileAggregateStore(options);
-  store.registerAggregate("pathIndex", buildPathIndexAggregate);
 
   return {
     covers(projectPath) {
       return store.coversPath(projectPath);
     },
     getAggregate(name) {
+      if (name === "pathIndex") {
+        return store.getMatchedPathIndex();
+      }
+
       return store.getAggregate(name);
     },
     getMatchedPathIndex() {
@@ -22,12 +25,10 @@ function createFileIndex(options = {}) {
       return store.getMatchedPaths();
     },
     getSnapshot() {
-      return store.getAggregate("pathIndex") || {};
+      return store.getMatchedPathIndex();
     },
     has(projectPath) {
-      const normalized = normalizeProjectPath(projectPath);
-      const pathIndex = store.getAggregate("pathIndex") || {};
-      return Boolean(normalized && pathIndex[normalized]);
+      return store.hasPath(projectPath);
     },
     refresh() {
       return store.refresh();
