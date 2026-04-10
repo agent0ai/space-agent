@@ -123,7 +123,7 @@ Project concepts:
 - the browser authenticates through the server and uses a server-issued session cookie for protected API, module, and app-file access
 - when `CUSTOMWARE_GIT_HISTORY` is enabled, writable `L1/<group>/` and `L2/<user>/` roots are treated as optional per-owner local Git repositories with adaptive-debounced server-side commits and rollback APIs
 - `USER_FOLDER_SIZE_LIMIT_BYTES` optionally caps each `L2/<user>/` folder on disk; app-file mutations are checked against a cached per-user size total and only size-reducing mutations are allowed once a user folder is already over the limit
-- runtime parameters are defined in `commands/params.yaml`; `node space serve` resolves them in this order: launch arguments, stored `.env` params written by `node space set`, then process environment variables, then schema defaults; `CUSTOMWARE_PATH` is the parent directory for writable backend `L1/` and `L2/` storage when configured, and page shells receive only `frontend_exposed` values as injected meta tags
+- runtime parameters are defined in `commands/params.yaml`; `node space serve` resolves them in this order: launch arguments, stored `.env` params written by `node space set`, then process environment variables, then schema defaults; `node space supervise` accepts the same runtime parameters, owns the public `HOST` and `PORT`, requires `CUSTOMWARE_PATH`, enables source auto-update by default, and passes the remaining resolved params to private `space serve` children; `CUSTOMWARE_PATH` is the parent directory for writable backend `L1/` and `L2/` storage when configured, and page shells receive only `frontend_exposed` values as injected meta tags
 - app file APIs use logical app-rooted paths such as `L2/alice/user.yaml` or `/app/L2/alice/user.yaml`, and supported endpoints may also accept `~` or `~/...` for the authenticated user's `L2/<username>/...`; those logical paths do not change when `CUSTOMWARE_PATH` relocates the writable backend roots
 - non-`/api` and non-`/mod` browser entry routes are served from `server/pages/`; `/login` and `/enter` are public and the protected page shells live behind the router-side session gate
 - detailed browser-runtime rules live in `/app/AGENTS.md`
@@ -132,6 +132,7 @@ Project concepts:
 ## Supported CLI Surface
 
 - `node space serve`
+- `node space supervise`
 - `node space get`
 - `node space get <param>`
 - `node space set <param> <value>`
@@ -153,6 +154,7 @@ Project concepts:
 - `npm install --omit=optional` when native optional dependencies are not expected to work
 - `npm run dev` to run the local dev supervisor
 - `node space serve` to run the server directly
+- `node space supervise CUSTOMWARE_PATH=<path>` to run the production-ready zero-downtime auto-update supervisor for source checkouts
 - `npm run install:packaging` to install packaging-only dependencies
 - `npm run desktop:dev`, `npm run desktop:pack`, and `npm run desktop:dist` for the Electron host and packaging flow
 - `.github/workflows/release-desktop.yml` builds tagged desktop releases for Windows, macOS, and Linux on both x64 and arm64; automatic runs start only from pushed `v*` tags whose tag commit points at `main` HEAD, manual `workflow_dispatch` reruns accept an existing Git tag on `main` history, and every publish updates the GitHub Release for that tag before uploading clobbered artifacts selected by `packaging/release-asset-filters.yaml` with uniform `Space-Agent-<app version>-<platform>-<arch>.<extension>` asset names

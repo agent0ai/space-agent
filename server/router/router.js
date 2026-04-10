@@ -12,6 +12,7 @@ import { applyApiCorsHeaders, handleApiPreflight } from "./cors.js";
 import { handleModuleRequest } from "./mod_handler.js";
 import { handleAppFetchRequest } from "./app_fetch_handler.js";
 import { readParsedRequestBody } from "./request_body.js";
+import { resolveProjectVersion } from "../lib/utils/project_version.js";
 
 function createParamsObject(searchParams) {
   const params = Object.create(null);
@@ -145,10 +146,15 @@ function createRequestHandler(options) {
     host,
     pagesDir,
     port,
+    projectVersion: providedProjectVersion,
     projectRoot,
     runtimeParams,
     watchdog
   } = options;
+  const projectVersion =
+    providedProjectVersion === undefined
+      ? resolveProjectVersion(projectRoot)
+      : String(providedProjectVersion || "");
 
   return async function requestHandler(req, res) {
     const requestUrl = new URL(req.url, `http://${req.headers.host || `${host}:${port}`}`);
@@ -225,6 +231,7 @@ function createRequestHandler(options) {
       await handlePageRequest(res, requestUrl, {
         auth,
         pagesDir,
+        projectVersion,
         runtimeParams,
         requestContext
       });

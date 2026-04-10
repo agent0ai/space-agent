@@ -131,7 +131,7 @@ Download the latest desktop build from the [GitHub Releases page](https://github
 
 ### Host Yourself As A Server
 
-Clone it, create an admin, and start the server.
+Clone it, install dependencies, set a durable customware path, create an admin, and start the production-ready zero-downtime server with auto-update.
 
 ```bash
 # clone, open, install dependencies
@@ -139,11 +139,14 @@ git clone https://github.com/agent0ai/space-agent.git
 cd space-agent
 npm install
 
+# keep users, groups, and personal spaces outside the source checkout
+node space set CUSTOMWARE_PATH /srv/space-agent/customware
+
 # create administrator user
 node space user create admin --password "change-me-now" --full-name "Admin" --groups _admin
 
-# run
-node space serve
+# production-ready zero-downtime server with auto-update enabled by default
+node space supervise --host 0.0.0.0 --port 3000
 ```
 
 Open:
@@ -151,14 +154,13 @@ Open:
 - App: `http://localhost:3000/`
 - Admin: `http://localhost:3000/admin`
 
-To keep users, groups, and personal spaces outside the source checkout, set the customware path before creating users or groups:
+For simple local source-checkout runs without the supervisor, use `node space serve`:
 
 ```bash
-node space set CUSTOMWARE_PATH /srv/space-agent/customware
-node space user create admin --password "change-me-now" --full-name "Admin" --groups _admin
-
 node space serve
 ```
+
+`node space supervise` requires `CUSTOMWARE_PATH`. It runs the public server as a proxy, starts replaceable `space serve` children on private loopback ports, restarts the active child if it crashes, stages source updates in release directories, switches only after the replacement is healthy, and drains old streams before cutting the old instance off. Auto-update checks run every 300 seconds by default; use `--auto-update-interval 0` when you want crash-restart supervision without update checks.
 
 For larger multi-instance deployments, use the same `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` values on every instance so logins keep working across them.
 
@@ -187,6 +189,7 @@ node space serve SINGLE_USER_APP=true
 | Command | Purpose |
 | --- | --- |
 | `node space serve` | Start Space Agent. |
+| `node space supervise` | Run the production-ready zero-downtime server with auto-update and crash restart. |
 | `node space get` | Show saved settings. |
 | `node space set <param> <value>` | Save a setting in `.env`. |
 | `node space user create` | Create a user, with optional `--groups`. |

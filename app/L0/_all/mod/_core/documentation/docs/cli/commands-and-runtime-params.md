@@ -8,6 +8,8 @@ This doc covers the CLI entry surface and the runtime-parameter system.
 - `commands/AGENTS.md`
 - `space.js`
 - `commands/serve.js`
+- `commands/supervise.js`
+- `commands/lib/supervisor/`
 - `commands/params.yaml`
 - `server/lib/utils/runtime_params.js`
 
@@ -34,6 +36,7 @@ Important note:
 Operational commands:
 
 - `serve`
+- `supervise`
 - `help`
 - `get`
 - `set`
@@ -51,6 +54,8 @@ Runtime-state commands:
 
 The command tree prefers a small number of readable top-level commands with explicit subcommands instead of many tiny files.
 
+`node space version` and the `/enter` launcher version label share the resolver in `server/lib/utils/project_version.js`. Source checkouts use the latest Git tag plus commit count when needed, while package-only runtimes can fall back to the package version for display.
+
 ## `update`
 
 `node space update` updates a source checkout from the canonical Space Agent repository.
@@ -62,6 +67,55 @@ Current behavior:
 - with `--branch <branch>` or a branch positional target, it reattaches and updates that branch
 - with a tag or commit target, it moves the current or recovered branch to that exact revision when possible
 - it remains source-checkout only and does not update packaged Electron apps
+
+## `supervise`
+
+`node space supervise` runs the source checkout behind a command-owned, production-ready zero-downtime supervisor with auto-update enabled by default.
+
+Current behavior:
+
+- binds the public `HOST` and `PORT` in the supervisor process
+- requires `CUSTOMWARE_PATH`, whether provided as a launch param, stored `.env` value, or process environment variable
+- normalizes `CUSTOMWARE_PATH` to an absolute path before passing it to child servers
+- starts real `space serve` children on private loopback `HOST=127.0.0.1 PORT=0`
+- passes every other resolved runtime parameter to child `serve` processes as launch arguments
+- periodically checks the watched Git remote and branch for a newer revision when `--auto-update-interval` is greater than `0`
+- accepts `--auto-update-interval <seconds>`, defaulting to `300`; values less than or equal to `0` disable update checks and leave crash-restart supervision active
+- stages updates in `CUSTOMWARE_PATH/.space-supervisor/releases/` by default
+- runs `npm install --omit=optional` inside staged releases
+- switches the proxy to a replacement child only after the child prints its listening URL and passes `/api/health`
+- keeps update attempts non-overlapping; the next interval is scheduled only after the current attempt finishes or fails
+- bounds remote checks, release staging commands, dependency installs, and child readiness waits so one stalled update attempt cannot block later intervals forever
+- stops and discards unhealthy replacement child processes without promoting them, then retries on the next eligible interval
+- tracks proxied HTTP requests and upgrade streams while draining old children, then stops the old child when streams finish or go quiet, with a hard drain timeout
+- falls back to a still-draining previous child if the newly active child exits unexpectedly
+- restarts the active target with bounded backoff if no fallback child is available
+
+Current usage:
+
+- `node space supervise CUSTOMWARE_PATH=/srv/space/customware`
+- `node space supervise --host 0.0.0.0 --port 3000 CUSTOMWARE_PATH=/srv/space/customware`
+- `node space supervise --branch main --auto-update-interval 300 CUSTOMWARE_PATH=/srv/space/customware`
+- `node space supervise --auto-update-interval 0 CUSTOMWARE_PATH=/srv/space/customware`
+
+Current supervisor options:
+
+- `--branch <branch>`
+- `--remote-url <url>`
+- `--state-dir <path>`
+- `--auto-update-interval <seconds>`
+- `--startup-timeout <seconds>`
+- `--drain-idle <seconds>`
+- `--drain-timeout <seconds>`
+- `--restart-backoff <seconds>`
+
+Supervisor state:
+
+- default state directory: `CUSTOMWARE_PATH/.space-supervisor`
+- shared child auth keys: `auth/auth_keys.json`, unless `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` are already injected
+- staged source releases: `releases/<revision>/`
+
+The supervisor intentionally avoids changing `server/` lifecycle code. Its only runtime assumptions about a child are that `node space serve` prints the existing listening URL line and that `/api/health` succeeds after startup.
 
 ## `serve`
 
@@ -114,6 +168,7 @@ Only params with `frontend_exposed: true` are injected into page-shell meta tags
 - `USER_FOLDER_SIZE_LIMIT_BYTES`: optional per-user `L2/<user>/` folder cap in bytes; `0` disables it, and positive values make app-file mutations reject projected growth over the cap while still allowing mutations that reduce an already-over-limit folder
 - `user` and `group` commands flush pending local-history commits before returning when `CUSTOMWARE_GIT_HISTORY` is enabled because those commands are short-lived processes
 - `node space set CUSTOMWARE_PATH <path>` should be run before creating users or groups when writable state should live outside the source checkout, because `user` and `group` commands resolve that stored parameter before deciding where `L1` and `L2` files belong
+- `node space supervise` requires `CUSTOMWARE_PATH` and uses it as the stable writable state boundary across source-release swaps
 
 ## Practical Reading Order
 

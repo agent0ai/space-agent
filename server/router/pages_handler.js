@@ -16,6 +16,7 @@ const PAGE_RESOURCE_PREFIX = "/pages/res/";
 const FRONTEND_CONFIG_META_NAME = "space-config";
 const ENTER_GUARD_PLACEHOLDER = "<!-- SPACE_SINGLE_USER_ENTER_GUARD -->";
 const ENTER_GUARD_SCRIPT_TAG = '    <script src="/pages/res/enter-guard.js"></script>';
+const PROJECT_VERSION_PLACEHOLDER = "<!-- SPACE_PROJECT_VERSION -->";
 
 function createSessionCleanupHeaders(requestContext, auth) {
   if (
@@ -102,6 +103,17 @@ function injectEnterGuard(sourceText, options = {}) {
   return sourceText.replace(ENTER_GUARD_PLACEHOLDER, ENTER_GUARD_SCRIPT_TAG);
 }
 
+function injectProjectVersion(sourceText, projectVersion) {
+  if (!sourceText.includes(PROJECT_VERSION_PLACEHOLDER)) {
+    return sourceText;
+  }
+
+  return sourceText.replaceAll(
+    PROJECT_VERSION_PLACEHOLDER,
+    escapeHtmlAttribute(projectVersion || "unknown")
+  );
+}
+
 async function sendPageHtml(res, filePath, options = {}) {
   let sourceText;
 
@@ -113,11 +125,14 @@ async function sendPageHtml(res, filePath, options = {}) {
   }
 
   const body = injectFrontendConfigMetaTags(
-    injectEnterGuard(sourceText, {
-      pageName: options.pageName,
-      requestContext: options.requestContext,
-      runtimeParams: options.runtimeParams
-    }),
+    injectProjectVersion(
+      injectEnterGuard(sourceText, {
+        pageName: options.pageName,
+        requestContext: options.requestContext,
+        runtimeParams: options.runtimeParams
+      }),
+      options.projectVersion
+    ),
     options.runtimeParams
   );
 
@@ -275,6 +290,7 @@ async function handlePageRequest(res, requestUrl, options = {}) {
   await sendPageHtml(res, pageRequest.filePath, {
     headers: createSessionCleanupHeaders(requestContext, auth),
     pageName: pageRequest.pageName,
+    projectVersion: options.projectVersion,
     requestContext,
     runtimeParams
   });

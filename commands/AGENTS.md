@@ -12,7 +12,11 @@ Documentation is top priority for this area. After any change to command discove
 
 ## Documentation Hierarchy
 
-`/commands/AGENTS.md` stays the command-tree doc until a command family or helper subtree grows its own `AGENTS.md`.
+`/commands/AGENTS.md` stays the command-tree doc for top-level command behavior. Command-family or helper subtrees with their own local contracts should add child `AGENTS.md` files.
+
+Current child docs:
+
+- `commands/lib/supervisor/AGENTS.md`
 
 If that happens:
 
@@ -106,6 +110,7 @@ The `help` export should be complete enough that `node space help <command>` is 
 - `help`
 - `serve`
 - `set`
+- `supervise`
 - `user`
 - `update`
 - `version`
@@ -114,7 +119,7 @@ The `help` export should be complete enough that `node space help <command>` is 
 
 There are two kinds of commands in this tree:
 
-- operational commands that control or inspect the local runtime: `serve`, `help`, `get`, `set`, `version`, `update`
+- operational commands that control or inspect the local runtime: `serve`, `supervise`, `help`, `get`, `set`, `version`, `update`
 - state-management commands that edit layered runtime data under the logical app tree: `user` and `group`
 
 The preferred shape is a small number of readable top-level commands with explicit subcommands. Do not add one file per tiny action when a subcommand fits the existing command family cleanly.
@@ -150,6 +155,53 @@ Guidance:
 - keep `PORT=0` available as the explicit OS-assigned free-port mode used by the desktop host and other ephemeral local-runtime flows
 - prefer `node space set CUSTOMWARE_PATH <path>` before user or group creation when documenting persistent writable-root setup, because launch-only `CUSTOMWARE_PATH=...` overrides affect only that `serve` process
 - do not move application behavior into the command when it belongs in `server/`
+
+### `supervise`
+
+Purpose:
+
+- run a public reverse-proxy supervisor in front of replaceable `space serve` child processes
+- require stable writable state through `CUSTOMWARE_PATH`
+- stage source-checkout updates in separate release directories when `--auto-update-interval` is greater than `0`
+- switch traffic only after a replacement child is healthy
+- restart the active child if it crashes
+
+Current launch overrides:
+
+- `PARAM=VALUE` for any parameter defined in `commands/params.yaml`
+- `--host <host>`
+- `--port <port>`
+
+Current supervisor options:
+
+- `--branch <branch>`
+- `--remote-url <url>`
+- `--state-dir <path>`
+- `--auto-update-interval <seconds>`, defaulting to `300`; values less than or equal to `0` disable update checks
+- `--startup-timeout <seconds>`
+- `--drain-idle <seconds>`
+- `--drain-timeout <seconds>`
+- `--restart-backoff <seconds>`
+
+Current usage:
+
+- `node space supervise CUSTOMWARE_PATH=/srv/space/customware`
+- `node space supervise --host 0.0.0.0 --port 3000 CUSTOMWARE_PATH=/srv/space/customware`
+- `node space supervise --branch main --auto-update-interval 300 CUSTOMWARE_PATH=/srv/space/customware`
+- `node space supervise --auto-update-interval 0 CUSTOMWARE_PATH=/srv/space/customware`
+
+Guidance:
+
+- keep `supervise` command-owned and do not add server hooks for supervisor lifecycle
+- keep auto-update polling enabled by default for production supervised source checkouts, while preserving `--auto-update-interval 0` for crash-restart-only supervision
+- keep the supervisor public `HOST` and `PORT` separate from child `space serve` ports; children must run on private loopback `PORT=0`
+- pass all resolved runtime params other than public `HOST` and `PORT` to child `serve` processes
+- normalize `CUSTOMWARE_PATH` to an absolute path before passing it to children so every release shares the same writable `L1` and `L2` roots
+- keep release staging out of the live source checkout to avoid mixed old-code/new-asset windows
+- keep update attempts non-overlapping and bounded so a stalled Git, install, or child-readiness step cannot block future intervals forever
+- keep unhealthy replacement children unpromoted and stopped so the active child keeps serving and the next interval can retry
+- keep old-child drain stream-aware so long responses or upgrade streams can finish or go quiet before the old process is stopped
+- keep crash restart independent from update checks, with bounded backoff
 
 ### `help`
 
@@ -227,6 +279,7 @@ Current usage:
 Guidance:
 
 - keep output machine-friendly and concise
+- delegate version resolution to `server/lib/utils/project_version.js` so CLI output and page-shell version display share one resolver
 - omit the `+0` suffix when HEAD is exactly on the latest tag; print the bare tag instead
 - avoid adding unrelated diagnostics here
 

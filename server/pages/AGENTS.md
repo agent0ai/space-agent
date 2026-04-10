@@ -60,6 +60,7 @@ Current public shell assets:
 - must not depend on authenticated `/mod/...` assets
 - is served for launcher-eligible sessions; in multi-user mode, unauthenticated requests are redirected to `/login` before this shell loads
 - owns the firmware-backed launcher UI that links to `/` and `/admin`, labeled as Enter Space and Admin Mode
+- renders the injected instance version as centered white floating text below the launcher content, using the page-shell `SPACE_PROJECT_VERSION` placeholder
 - accepts an optional `next` query param, grants per-tab launcher access through `sessionStorage`, and routes the Enter or Admin buttons back to the original target when appropriate
 - mirrors the login-shell intro layout, floating astronaut, and public backdrop while replacing the right-side form card with direct launcher actions
 - keeps extra small-screen side spacing around the launcher shell and a generous top and inter-button gap when the launcher actions collapse below the intro copy

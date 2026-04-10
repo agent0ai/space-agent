@@ -1,24 +1,4 @@
-import { execFileSync } from "node:child_process";
-
-function readGitOutput(projectRoot, args) {
-  return execFileSync("git", args, {
-    cwd: projectRoot,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"]
-  }).trim();
-}
-
-function readLatestTag(projectRoot) {
-  try {
-    return readGitOutput(projectRoot, ["describe", "--tags", "--abbrev=0"]);
-  } catch (error) {
-    return null;
-  }
-}
-
-function readCommitCount(projectRoot, rangeArgs) {
-  return Number(readGitOutput(projectRoot, ["rev-list", "--count", ...rangeArgs]) || "0");
-}
+import { resolveGitProjectVersion } from "../server/lib/utils/project_version.js";
 
 export const help = {
   name: "version",
@@ -29,12 +9,6 @@ export const help = {
 };
 
 export async function execute(context) {
-  const latestTag = readLatestTag(context.projectRoot);
-  const baseTag = latestTag || "v0.0";
-  const commitCount = latestTag
-    ? readCommitCount(context.projectRoot, [`${latestTag}..HEAD`])
-    : readCommitCount(context.projectRoot, ["HEAD"]);
-
-  console.log(commitCount > 0 ? `${baseTag}+${commitCount}` : baseTag);
+  console.log(resolveGitProjectVersion(context.projectRoot));
   return 0;
 }

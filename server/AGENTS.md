@@ -86,6 +86,7 @@ Parent and child split rules:
 - manage `server/tmp/` as janitor-backed transient storage for low-RAM server-side artifacts such as folder-download archives
 - resolve runtime parameters from launch overrides, stored `.env` values, process environment variables, and schema defaults, including backend storage parameters such as `CUSTOMWARE_PATH`
 - expose `frontend_exposed` runtime parameters to page shells as injected meta tags
+- expose the resolved project version string to page shells that declare the `SPACE_PROJECT_VERSION` placeholder, using `server/lib/utils/project_version.js` as the shared resolver
 - support local development and source-checkout update flows without turning the server into business-logic orchestration
 
 ## Structure
@@ -101,6 +102,7 @@ Current server layout:
 - `server/data/`: gitignored backend-only secret storage used as the local fallback for auth keys when shared deployment secrets are not injected
 - `server/api/`: endpoint modules loaded by endpoint name
 - `server/router/`: top-level request routing, page handling, `/mod/...` serving, direct app-file fetches, request context, response helpers, proxy transport, and CORS handling
+- `server/lib/utils/project_version.js`: shared project-version resolver for Git-tag source checkouts and package-version fallback display in page shells
 - `server/lib/customware/`: logical app-path normalization, customware-root resolution, group and inheritance logic, extension override resolution, app-file access, and module management
 - `server/lib/customware/git_history.js`: optional writable-layer local Git history scheduling, repository discovery, paginated commit listing, file-diff reads, operation previews, rollback, revert, and commit-loop suppression
 - `server/lib/customware/user_quota.js`: optional per-user `L2` folder size accounting and cached quota projection helpers for app-file mutations
@@ -157,6 +159,7 @@ The server relies on a small set of shared infrastructure contracts. Do not re-i
 - `server/lib/auth/service.js` is the canonical session and login service
 - `server/lib/auth/keys_manage.js` is the canonical backend auth-key loader, with shared-env override support and local `server/data/` fallback
 - `server/lib/utils/runtime_params.js` is the canonical parameter-resolution layer for startup env overrides, defaults, and frontend exposure
+- `server/lib/utils/project_version.js` is the canonical project-version resolver for both the CLI version command and page-shell version display
 - `app/L0/_all/mod/_core/framework/js/yaml-lite.js` is the canonical YAML parser and serializer for both browser and server code; server modules import it directly instead of maintaining a duplicate server-side helper
 - `server/lib/customware/layout.js` is the canonical logical-to-disk resolver for repo `L0` and configured writable `L1`/`L2` roots
 

@@ -21,6 +21,7 @@ The repo is designed so the agent can act through browser state plus narrow back
 
 - `space.js`: CLI entry router that discovers commands dynamically
 - `commands/serve.js`: runtime startup command and launch-time param overrides
+- `commands/supervise.js`: command-owned production-ready zero-downtime supervisor for source checkout auto-updates
 - `server/server.js` and `server/app.js`: create and start the local HTTP runtime
 - `packaging/desktop/main.js`: Electron desktop host that starts the server on a free loopback port and loads the resolved runtime URL
 - `server/router/router.js`: exact request ordering

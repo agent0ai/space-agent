@@ -39,6 +39,7 @@ This scope owns:
 - `customware_git_history_test.mjs`: focused server-side harness for optional writable-layer Git history, adaptive debounce rules, repository discovery, pagination, nested filename filters with full file metadata, diff reads, operation previews, revert, ignore rules, and rollback or forward-travel preservation
 - `user_folder_quota_test.mjs`: focused server-side harness for `USER_FOLDER_SIZE_LIMIT_BYTES`, cached per-user `L2` size accounting, write growth rejection, size-reducing writes, deletes, batch aggregation, and copy checks
 - standalone repo-level verification scripts such as `yaml_lite_test.mjs`
+- `project_version_test.mjs`: focused helper coverage for package-version display tags and project-version fallback behavior used by the CLI and page shells
 - shared expectations for test config, fixtures, scripted execution, and saved evaluation results
 
 ## Local Contracts
