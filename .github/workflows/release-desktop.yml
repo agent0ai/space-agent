@@ -304,6 +304,7 @@ jobs:
       - name: Upload release artifacts
         shell: bash
         env:
+          APP_VERSION: ${{ needs.prepare.outputs.app_version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
         run: |
@@ -326,7 +327,50 @@ jobs:
             exit 1
           fi
 
-          printf 'Selected desktop release artifacts:\n'
-          printf '%s\n' "${files[@]}"
+          upload_dir="release-upload"
+          rm -rf "$upload_dir"
+          mkdir -p "$upload_dir"
+          upload_files=()
+          stale_asset_names=()
 
-          gh release upload "$RELEASE_TAG" "${files[@]}" --clobber
+          printf 'Selected desktop release artifacts:\n'
+          for file in "${files[@]}"; do
+            artifact_dir="$(basename "$(dirname "$file")")"
+            platform="${artifact_dir%-*}"
+            arch="${artifact_dir##*-}"
+            case "$file" in
+              *.AppImage)
+                extension="AppImage"
+                ;;
+              *.dmg)
+                extension="dmg"
+                ;;
+              *.exe)
+                extension="exe"
+                ;;
+              *)
+                echo "Could not infer release asset extension for $file" >&2
+                exit 1
+                ;;
+            esac
+
+            asset_name="Space-Agent-$APP_VERSION-$platform-$arch.$extension"
+            upload_file="$upload_dir/$asset_name"
+
+            if [ -e "$upload_file" ]; then
+              echo "Duplicate staged release asset name: $asset_name" >&2
+              exit 1
+            fi
+
+            ln "$file" "$upload_file" || cp "$file" "$upload_file"
+            upload_files+=("$upload_file")
+            stale_asset_names+=("$(basename "$file")")
+            stale_asset_names+=("$artifact_dir-$(basename "$file")")
+            printf '%s -> %s\n' "$file" "$asset_name"
+          done
+
+          for stale_asset_name in "${stale_asset_names[@]}"; do
+            gh release delete-asset "$RELEASE_TAG" "$stale_asset_name" --yes >/dev/null 2>&1 || true
+          done
+
+          gh release upload "$RELEASE_TAG" "${upload_files[@]}" --clobber

@@ -83,6 +83,7 @@ Current release contract:
 - local and CI builds share the same packaging scripts, with CI passing the tag-derived app version through `SPACE_APP_VERSION`
 - release notes are generated automatically from the commit range between the previous published release and the current tag, with an empty previous tag allowed when no prior published release is available, and CI requires the OpenRouter prompt helper under `packaging/resources/release-notes/` to return a non-empty AI-written body
 - the publish job merges per-arch macOS and Windows updater metadata, but the GitHub Release upload allowlist comes from `packaging/release-asset-filters.yaml`
-- every release run rebuilds fresh desktop artifacts, updates the GitHub Release for the selected tag, and uploads that selected artifact set with `--clobber` so manual reruns replace failed or stale assets instead of publishing a second release
+- selected release files are staged before upload with uniform `Space-Agent-<app version>-<platform>-<arch>.<extension>` asset names, so every uploaded bundle names its platform and architecture consistently and per-arch files with the same builder basename cannot collide on the GitHub Release
+- every release run rebuilds fresh desktop artifacts, updates the GitHub Release for the selected tag, removes stale unprefixed selected-asset names left by older workflow attempts, and uploads that selected artifact set with `--clobber` so manual reruns replace failed or stale assets instead of publishing a second release
 
 Use this doc together with `packaging/AGENTS.md` when you need the exact host-versus-server ownership split.
