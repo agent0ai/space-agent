@@ -124,7 +124,7 @@ Modules may also store lightweight metadata manifests under other `ext/` folders
 
 Current first-party example:
 
-- `_core/pages` discovers dashboard page manifests from `mod/<author>/<repo>/ext/pages/*.yaml` through `extensions_load`
+- `_core/pages` discovers dashboard page manifests from `mod/<author>/<repo>/ext/pages/*.yaml` through `extensions_load` and renders them as the dashboard's secondary `PANELS` chip row beneath the spaces launcher instead of as primary content cards
 - `_core/agent` publishes `ext/pages/agent.yaml` so the dashboard can launch the routed agent settings page without hardcoding it into dashboard or router; that route stays self-contained inside the module, keeps the astronaut info card, exposes only the external repo CTA, and edits the raw `~/conf/personality.system.include.md` prompt-include file
 - `_core/file_explorer` publishes `ext/pages/file_explorer.yaml` for the `#/file_explorer` Files route and also exposes `component.html` so the admin Files tab can reuse the same app-file browser without owning a second implementation
 - `_core/huggingface` publishes `ext/pages/huggingface.yaml` so the dashboard can launch the `Local LLM` page backed by the routed Hugging Face browser runtime

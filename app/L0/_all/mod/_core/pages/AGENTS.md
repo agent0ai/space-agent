@@ -4,7 +4,7 @@
 
 `_core/pages/` owns the page-manifest index used by the dashboard.
 
-It is a small headless-first module that discovers routed page manifests from module-owned `ext/pages/` YAML files through the shared extension resolver, normalizes that metadata into dashboard-friendly entries, and renders the dashboard's `Pages` section below the spaces launcher.
+It is a small headless-first module that discovers routed page manifests from module-owned `ext/pages/` YAML files through the shared extension resolver, normalizes that metadata into dashboard-friendly entries, and renders the dashboard's secondary `Panels` row beneath the spaces launcher.
 
 Documentation is top priority for this module. After any change under `_core/pages/`, update this file and any affected parent docs in the same session.
 
@@ -13,7 +13,7 @@ Documentation is top priority for this module. After any change under `_core/pag
 This module owns:
 
 - `page-index.js`: page-manifest discovery, YAML fetch or parse, route-path normalization, and page-card metadata shaping
-- `dashboard-launcher.html`, `dashboard-launcher.js`, and `dashboard-launcher.css`: the injected dashboard pages UI and route-open actions
+- `dashboard-launcher.html`, `dashboard-launcher.js`, and `dashboard-launcher.css`: the injected dashboard panels UI and route-open actions
 - `ext/html/_core/dashboard/content_end/pages-dashboard-launcher.html`: thin dashboard extension adapter
 
 ## Local Contracts
@@ -28,10 +28,11 @@ Current page-manifest contract:
 
 Current dashboard integration:
 
-- `_core/dashboard/` provides the `_core/dashboard/content_end` seam for the pages section
-- the pages launcher should stay below the spaces launcher and should not pull spaces-owned state into this module
-- dashboard page cards should stay compact with an explicit outer height cap; fit one title line plus two description lines, and clip any extra copy instead of allowing cards to grow taller
-- page cards should open routes through `space.router.goTo(...)` when the router runtime is available and fall back to updating `location.hash`
+- `_core/dashboard/` provides the `_core/dashboard/content_end` seam for the panels section
+- the panels launcher should stay below the spaces launcher and should not pull spaces-owned state into this module
+- the dashboard treatment is intentionally secondary navigation, not primary content: render a small uppercase `PANELS` eyebrow above one horizontal row of compact icon-plus-label pill chips
+- panel chips should keep a thin outlined border, transparent resting background, and visibly lower weight than the spaces cards above them; descriptions may still feed accessibility or hover affordances, but they should not render as second lines in the dashboard row
+- panel chips should open routes through `space.router.goTo(...)` when the router runtime is available and fall back to updating `location.hash`
 - the dashboard section should stay read-only; page manifests describe existing routed pages and do not create or mutate app files
 
 ## Development Guidance

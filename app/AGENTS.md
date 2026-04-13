@@ -321,7 +321,7 @@ Detailed visual subsystem rules now live in `app/L0/_all/mod/_core/visual/AGENTS
 - `onscreen_menu/` owns the routed shell menu extension and feature-owned item seam; see `app/L0/_all/mod/_core/onscreen_menu/AGENTS.md`
 - `time_travel/` owns the routed Time Travel page for paginated writable-layer history, repository selection, file filters, diffs, previewed travel, and revert actions; see `app/L0/_all/mod/_core/time_travel/AGENTS.md`
 - `spaces/` owns the routed spaces canvas, first-login onboarding-space template bootstrap, empty-canvas prompt, widget SDK and widget-size ceilings, and persisted centered-coordinate space runtime plus dashboard-facing space metadata such as title, icon, color, and agent instructions; see `app/L0/_all/mod/_core/spaces/AGENTS.md`
-- `pages/` owns `ext/pages/*.yaml` manifest discovery and the dashboard-facing page launcher section; see `app/L0/_all/mod/_core/pages/AGENTS.md`
+- `pages/` owns `ext/pages/*.yaml` manifest discovery and the dashboard-facing secondary panels row; see `app/L0/_all/mod/_core/pages/AGENTS.md`
 
 ## Guidance
 

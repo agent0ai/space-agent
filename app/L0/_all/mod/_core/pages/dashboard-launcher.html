@@ -4,16 +4,21 @@
     <script type="module" src="/mod/_core/pages/dashboard-launcher.js"></script>
   </head>
   <body>
-    <section class="dashboard-pages-launcher" x-data="pagesDashboardLauncher()" x-init="init()">
+    <section
+      class="dashboard-pages-launcher"
+      x-data="pagesDashboardLauncher()"
+      x-init="init()"
+      aria-labelledby="dashboard-panels-label"
+    >
       <div class="dashboard-pages-launcher-shell">
         <div class="dashboard-pages-launcher-header">
-          <h2>Pages</h2>
+          <p id="dashboard-panels-label" class="dashboard-pages-launcher-eyebrow">Panels</p>
         </div>
 
         <template x-if="loading">
           <div class="dashboard-pages-launcher-empty">
             <x-icon>schedule</x-icon>
-            <p>Loading pages…</p>
+            <p>Loading panels…</p>
           </div>
         </template>
 
@@ -30,32 +35,31 @@
 
         <template x-if="!loading && !loadErrorText && !hasEntries">
           <div class="dashboard-pages-launcher-empty">
-            <p>No pages are available for this account.</p>
+            <p>No panels are available for this account.</p>
           </div>
         </template>
 
         <template x-if="!loading && !loadErrorText && hasEntries">
-          <div class="dashboard-pages-launcher-grid">
-            <template x-for="item in entries" :key="item.id">
-              <a
-                class="dashboard-page-card"
-                :aria-label="`Open ${item.name}`"
-                :href="hrefFor(item.routePath)"
-                @click.prevent="openPage(item.routePath)"
-              >
-                <span
-                  class="dashboard-page-card-icon"
-                  :style="{ '--dashboard-page-card-icon-color': item.color }"
+          <div class="dashboard-pages-launcher-scroll">
+            <div class="dashboard-pages-launcher-row" role="list" aria-label="Dashboard panels">
+              <template x-for="item in entries" :key="item.id">
+                <a
+                  class="dashboard-page-chip"
+                  :aria-label="`Open ${item.name}`"
+                  :href="hrefFor(item.routePath)"
+                  :title="item.description || item.name"
+                  @click.prevent="openPage(item.routePath)"
                 >
-                  <x-icon x-text="item.icon"></x-icon>
-                </span>
-
-                <div class="dashboard-page-card-copy">
-                  <h3 x-text="item.name"></h3>
-                  <p x-text="item.description || `#/${item.routePath}`"></p>
-                </div>
-              </a>
-            </template>
+                  <span
+                    class="dashboard-page-chip-icon"
+                    :style="{ '--dashboard-page-chip-icon-color': item.color }"
+                  >
+                    <x-icon x-text="item.icon"></x-icon>
+                  </span>
+                  <span class="dashboard-page-chip-label" x-text="item.name"></span>
+                </a>
+              </template>
+            </div>
           </div>
         </template>
       </div>
