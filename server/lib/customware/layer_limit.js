@@ -86,6 +86,16 @@ function resolveRequestMaxLayer(options = {}) {
     return explicitQueryMaxLayer;
   }
 
+  const explicitHeaderMaxLayer = parseOptionalMaxLayer(
+    headers?.["x-space-max-layer"] ??
+      headers?.["X-Space-Max-Layer"] ??
+      (typeof headers?.get === "function" ? headers.get("x-space-max-layer") : undefined)
+  );
+
+  if (explicitHeaderMaxLayer !== null) {
+    return explicitHeaderMaxLayer;
+  }
+
   const refererUrl = parseUrlLike(headers?.referer || headers?.referrer || "");
 
   if (!refererUrl) {

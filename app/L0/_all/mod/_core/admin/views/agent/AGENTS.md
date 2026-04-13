@@ -17,7 +17,7 @@ This surface owns:
 - `api.js`, `prompt.js`, `execution.js`, `attachments.js`, `llm-params.js`, `view.js`, and `huggingface.js`: admin runtime helpers, with `api.js` owning the API-request preparation seam `prepareAdminAgentApiRequest`
 - `config.js` and `storage.js`: persisted settings and history contract
 - `system-prompt.md`, `compact-prompt.md`, and `compact-prompt-auto.md`: firmware prompt files
-- `skills.js`: admin skill catalog building and `space.admin.loadSkill(...)`
+- `skills.js`: admin skill catalog building, `just loaded` skill-body prompt sections, and `space.admin.loadSkill(...)`, all delegated through shared `/mod/_core/skillset/skills.js` with an explicit L0 clamp
 
 ## Persistence And Prompt Contract
 
@@ -55,7 +55,8 @@ Prompt rules:
 - user-authored custom instructions are stored separately and injected under `## User specific instructions`
 - `compact-prompt.md` is used for user-invoked history compaction
 - `compact-prompt-auto.md` is used for automatic compaction during the loop
-- the runtime prompt also appends the current admin skill catalog built from `skills/*/SKILL.md`
+- the runtime prompt also appends the current admin skill catalog built from top-level readable `mod/*/*/ext/skills/*/SKILL.md` files discovered with `maxLayer=0`, filtered by the current document's `<x-skill-context>` tags
+- after that catalog, the runtime appends a `just loaded` block for any readable admin-eligible skill whose `metadata.just_loaded` condition currently passes
 - the API-mode fetch branch must finalize its upstream request through `api.js` seam `_core/admin/views/agent/api.js/prepareAdminAgentApiRequest`; provider-specific headers or body rewrites belong in extension modules such as `_core/open_router`, not hard-coded in the admin runtime
 - `api.js` may fold consecutive prepared `user` or `assistant` payload messages into alternating transport turns with `\n\n` joins immediately before the fetch call, but that transport-only fold must not mutate stored history or prompt-history state
 - the firmware prompt documents `space.api.userSelfInfo()` as `{ username, fullName, groups, managedGroups }`, and admin checks should derive from `groups.includes("_admin")`
@@ -91,6 +92,7 @@ Current behavior:
 - when an execution follow-up turn returns no assistant content, the runtime retries the same request once automatically before sending a short protocol-correction user message
 - empty-response protocol-correction messages must not re-echo the prior execution output; they should tell the agent to continue from the execution output above or provide the user-facing answer
 - loaded admin skills are passed through execution as typed runtime values, not pasted blindly into the prompt
+- `skills.js` must keep admin skill discovery L0-clamped even though admin execution still uses normal cross-layer app-file APIs for operational tasks such as moving or editing files, and it must evaluate `metadata.when.tags` plus `metadata.just_loaded` against the admin page's live `<x-skill-context>` tags
 - the surface uses the shared visual dialog helpers and shared thread renderer from `_core/visual`
 - `agent.css` may customize shared visual button primitives only under `.admin-agent-root`; the admin shell mounts tab components together, so unscoped `.secondary-button`, `.primary-button`, or `.confirm-button` rules leak into other admin surfaces such as the shared Files explorer
 - `view.js` enables the shared marked-backed chat-bubble markdown renderer so settled admin chat bubbles render markdown consistently with the onscreen agent

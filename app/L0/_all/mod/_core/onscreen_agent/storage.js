@@ -255,18 +255,16 @@ export async function loadOnscreenAgentConfig() {
     return {
       settings: normalizedConfig.settings,
       systemPrompt: normalizedConfig.systemPrompt,
-      ...storedUiState
+      ...storedUiState,
+      shouldCenterInitialPosition: false
     };
   } catch (error) {
     if (isMissingFileError(error)) {
-      const storedUiState =
-        loadUiStateFromStorageArea("sessionStorage") ||
-        loadUiStateFromStorageArea("localStorage") ||
-        createDefaultUiState();
-
+      // A missing per-user config means first-run defaults for this load.
       return {
         ...createDefaultConfig(),
-        ...storedUiState
+        ...createDefaultUiState(),
+        shouldCenterInitialPosition: true
       };
     }
 

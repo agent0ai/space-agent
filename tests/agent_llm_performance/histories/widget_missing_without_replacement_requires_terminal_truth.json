@@ -1,0 +1,18 @@
+[
+  {
+    "role": "user",
+    "content": "_____user\ndouble check in code"
+  },
+  {
+    "role": "assistant",
+    "content": "Checking the live widget source again now.\n_____javascript\nreturn await space.current.readWidget(\"crypto-ticker\")"
+  },
+  {
+    "role": "user",
+    "content": "_____framework\nexecution error\nerror: Error: Widget \"crypto-ticker\" was not found in space \"space-3\". Available widgets: none."
+  },
+  {
+    "role": "user",
+    "content": "_____user\nwrong, your code errorred"
+  }
+]

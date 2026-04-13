@@ -41,7 +41,7 @@ This scope owns:
 - avoid concrete blocker examples that can over-anchor one domain behavior; prefer general rules when the concept is reusable
 - the ordered turn loop has already helped steer the agent toward correct execution-first behavior; prefer strengthening that loop over adding more fragmented local rules
 - prefer one explicit decision loop over scattered local rules when the same behavior can be expressed once in order
-- `system-prompt.md` should stay focused on overlay-wide protocol and runtime-generic execution behavior; module-specific helper names, staged workflows, and feature policy belong in owner-module always-loaded skills or owner-module `_core/onscreen_agent/...` prompt extensions instead of the base firmware prompt
+- `system-prompt.md` should stay focused on overlay-wide protocol and runtime-generic execution behavior; module-specific helper names, staged workflows, and feature policy belong in owner-module just-loaded skills or owner-module `_core/onscreen_agent/...` prompt extensions instead of the base firmware prompt
 - screenshot examples in `system-prompt.md` should use the first-party `/mod/_core/skillset/screenshots.js` helper instead of teaching remote script injection
 - prompt promotion requires both automated harness success and manual review of the nominal passes; raw leaderboard position alone is not enough
 - before replacing `system-prompt.md` with a promoted test variant, back up the previous live file in this folder and record the promotion source in docs

@@ -1,0 +1,22 @@
+[
+  {
+    "role": "user",
+    "content": "_____user\nWhat's the Bitcoin and ETH price?"
+  },
+  {
+    "role": "assistant",
+    "content": "Fetching Bitcoin and ETH prices now.\n_____javascript\nconst url = \"https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd\"\nreturn await fetch(url).then(r => r.json())"
+  },
+  {
+    "role": "user",
+    "content": "_____framework\nexecution success\nresult↓\nbitcoin:\n  usd: 70740\nethereum:\n  usd: 2184.8"
+  },
+  {
+    "role": "assistant",
+    "content": "Bitcoin is $70,740 and Ethereum is $2,184.80."
+  },
+  {
+    "role": "user",
+    "content": "_____user\ndouble check"
+  }
+]

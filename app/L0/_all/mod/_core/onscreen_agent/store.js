@@ -136,6 +136,60 @@ function ensureOnscreenAgentRuntimeNamespace(store) {
         prompt: normalizedPrompt,
         queued: false
       };
+    },
+    async submitExamplePrompt(promptText, options = {}) {
+      const normalizedPrompt = String(promptText || "").trim();
+
+      if (!normalizedPrompt) {
+        throw new Error("A prompt is required.");
+      }
+
+      await namespace.show({
+        focusInput: options.focusInput !== false,
+        hideBubble: true,
+        mode: options.mode,
+        persist: options.persist !== false
+      });
+
+      if (store.shouldShowApiKeyWarning) {
+        store.showUiBubble("Don't forget to configure your LLM first.");
+        return {
+          prompt: normalizedPrompt,
+          queued: false,
+          reason: "llm-not-configured",
+          submitted: false
+        };
+      }
+
+      if (store.isSending || store.isLoadingDefaultSystemPrompt || store.isCompactingHistory) {
+        store.showUiBubble("I'm in the middle of something...");
+        return {
+          prompt: normalizedPrompt,
+          queued: false,
+          reason: "busy",
+          submitted: false
+        };
+      }
+
+      if (store.isComposerInputDisabled || store.refs.input?.disabled) {
+        store.showUiBubble("I'm in the middle of something...");
+        return {
+          prompt: normalizedPrompt,
+          queued: false,
+          reason: "composer-disabled",
+          submitted: false
+        };
+      }
+
+      store.syncDraft(normalizedPrompt);
+      await store.submitMessage();
+
+      return {
+        prompt: normalizedPrompt,
+        queued: false,
+        reason: "",
+        submitted: true
+      };
     }
   };
 
@@ -688,6 +742,54 @@ function getRootFontSizePx() {
   return Number.isFinite(fontSize) && fontSize > 0 ? fontSize : 16;
 }
 
+function normalizeClientRect(rect) {
+  if (
+    !rect ||
+    !Number.isFinite(rect.left) ||
+    !Number.isFinite(rect.top) ||
+    !Number.isFinite(rect.right) ||
+    !Number.isFinite(rect.bottom)
+  ) {
+    return null;
+  }
+
+  const left = Number(rect.left);
+  const top = Number(rect.top);
+  const right = Number(rect.right);
+  const bottom = Number(rect.bottom);
+
+  return {
+    bottom,
+    height: Math.max(0, bottom - top),
+    left,
+    right,
+    top,
+    width: Math.max(0, right - left)
+  };
+}
+
+function unionClientRects(rects = []) {
+  const normalizedRects = rects.map((rect) => normalizeClientRect(rect)).filter(Boolean);
+
+  if (!normalizedRects.length) {
+    return null;
+  }
+
+  const left = Math.min(...normalizedRects.map((rect) => rect.left));
+  const top = Math.min(...normalizedRects.map((rect) => rect.top));
+  const right = Math.max(...normalizedRects.map((rect) => rect.right));
+  const bottom = Math.max(...normalizedRects.map((rect) => rect.bottom));
+
+  return {
+    bottom,
+    height: Math.max(0, bottom - top),
+    left,
+    right,
+    top,
+    width: Math.max(0, right - left)
+  };
+}
+
 function normalizeUiBubbleHideDelay(value) {
   const normalizedValue = Number(value);
 
@@ -1007,6 +1109,7 @@ const model = {
   agentX: null,
   agentY: null,
   hiddenEdge: "",
+  shouldCenterInitialPosition: false,
 
   get composerPlaceholder() {
     const statusText = typeof this.status === "string" ? this.status.trim() : "";
@@ -1676,6 +1779,98 @@ const model = {
       x: 40,
       y: Math.max(POSITION_MARGIN, this.getViewportHeight() - 132)
     };
+  },
+
+  getApproximateCompactGap() {
+    return this.getViewportWidth() <= 720 ? 10 : 12;
+  },
+
+  getApproximateCompactPanelWidth() {
+    const viewportWidth = this.getViewportWidth();
+    const rootFontSizePx = getRootFontSizePx();
+
+    if (viewportWidth <= 720) {
+      return Math.max(0, Math.min(viewportWidth - 96, rootFontSizePx * 20));
+    }
+
+    return Math.max(0, Math.min(viewportWidth - 132, rootFontSizePx * 22));
+  },
+
+  getInitialOverlayBottomTarget() {
+    const viewportHeight = this.getViewportHeight();
+    const sevenEmAboveViewportBottom = viewportHeight - getRootFontSizePx() * 7;
+    const ninetyPercentViewportBottom = viewportHeight * 0.9;
+
+    return Math.max(POSITION_MARGIN, Math.max(sevenEmAboveViewportBottom, ninetyPercentViewportBottom));
+  },
+
+  getInitialBottomAlignedCenteredPositionEstimate() {
+    const avatarSize = this.getAvatarSize();
+    const overlayWidth = avatarSize + this.getApproximateCompactGap() + this.getApproximateCompactPanelWidth();
+    const targetBottom = this.getInitialOverlayBottomTarget();
+
+    return this.clampPosition(
+      (this.getViewportWidth() - overlayWidth) / 2,
+      targetBottom - avatarSize,
+      {
+        hiddenEdge: ""
+      }
+    );
+  },
+
+  getVisibleOverlayRect() {
+    const rects = [];
+
+    if (this.refs.avatar?.getBoundingClientRect) {
+      rects.push(this.refs.avatar.getBoundingClientRect());
+    }
+
+    if (!this.hiddenEdge && this.refs.panel?.getBoundingClientRect) {
+      rects.push(this.refs.panel.getBoundingClientRect());
+    }
+
+    if (!this.hiddenEdge && this.isFullMode && this.shouldShowHistory && this.refs.historyShell?.getBoundingClientRect) {
+      rects.push(this.refs.historyShell.getBoundingClientRect());
+    }
+
+    return unionClientRects(rects);
+  },
+
+  getInitialBottomAlignedCenteredPositionForOverlayRect(overlayRect) {
+    if (
+      !overlayRect ||
+      typeof this.agentX !== "number" ||
+      !Number.isFinite(this.agentX) ||
+      typeof this.agentY !== "number" ||
+      !Number.isFinite(this.agentY)
+    ) {
+      return this.getInitialBottomAlignedCenteredPositionEstimate();
+    }
+
+    const targetBottom = this.getInitialOverlayBottomTarget();
+
+    return {
+      x: this.agentX + (this.getViewportWidth() * 0.5 - (overlayRect.left + overlayRect.width * 0.5)),
+      y: this.agentY + (targetBottom - overlayRect.bottom)
+    };
+  },
+
+  placeInitialOverlay(options = {}) {
+    const overlayRect = this.getVisibleOverlayRect();
+    const positionedOverlay = overlayRect
+      ? this.getInitialBottomAlignedCenteredPositionForOverlayRect(overlayRect)
+      : this.getInitialBottomAlignedCenteredPositionEstimate();
+
+    this.setPosition(positionedOverlay.x, positionedOverlay.y, {
+      hiddenEdge: "",
+      persist: options.persist !== false
+    });
+
+    if (options.reflow === true) {
+      this.reflowOverlayLayout(options);
+    }
+
+    return positionedOverlay;
   },
 
   getDefaultHistoryAutoMaxHeight() {
@@ -2580,8 +2775,17 @@ const model = {
         this.agentX = storedConfig.agentX;
         this.agentY = storedConfig.agentY;
         this.hiddenEdge = config.normalizeOnscreenAgentHiddenEdge(storedConfig.hiddenEdge);
+        this.shouldCenterInitialPosition = storedConfig.shouldCenterInitialPosition === true;
         this.displayMode = normalizeDisplayMode(storedConfig.displayMode);
         this.historyHeight = config.normalizeOnscreenAgentHistoryHeight(storedConfig.historyHeight);
+
+        if (this.shouldCenterInitialPosition) {
+          const initialPosition = this.getInitialBottomAlignedCenteredPositionEstimate();
+          this.agentX = initialPosition.x;
+          this.agentY = initialPosition.y;
+          this.hiddenEdge = "";
+        }
+
         await this.replaceHistory(storedHistory.map((message) => normalizeStoredMessage(message)), {
           refreshPrompt: false
         });
@@ -2591,6 +2795,16 @@ const model = {
         });
         this.isShellVisible = true;
         await waitForDomUpdate();
+
+        if (this.shouldCenterInitialPosition) {
+          // The shell refs are populated from panel.html on a nested Alpine nextTick.
+          await waitForDomUpdate();
+          this.placeInitialOverlay({
+            persist: true,
+            reflow: false
+          });
+          this.shouldCenterInitialPosition = false;
+        }
 
         this.status = "Loading default system prompt...";
         this.isLoadingDefaultSystemPrompt = true;

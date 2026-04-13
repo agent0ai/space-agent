@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createAgentServer, createServerBootstrap } from "./app.js";
+import { applyProcessTitle, buildServeProcessTitle } from "./lib/utils/process_title.js";
 import { resolveProjectVersion } from "./lib/utils/project_version.js";
 import { normalizeWorkerCount, startClusteredServer } from "./runtime/cluster.js";
 
@@ -10,12 +11,14 @@ async function startServer(overrides = {}) {
   const workerCount = normalizeWorkerCount(serverBootstrap.runtimeParams);
 
   if (workerCount > 1) {
+    applyProcessTitle(buildServeProcessTitle({ clusterPrimary: true }));
     return startClusteredServer({
       ...overrides,
       serverBootstrap
     });
   }
 
+  applyProcessTitle(buildServeProcessTitle());
   const app = await createAgentServer({
     ...overrides,
     serverBootstrap

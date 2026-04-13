@@ -23,6 +23,7 @@ The repo is designed so the agent can act through browser state plus narrow back
 - `commands/serve.js`: runtime startup command and launch-time param overrides
 - `commands/supervise.js`: command-owned production-ready zero-downtime supervisor for source checkout auto-updates
 - `server/server.js` and `server/app.js`: create and start the local HTTP runtime
+- `server/jobs/`: primary-owned periodic maintenance jobs
 - `packaging/desktop/main.js`: Electron desktop host that starts the server on a free loopback port and loads the resolved runtime URL
 - `server/router/router.js`: exact request ordering
 - `server/pages/*.html`: server-owned page shells for `/`, `/admin`, `/login`, and `/enter`

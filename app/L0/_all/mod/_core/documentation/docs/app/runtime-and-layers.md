@@ -56,7 +56,7 @@ Permission summary:
 - users write their own `L2/<username>/...`
 - users write `L1/<group>/...` only if they manage that group
 - `_admin` members may write any `L1` and `L2` path
-- first-party frontend modules may persist small client-owned lifecycle state under the current user's `~/meta/` folder when that state is not backend auth material; `_core/login_hooks` uses `~/meta/login_hooks.json` to remember that first-login hooks already ran
+- first-party frontend modules may persist small client-owned lifecycle state under the current user's `~/meta/` folder when that state is not backend auth material; `_core/login_hooks` uses `~/meta/login_hooks.json` to remember that first-login hooks already ran, and `_core/spaces` currently consumes that seam to copy or reuse the module-owned `Big Bang` onboarding space before the root app shell would default to dashboard
 - first-party frontend modules may also edit small user-authored prompt or settings files under `~/conf/` when that data is intentionally browser-owned; `_core/agent` edits `~/conf/personality.system.include.md` as raw prompt-include text for the current user
 - `_core/file_explorer` is the first-party routed Files page and reusable component for normal authenticated app-file reads and writes; the server remains authoritative for permissions
 
@@ -74,7 +74,7 @@ Important namespaces:
 - `space.utils.yaml.parse(...)` and `stringify(...)`, backed by the shared project-owned lightweight YAML utility in `_core/framework/js/yaml-lite.js`, which server modules also import directly
 - `space.proxy`, `space.download`, `space.fetchExternal(...)`
 - `space.router`: router helper surface on routed app pages
-- `space.onscreenAgent`: overlay display and prompt submission helpers
+- `space.onscreenAgent`: overlay display, normal prompt submission, and guarded preset-button prompt submission helpers
 - `space.current` and `space.spaces`: spaces and widget helper surfaces
 - `space.visual`: small shared UI helpers exposed by visual modules
 - `space.chat`: current prepared chat context when an agent surface publishes it

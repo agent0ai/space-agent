@@ -1002,6 +1002,12 @@
       const statusEl = document.getElementById("status");
       const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
       const allowGuestUsers = readFrontendConfigValue("ALLOW_GUEST_USERS", true);
+      const passwordLoginSupported =
+        typeof globalThis.crypto?.getRandomValues === "function" &&
+        typeof globalThis.crypto?.subtle?.digest === "function" &&
+        typeof globalThis.crypto?.subtle?.importKey === "function" &&
+        typeof globalThis.crypto?.subtle?.sign === "function" &&
+        typeof globalThis.crypto?.subtle?.deriveBits === "function";
       let guestCredentials = null;
       let introFloatFrame = 0;
       let introFloatStartTime = 0;
@@ -1015,6 +1021,14 @@
       function setStatus(message, tone = "") {
         statusEl.textContent = message;
         statusEl.className = tone ? `status ${tone}` : "status";
+      }
+
+      function getUnsupportedPasswordLoginMessage() {
+        if (window.isSecureContext === false) {
+          return "Password login requires HTTPS or localhost in this browser. Plain HTTP disables the Web Crypto APIs used by sign-in.";
+        }
+
+        return "This browser does not expose the Web Crypto APIs required for password login.";
       }
 
       function readFrontendConfigValue(name, fallback) {
@@ -1042,8 +1056,8 @@
       }
 
       function syncButtonState(isBusy = false) {
-        submitButton.disabled = isBusy;
-        guestCreateButton.disabled = isBusy || !allowGuestUsers;
+        submitButton.disabled = isBusy || !passwordLoginSupported;
+        guestCreateButton.disabled = isBusy || !allowGuestUsers || !passwordLoginSupported;
       }
 
       function setIntroTitlePose(x, y, rotation) {
@@ -1309,10 +1323,15 @@
 
       async function handleLogin(event) {
         event.preventDefault();
-        setStatus("Signing in...");
-        syncButtonState(true);
 
         try {
+          if (!passwordLoginSupported) {
+            throw new Error(getUnsupportedPasswordLoginMessage());
+          }
+
+          setStatus("Signing in...");
+          syncButtonState(true);
+
           const username = usernameInput.value.trim();
           const password = passwordInput.value;
 
@@ -1363,10 +1382,14 @@
       }
 
       async function handleGuestCreate() {
-        setStatus("Creating guest account...");
-        syncButtonState(true);
-
         try {
+          if (!passwordLoginSupported) {
+            throw new Error(getUnsupportedPasswordLoginMessage());
+          }
+
+          setStatus("Creating guest account...");
+          syncButtonState(true);
+
           const guestAccount = await postJson("/api/guest_create", {});
           setGuestCredentials(guestAccount);
           setStatus("");
@@ -1433,6 +1456,9 @@
         prefersReducedMotion.addListener(handleMotionPreferenceChange);
       }
       setGuestCredentials(null);
+      if (!passwordLoginSupported) {
+        setStatus(getUnsupportedPasswordLoginMessage(), "error");
+      }
       if (introAstronaut && !introAstronaut.complete) {
         introAstronaut.addEventListener("load", startIntroFloat, { once: true });
       } else {

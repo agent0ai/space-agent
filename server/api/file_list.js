@@ -1,4 +1,5 @@
 import { createHttpError, listAppPaths } from "../lib/customware/file_access.js";
+import { resolveRequestMaxLayer } from "../lib/customware/layer_limit.js";
 
 function readPayload(context) {
   return context.body && typeof context.body === "object" && !Buffer.isBuffer(context.body)
@@ -40,10 +41,17 @@ function readBooleanOption(context, name) {
 }
 
 function handleList(context) {
+  const maxLayer = resolveRequestMaxLayer({
+    body: readPayload(context),
+    headers: context.headers,
+    requestUrl: context.requestUrl
+  });
+
   try {
     return listAppPaths({
       access: readAccess(context),
       gitRepositories: readBooleanOption(context, "gitRepositories"),
+      maxLayer,
       path: readPath(context),
       projectRoot: context.projectRoot,
       recursive: readRecursive(context),

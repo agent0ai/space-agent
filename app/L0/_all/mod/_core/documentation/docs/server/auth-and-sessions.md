@@ -50,7 +50,7 @@ Important behavior:
 - the backend stores only a verifier plus signed metadata in `meta/logins.json`
 - unsigned or expired session records are rejected
 - revocation deletes the stored session record and republishes the changed auth file through the shared mutation commit path
-- in clustered runtime, cookie validation happens on workers from replicated auth index shards, while one-time login challenges live in the primary-only `login_challenge` area of the unified state system
+- in clustered runtime, cookie validation happens on workers from replicated auth index shards, one-time login challenges live in the primary-only `login_challenge` area of the unified state system, and any debounced writable-layer Git history scheduling for auth-file writes is triggered only from the primary post-rebuild path
 
 ## Password Contract
 
@@ -78,6 +78,8 @@ This mode is used especially by packaged desktop flows.
 `user_manage.js` currently owns:
 
 - `createUser(...)`
+- `deleteUser(...)`
+- `deleteGuestUser(...)`
 - `setUserPassword(...)`
 - `createGuestUser(...)`
 
@@ -86,3 +88,5 @@ Important side effects:
 - user creation initializes the user directory, `meta/`, and `mod/`, and publishes the new auth files so incremental user indexing sees the new account immediately
 - password resets rewrite the sealed verifier and clear active sessions
 - guest users use randomized `guest_...` usernames
+- guest deletion removes the whole `L2/<username>/` root and republishes that logical path so replicated user and session indexes drop the deleted guest immediately
+- periodic guest cleanup policy now lives in `server/jobs/`; auth owns the deletion primitive while the jobs own scheduling and file-index thresholds

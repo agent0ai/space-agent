@@ -1,4 +1,5 @@
 import { createHttpError, listAppPathsByPatterns } from "../lib/customware/file_access.js";
+import { parseOptionalMaxLayer } from "../lib/customware/layer_limit.js";
 
 function readPatternValues(context) {
   const body = context.body;
@@ -60,10 +61,14 @@ function readBooleanOption(context, name) {
 }
 
 function handleFilePaths(context) {
+  const payload = readPayload(context);
+  const maxLayer = parseOptionalMaxLayer(payload.maxLayer ?? context.params.maxLayer);
+
   try {
     return listAppPathsByPatterns({
       access: readAccess(context),
       gitRepositories: readBooleanOption(context, "gitRepositories"),
+      ...(maxLayer === null ? {} : { maxLayer }),
       patterns: readPatterns(context),
       projectRoot: context.projectRoot,
       runtimeParams: context.runtimeParams,

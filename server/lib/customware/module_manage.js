@@ -3,11 +3,11 @@ import { promises as fsPromises } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { FILE_INDEX_AREA } from "../../runtime/state_areas.js";
 import { cloneGitRepository, createGitClient } from "../git/client_create.js";
 import { sanitizeRemoteUrl } from "../git/shared.js";
 import { createAppAccessController, createHttpError, toAppRelativePath } from "./file_access.js";
 import { recordAppPathMutations } from "./git_history.js";
-import { getRuntimeGroupIndex } from "./group_runtime.js";
 import { getLayerOrder, normalizeMaxLayer } from "./layer_limit.js";
 import {
   normalizeEntityId,
@@ -16,6 +16,14 @@ import {
   parseProjectModuleDirectoryPath,
   resolveProjectAbsolutePath
 } from "./layout.js";
+import {
+  collectProjectPathsFromFileIndexShards,
+  collectReadableModuleShardIds,
+  getFileIndexShardValue,
+  getRuntimeGroupIndexFromStateSystem,
+  listReadableModuleGroupIds,
+  listStateAreaIds
+} from "./module_state.js";
 import { collectAccessibleModuleEntries } from "./overrides.js";
 import {
   applyUserFolderQuotaPlan,
@@ -35,16 +43,8 @@ function stripTrailingSlash(value) {
   return text.endsWith("/") ? text.slice(0, -1) : text;
 }
 
-function getGroupIndex(watchdog, runtimeParams) {
-  return getRuntimeGroupIndex(watchdog, runtimeParams);
-}
-
-function getPathIndex(watchdog) {
-  if (!watchdog || typeof watchdog.getIndex !== "function") {
-    return Object.create(null);
-  }
-
-  return watchdog.getIndex("path_index") || Object.create(null);
+function getGroupIndex(stateSystem, runtimeParams) {
+  return getRuntimeGroupIndexFromStateSystem(stateSystem, runtimeParams);
 }
 
 function hasPath(pathIndex, projectPath) {
@@ -161,12 +161,13 @@ function compareModuleListEntries(left, right) {
 }
 
 function collectVisibleModuleDirectoryEntries(options = {}) {
-  if (!options.watchdog || typeof options.watchdog.getPaths !== "function") {
+  if (!options.stateSystem) {
     return [];
   }
 
+  const groupIndex = getGroupIndex(options.stateSystem, options.runtimeParams);
   const accessController = createAppAccessController({
-    groupIndex: getGroupIndex(options.watchdog, options.runtimeParams),
+    groupIndex,
     runtimeParams: options.runtimeParams,
     username: options.username
   });
@@ -190,7 +191,35 @@ function collectVisibleModuleDirectoryEntries(options = {}) {
     throw createHttpError("Module list area l2_user requires ownerId.", 400);
   }
 
-  return [...options.watchdog.getPaths()]
+  const shardIds = [];
+
+  if (maxLayer >= 1 && area !== "l2_self" && area !== "l2_user" && area !== "l2_users") {
+    listReadableModuleGroupIds(groupIndex, accessController.username).forEach((groupId) => {
+      shardIds.push(`L1/${groupId}`);
+    });
+  }
+
+  if (maxLayer >= 2 && area !== "l1") {
+    if (area === "l2_self") {
+      if (accessController.username) {
+        shardIds.push(`L2/${accessController.username}`);
+      }
+    } else if (area === "l2_user") {
+      shardIds.push(`L2/${normalizedOwnerId}`);
+    } else if (area === "l2_users" || includeOtherUsers) {
+      listStateAreaIds(options.stateSystem, FILE_INDEX_AREA)
+        .filter((shardId) => shardId.startsWith("L2/"))
+        .forEach((shardId) => {
+          shardIds.push(shardId);
+        });
+    } else if (normalizedOwnerId) {
+      shardIds.push(`L2/${normalizedOwnerId}`);
+    } else if (accessController.username) {
+      shardIds.push(`L2/${accessController.username}`);
+    }
+  }
+
+  return collectProjectPathsFromFileIndexShards(options.stateSystem, shardIds)
     .map((projectPath) => parseProjectModuleDirectoryPath(projectPath))
     .filter(Boolean)
     .filter((entry) => entry.layer !== "L0")
@@ -281,7 +310,7 @@ function normalizeModuleTargetPath(inputPath, options = {}) {
   }
 
   const accessController = createAppAccessController({
-    groupIndex: getGroupIndex(options.watchdog, options.runtimeParams),
+    groupIndex: getGroupIndex(options.stateSystem, options.runtimeParams),
     runtimeParams: options.runtimeParams,
     username: options.username
   });
@@ -548,20 +577,51 @@ async function updateExistingPath(targetPathInfo, options = {}) {
 }
 
 async function resolveInstalledLocations(options = {}) {
+  const groupIndex = getGroupIndex(options.stateSystem, options.runtimeParams);
+  const selectionUsername =
+    options.ownerId && normalizeEntityId(options.ownerId) !== normalizeEntityId(options.username)
+      ? normalizeEntityId(options.ownerId)
+      : options.username;
   const visibleEntries = collectVisibleModuleDirectoryEntries({
     includeOtherUsers: options.includeOtherUsers === true,
-    groupIndex: getGroupIndex(options.watchdog, options.runtimeParams),
     maxLayer: normalizeMaxLayer(options.maxLayer),
     ownerId: options.ownerId,
     runtimeParams: options.runtimeParams,
+    stateSystem: options.stateSystem,
     username: options.username
   }).filter((entry) => entry.requestPath === options.requestPath);
-  const selectedEntries = collectAccessibleModuleEntries(options.watchdog?.getPaths?.() || [], {
-    groupIndex: getGroupIndex(options.watchdog, options.runtimeParams),
+  const selectedShardIds = collectReadableModuleShardIds({
+    groupIndex,
     maxLayer: normalizeMaxLayer(options.maxLayer),
-    parseProjectPath: parseProjectModuleDirectoryPath,
-    username: options.username
-  }).filter((entry) => entry.requestPath === options.requestPath);
+    username: selectionUsername
+  });
+
+  if (normalizeMaxLayer(options.maxLayer) >= 2) {
+    if (options.ownerId) {
+      selectedShardIds.push(`L2/${normalizeEntityId(options.ownerId)}`);
+    }
+
+    if (options.includeOtherUsers === true) {
+      listStateAreaIds(options.stateSystem, FILE_INDEX_AREA)
+        .filter((shardId) => shardId.startsWith("L2/"))
+        .forEach((shardId) => {
+          selectedShardIds.push(shardId);
+        });
+    }
+  }
+
+  const selectedEntries = collectAccessibleModuleEntries(
+    collectProjectPathsFromFileIndexShards(
+      options.stateSystem,
+      [...new Set(selectedShardIds)]
+    ),
+    {
+      groupIndex,
+      maxLayer: normalizeMaxLayer(options.maxLayer),
+      parseProjectPath: parseProjectModuleDirectoryPath,
+      username: selectionUsername
+    }
+  ).filter((entry) => entry.requestPath === options.requestPath);
   const selectedEntryMap = new Map(
     selectedEntries.map((entry, index) => [
       entry.projectPath,
@@ -611,8 +671,8 @@ async function readModuleInfo(options = {}) {
     projectRoot: options.projectRoot,
     requestPath: moduleReference.requestPath,
     runtimeParams: options.runtimeParams,
+    stateSystem: options.stateSystem,
     username: options.username,
-    watchdog: options.watchdog
   });
   const selectedLocation = locations.find((location) => location.selected) || null;
 
@@ -631,7 +691,12 @@ async function installModule(options = {}) {
   }
 
   const targetPathInfo = normalizeModuleTargetPath(options.path, options);
-  const pathIndex = getPathIndex(options.watchdog);
+  const pathIndex = getFileIndexShardValue(
+    options.stateSystem,
+    targetPathInfo.layer === "L1"
+      ? `L1/${targetPathInfo.ownerId}`
+      : `L2/${targetPathInfo.ownerId}`
+  );
   const conflictingFilePath = stripTrailingSlash(targetPathInfo.projectPath);
   const existsAsDirectory =
     hasPath(pathIndex, targetPathInfo.projectPath) || hasDescendantPath(pathIndex, targetPathInfo.projectPath);
@@ -685,8 +750,8 @@ async function listInstalledModules(options = {}) {
     ownerId: options.ownerId,
     runtimeParams: options.runtimeParams,
     search: options.search,
+    stateSystem: options.stateSystem,
     username: options.username,
-    watchdog: options.watchdog
   });
 
   if (area === "l2_users") {

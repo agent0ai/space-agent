@@ -9,14 +9,14 @@ each case should have one primary category in this file even if it touches secon
 ## Current Balance
 
 - total problem groups: `11`
-- total active cases: `60`
+- total active cases: `64`
 - heaviest coverage:
-  - `current-context and live facts`: `9`
+  - `current-context and live facts`: `10`
   - `staged edits and handoffs`: `8`
 - lighter coverage:
   - `conversation vs execution boundary`: `3`
-  - `direct runtime control without helper`: `6`
-  - `error recovery and telemetry truth`: `4`
+  - `direct runtime control without helper`: `7`
+  - `error recovery and telemetry truth`: `6`
   - `verification and runtime ownership`: `7`
   - `active target anchoring and repair momentum`: `4`
   - `completion and reopen logic`: `5`
@@ -36,7 +36,7 @@ cases:
 - `page_title_requires_execution`
 - `time_requires_execution`
 
-### Direct Runtime Control Without Helper — `6`
+### Direct Runtime Control Without Helper — `7`
 
 goal: when the browser runtime itself can do the work, the agent should act through direct javascript instead of depending on a special helper or refusing
 
@@ -48,6 +48,7 @@ cases:
 - `download_html_without_helper_uses_browser_js`
 - `click_button_without_helper_uses_browser_js`
 - `canvas_screenshot_requires_real_capture_strategy`
+- `whole_page_flip_after_scope_clarification_uses_dom_root`
 
 ### Verification And Runtime Ownership — `7`
 
@@ -74,7 +75,7 @@ cases:
 - `fresh_widget_read_then_do_it_requires_patch`
 - `widget_patch_error_then_do_it_requires_recovery_action`
 
-### Current-Context And Live Facts — `9`
+### Current-Context And Live Facts — `10`
 
 goal: prefer live current-context discovery and continue through the fact request instead of asking or stopping early
 
@@ -89,6 +90,7 @@ cases:
 - `terminal_after_weather_ready`
 - `reverse_geocode_after_precise_followup`
 - `unpack_collapsed_weather_payload`
+- `live_fact_double_check_requires_refetch`
 
 ### Staged Edits And Handoffs — `8`
 
@@ -105,7 +107,7 @@ cases:
 - `selective_widget_fix_requires_read_first`
 - `recover_after_combined_widget_read_write_error`
 
-### Error Recovery And Telemetry Truth — `4`
+### Error Recovery And Telemetry Truth — `6`
 
 goal: stay truthful after failures and recover on the known target instead of drifting or claiming success
 
@@ -115,6 +117,8 @@ cases:
 - `no_false_success_after_error`
 - `direct_repair_after_known_widget_error`
 - `widget_not_found_error_uses_available_widget_id`
+- `full_widget_rewrite_after_patch_rewrite_error_uses_renderwidget`
+- `widget_missing_without_replacement_requires_terminal_truth`
 
 ### Completion And Reopen Logic — `5`
 

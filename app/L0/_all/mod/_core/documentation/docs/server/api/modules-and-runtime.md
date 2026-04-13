@@ -41,6 +41,7 @@ Important behaviors:
 
 - module writes must reuse shared permission rules
 - module writes should publish changed logical paths through the shared mutation commit flow so every worker sees the new module state before the response finishes
+- request-time module list and info reads consume replicated shared-state shards, usually only the readable `L1` roots plus the caller's own `L2`, instead of scanning the full app index
 - when `USER_FOLDER_SIZE_LIMIT_BYTES` is positive, new L2 module installs are cloned into a system temp directory, measured, and quota-checked before they are moved into `L2/<user>/mod/...`
 - module list surfaces distinguish areas such as `l1`, `l2_self`, `l2_user`, and `l2_users`
 - cross-user or aggregated user-layer module listings are admin-only
@@ -60,6 +61,7 @@ Important runtime endpoints:
 - resolves module-owned `ext/...` files through the layered override system
 - supports grouped extension lookups
 - is the shared backend for frontend extension loading
+- reads the replicated shared-state shards needed for the caller's visible module owners instead of scanning the full watchdog path index
 - receives grouped lookup batches from the frontend; the batching policy itself lives in the frontend loader, not in the endpoint contract
 - first-party HTML anchors and JS hooks use it for `ext/html/...` and `ext/js/...`
 - first-party page indexing also uses it to enumerate `ext/pages/*.yaml` manifests while still honoring readable-layer permissions and same-path overrides

@@ -48,10 +48,10 @@ export async function post(context) {
         projectRoot: context.projectRoot,
         repoUrl: readRepositoryUrl(context),
         runtimeParams: context.runtimeParams,
+        stateSystem: context.stateSystem,
         tag: readRevision(payload.tag),
         token: readRevision(payload.token),
-        username: context.user?.username,
-        watchdog: context.watchdog
+        username: context.user?.username
       })
     );
 
@@ -62,8 +62,8 @@ export async function post(context) {
         path: result.requestPath,
         projectRoot: context.projectRoot,
         runtimeParams: context.runtimeParams,
-        username: context.user?.username,
-        watchdog: context.watchdog
+        stateSystem: context.stateSystem,
+        username: context.user?.username
       })
     };
   } catch (error) {

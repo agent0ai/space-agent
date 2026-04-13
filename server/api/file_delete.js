@@ -1,4 +1,5 @@
 import { createHttpError, deleteAppPath, deleteAppPaths } from "../lib/customware/file_access.js";
+import { resolveRequestMaxLayer } from "../lib/customware/layer_limit.js";
 import { runTrackedMutation } from "../runtime/request_mutations.js";
 
 function readPayload(context) {
@@ -18,10 +19,16 @@ function hasBatchDelete(payload) {
 
 async function handleDelete(context) {
   const payload = readPayload(context);
+  const maxLayer = resolveRequestMaxLayer({
+    body: payload,
+    headers: context.headers,
+    requestUrl: context.requestUrl
+  });
 
   try {
     return await runTrackedMutation(context, async () => {
       const options = {
+        maxLayer,
         path: readPath(context),
         paths: payload.paths,
         projectRoot: context.projectRoot,

@@ -1,6 +1,10 @@
 ---
 name: Admin Groups
 description: Explain and manage group membership, manager inheritance, special groups, and canonical group.yaml storage as an admin.
+metadata:
+  when:
+    tags:
+      - onscreen
 ---
 
 Use this skill for group creation, membership changes, manager changes, or explaining how `_all` and `_admin` work.

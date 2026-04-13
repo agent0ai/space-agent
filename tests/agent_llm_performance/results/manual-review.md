@@ -259,6 +259,51 @@
 
 #### next prompt thesis
 
+#### suite expansion after the teapot and crypto recovery trace
+
+- the suite now includes `64` active cases
+- the four new synthetic cases cover:
+  - live-fact double checks that must re-fetch instead of restating stale BTC/ETH values
+  - whole-page clarification after an initial space-vs-page misunderstanding
+  - explicit framework contract correction from `patchWidget(...)` to `renderWidget(...)` for full widget rewrites
+  - truthful terminal handling when a widget code check fails and framework offers no replacement target
+- important case-design lesson from this addition:
+  - when framework explicitly prescribes the correct next mutation API, the benchmark should require that contract switch directly instead of only rewarding vague same-target recovery
+  - when a specific target disappears and telemetry lists no replacement id, terminal truth is the right behavior class; unrelated rediscovery is drift
+
+#### `080` generation on the expanded 64-case suite
+
+- `080A_target_fate_contracts`: `55/64`
+- `080C_scope_board`: `48/64`
+- `080B_target_fate_registers`: `43/64`
+- strongest signal:
+  - `080A` fixed the new transcript-driven failures we actually targeted:
+    - `live_fact_double_check_requires_refetch`
+    - `full_widget_rewrite_after_patch_rewrite_error_uses_renderwidget`
+    - `widget_missing_without_replacement_requires_terminal_truth`
+  - it also kept broader read-first and same-target recovery strength across most of the existing suite
+- baseline comparison on the same 64-case suite:
+  - `069A_handoff_no_copy`: `56/64`
+  - conclusion:
+    - `080A` is not a promotion yet
+    - it bought the new rewrite-boundary and target-collapse behavior, but it gave back too much on older stop-and-reopen cases
+- current open miss cluster for the next generation:
+  - `whole_page_flip_after_scope_clarification_uses_dom_root`
+  - `silent_widget_failure_reopens_repair`
+  - `reverse_geocode_after_precise_followup`
+  - `unpack_collapsed_weather_payload`
+  - `terminal_after_successful_widget_patch`
+  - `terminal_after_successful_retry_patch`
+  - `direct_repair_after_known_widget_error`
+  - `remove_space_by_title_requires_discovery_first`
+- next prompt thesis:
+  - start from `069A`, not `080A`
+  - add only the three transcript-proven gains:
+    - whole-page scope correction
+    - explicit `renderWidget(...)` rewrite recovery
+    - terminal truth after target collapse with no replacement id
+  - avoid importing the broader target-fate language that reopened older terminal-vs-thrust and same-widget recovery cases
+
 - keep `069A` as the live baseline on the 60-case suite
 - next serious candidate should merge only two proven gains:
   - the retry-success stop rule from `078A`
@@ -426,3 +471,71 @@
   - collapsed payload unpack follow-through
   - a few repeat-sensitive inspect-first and telemetry-as-data edge cases
   - corrected follow-up after removing the wrong space from a title-based request
+
+## 2026-04-13 extended 64-case follow-up
+
+#### `081` to `082`
+
+- the first expanded 64-case frontier after the history-derived additions was still too unstable
+- `081A_069A_scope_and_collapse_surgical` hit `60/64` in its best one-shot run but reran at `58/64`
+- `082A_069A_reliability_surgical` kept the same best one-shot ceiling at `60/64` while fixing the newly added transcript-derived cases more directly
+- decision:
+  - keep `082A` as the saved frontier for now because it is the best validated prompt on the expanded suite
+  - do not promote it yet because the remaining misses are still stochastic enough to matter
+
+#### `083` targeted overfit branch
+
+- `083A_082A_replacement_and_parent_task` was built to fix four specific `082A` misses:
+  - `partial_mitigation_is_not_completion`
+  - `widget_not_found_error_uses_available_widget_id`
+  - `weather_after_place_prerequisite`
+  - screenshot syntax drift
+- targeted repeat probes showed real local gains:
+  - `partial_mitigation_is_not_completion`: `5/5`
+  - `weather_after_place_prerequisite`: `5/5`
+  - `widget_missing_without_replacement_requires_terminal_truth`: `5/5`
+  - `screenshot_download_without_helper_uses_browser_js`: `5/5`
+- but the broader prompt drift was worse than the local wins
+- a full-suite single-prompt run for `083A` fell to `56/64`
+- the regressions reopened simple execution cases such as:
+  - page-title execution
+  - current-time execution
+  - collapsed weather unpack continuation
+  - simple inspect-after-read formatting
+- interpretation:
+  - adding explicit parent-task and replacement-target examples helped the intended cases
+  - but the extra example surface contaminated simpler execution traces
+- decision:
+  - reject `083A` as the new frontier
+  - keep `082A` active in `config.yaml`
+
+#### `083C` focused probe
+
+- `083C_router_with_parent_task` was materially better than `082C` on the targeted cluster
+- it stabilized:
+  - screenshot download
+  - replacement-id reuse
+  - weather continuation after place lookup
+- but it still failed the two most important truth-and-reopen cases:
+  - `widget_missing_without_replacement_requires_terminal_truth`
+  - `partial_mitigation_is_not_completion`
+- decision:
+  - treat `083C` as useful evidence for future routing simplification
+  - do not run it as the active frontier until its truth and reopen behavior is repaired
+
+#### temperature probe on `082A`
+
+- the remaining `082A` misses looked partly stochastic, so a targeted `temperature: 0.0` probe was run on the same `openai/gpt-5.4-mini` prompt
+- result on the 10-case pressure cluster:
+  - several formatting-sensitive cases improved to `5/5`
+  - but core misses remained, including:
+    - `widget_missing_without_replacement_requires_terminal_truth`
+    - `partial_mitigation_is_not_completion`
+    - `widget_not_found_error_uses_available_widget_id`
+    - `weather_after_place_prerequisite`
+- interpretation:
+  - lower sampling reduced some formatting variance
+  - it did not solve the actual control-flow weaknesses
+- decision:
+  - do not treat temperature reduction alone as the fix
+  - keep the leaderboard on the standard `0.2` track for now

@@ -26,8 +26,8 @@ export async function post(context) {
     const targetPathInfo = normalizeModuleTargetPath(readTargetPath(context), {
       projectRoot: context.projectRoot,
       runtimeParams: context.runtimeParams,
-      username: context.user?.username,
-      watchdog: context.watchdog
+      stateSystem: context.stateSystem,
+      username: context.user?.username
     });
     const result = await runTrackedMutation(context, async () =>
       deleteAppPath({
@@ -48,8 +48,8 @@ export async function post(context) {
         path: targetPathInfo.requestPath,
         projectRoot: context.projectRoot,
         runtimeParams: context.runtimeParams,
-        username: context.user?.username,
-        watchdog: context.watchdog
+        stateSystem: context.stateSystem,
+        username: context.user?.username
       })
     };
   } catch (error) {

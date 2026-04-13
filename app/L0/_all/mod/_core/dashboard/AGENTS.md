@@ -35,7 +35,7 @@ Rules:
 - feature modules may inject dashboard content through the dashboard-owned seam
 - dashboard should not import feature-specific state or persistence helpers directly when the extension system can own the composition
 - dashboard should keep its own styling minimal so injected modules can own the richer UI below
-- dashboard-local background washes should stay broad, low-contrast, and visually aligned with the public login backdrop; avoid compact high-opacity radial gradients that read sharper than the shared space canvas
+- dashboard should not add its own route-local gradient or backdrop wash; the shared router canvas is the only background layer for this route
 - on desktop and tablet widths, the dashboard shell should keep broad side gutters of about `8em` instead of collapsing early, so injected controls do not collide with fixed global overlay chrome near the viewport edges
 - ordering between dashboard sections should be expressed with explicit seams here rather than relying on same-anchor extension filename order
 

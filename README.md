@@ -162,6 +162,8 @@ node space serve
 
 `node space supervise` requires `CUSTOMWARE_PATH`. It runs the public server as a proxy, starts replaceable `space serve` children on private loopback ports, restarts the active child if it crashes, stages source updates in release directories, switches only after the replacement is healthy, and drains old streams before cutting the old instance off. Auto-update checks run every 300 seconds by default; use `--auto-update-interval 0` when you want crash-restart supervision without update checks.
 
+`node space update` and `node space supervise` both use `GIT_URL` when you want updates to come from a repo other than the local checkout's `origin` remote. If `GIT_URL` is unset, they use the local `origin` remote URL and only then fall back to the canonical Space Agent repository.
+
 For larger multi-instance deployments, use the same `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` values on every instance so logins keep working across them.
 
 ### Admin User Cheatsheet

@@ -51,6 +51,10 @@ x-extension {
   display: contents;
 }
 
+x-skill-context {
+  display: none;
+}
+
 .loading,
 .error {
   padding: 0.75rem;

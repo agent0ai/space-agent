@@ -26,6 +26,7 @@ Current sub-areas:
 Canvas:
 
 - `canvas/space-canvas.css` owns the DOM-backed space backdrop visuals for authenticated surfaces
+- `canvas/space-canvas.css` keeps both the base canvas gradient and the star or glow scene on fixed viewport layers so routed surface scrolling never drags the backdrop
 - `canvas/spaceBackdropCore.js` owns the shared backdrop runtime, including resize-safe scale resync that forces `--space-backdrop-scale` back to `1`
 - `canvas/spaceBackdropStatic.js` installs the static authenticated backdrop and registers `space.visual.installStaticBackdrop(...)`
 - `canvas/spaceBackdropAnimated.js` installs the animated variant and registers `space.visual.installAnimatedBackdrop(...)`

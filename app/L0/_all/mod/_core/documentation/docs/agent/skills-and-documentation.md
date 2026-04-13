@@ -1,12 +1,14 @@
 # Skills And Documentation
 
-This doc covers onscreen skill loading and the documentation skill/helper contract.
+This doc covers the shared browser-side skill-loading contract and the documentation skill/helper contract.
 
 ## Primary Sources
 
 - `app/L0/_all/mod/_core/onscreen_agent/AGENTS.md`
+- `app/L0/_all/mod/_core/skillset/AGENTS.md`
 - `app/L0/_all/mod/_core/onscreen_agent/skills.js`
-- `app/L0/_all/mod/_core/onscreen_agent/ext/skills/development/AGENTS.md`
+- `app/L0/_all/mod/_core/skillset/skills.js`
+- `app/L0/_all/mod/_core/skillset/ext/skills/development/AGENTS.md`
 - `app/L0/_all/mod/_core/documentation/AGENTS.md`
 - `app/L0/_all/mod/_core/documentation/documentation.js`
 
@@ -21,8 +23,17 @@ Important rules:
 
 - top-level skills appear in the prompt catalog automatically
 - nested skills are not listed by default
-- any readable skill at any depth may still be auto-loaded with `metadata.always_loaded: true`
+- both catalog visibility and explicit skill loads evaluate the current document's live `<x-skill-context>` tags
+- `metadata.when.tags` requires all listed tags before the skill becomes catalog-loadable
+- any readable skill at any depth may still be just-loaded with `metadata.just_loaded: true` or `metadata.just_loaded.tags`
 - skill ids are relative to `ext/skills/` without the trailing `/SKILL.md`
+
+Current first-party skill-context examples:
+
+- `_core/onscreen_agent/panel.html` exports `onscreen`
+- `_core/admin/views/shell/shell.html` exports `admin`
+- `_core/router/view.html` exports `route:<current-path>`
+- `_core/spaces/view.html` exports `space:open` when a current space is active
 
 Examples:
 
@@ -43,6 +54,7 @@ Visibility rules:
 
 - readable group-scoped modules may contribute extra skills
 - admin-only groups may contribute admin-only skills
+- module-owned skill-context tags may hide those skills unless the current page exports the required tags
 - same-module layered overrides replace lower-ranked skill files before the catalog is built
 
 Conflict rules:
@@ -57,12 +69,14 @@ Current repo-owned shared top-level skills include:
 
 - `development`
 - `file-download`
-- `user-management`
 - `spaces`
 - `screenshots`
+- `user-management`
 - `documentation`
 
 Additional group-scoped skills may exist for narrower audiences.
+
+Some of those first-party ids are still gated by live skill-context tags. For example, the shared `development`, `file-download`, and `user-management` skills require `onscreen`, while `spaces` requires `route:spaces`.
 
 The first-party `development` tree is intentionally split into narrower nested skills. In particular, `development/modules-routing` now teaches custom routed pages as the main alternative to spaces when the user wants a reusable feature surface, and it may reference small importable helper scripts under the same module tree instead of pasting long browser snippets into the skill text.
 

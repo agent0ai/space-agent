@@ -3,6 +3,7 @@ import path from "node:path";
 import { loadSupervisorAuthEnv } from "./lib/supervisor/auth_keys.js";
 import { resolveUpdateSource, sanitizeRemoteUrl, shortRevision } from "./lib/supervisor/git_releases.js";
 import { SpaceSupervisor } from "./lib/supervisor/supervisor.js";
+import { applyProcessTitle, buildSupervisorProcessTitle } from "../server/lib/utils/process_title.js";
 
 const CHILD_HOST = "127.0.0.1";
 const CHILD_PORT = "0";
@@ -225,6 +226,10 @@ function resolveRequiredCustomwarePath(projectRoot, serveArgs, env = process.env
   return resolveProjectPath(projectRoot, configuredPath);
 }
 
+function resolveDefaultStateDir(projectRoot) {
+  return path.join(projectRoot, "supervisor");
+}
+
 function buildServeArgs(serveArgs, customwarePath) {
   const args = [];
   let wroteCustomwarePath = false;
@@ -321,7 +326,8 @@ async function resolveSupervisorSource(options, projectRoot) {
   return resolveUpdateSource({
     branchName: options.branchName,
     projectRoot,
-    remoteUrl: options.remoteUrl
+    remoteUrl: options.remoteUrl,
+    runtimeArgs: options.runtimeArgs || []
   });
 }
 
@@ -343,11 +349,11 @@ export const help = {
     },
     {
       flag: "--remote-url <url>",
-      description: "Git remote URL to watch; defaults to origin, then the canonical update remote."
+      description: "Git remote URL to watch; overrides GIT_URL, which otherwise overrides the local origin remote URL."
     },
     {
       flag: "--state-dir <path>",
-      description: "Supervisor state directory; defaults to CUSTOMWARE_PATH/.space-supervisor."
+      description: "Supervisor state directory; defaults to <projectRoot>/supervisor."
     },
     {
       flag: "--auto-update-interval <seconds>",
@@ -379,17 +385,25 @@ export const help = {
 };
 
 export async function execute(context) {
+  applyProcessTitle(buildSupervisorProcessTitle());
+
   const { options, serveArgs: rawServeArgs } = parseSuperviseArgs(context.args);
   const customwarePath = resolveRequiredCustomwarePath(context.projectRoot, rawServeArgs, process.env);
   const stateDir = options.stateDir
     ? resolveProjectPath(context.projectRoot, options.stateDir)
-    : path.join(customwarePath, ".space-supervisor");
+    : resolveDefaultStateDir(context.projectRoot);
   const releasesDir = path.join(stateDir, "releases");
   const auth = await loadSupervisorAuthEnv({
     env: process.env,
     stateDir
   });
-  const updateSource = await resolveSupervisorSource(options, context.projectRoot);
+  const updateSource = await resolveSupervisorSource(
+    {
+      ...options,
+      runtimeArgs: rawServeArgs
+    },
+    context.projectRoot
+  );
   const serveArgs = buildServeArgs(rawServeArgs, customwarePath);
   const supervisor = new SpaceSupervisor({
     autoUpdateIntervalMs: options.autoUpdateIntervalMs,
@@ -437,6 +451,7 @@ export const __test = {
   findLastAssignmentValue,
   parseRuntimeAssignment,
   parseSuperviseArgs,
+  resolveDefaultStateDir,
   resolvePublicHost,
   resolvePublicPort,
   resolveRequiredCustomwarePath

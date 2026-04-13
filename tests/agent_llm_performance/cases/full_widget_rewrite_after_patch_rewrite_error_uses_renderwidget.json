@@ -1,0 +1,36 @@
+{
+  "id": "full_widget_rewrite_after_patch_rewrite_error_uses_renderwidget",
+  "description": "when framework says the change is a full renderer rewrite, the next recovery move should switch to renderWidget on the same widget",
+  "history": "../histories/full_widget_rewrite_after_patch_rewrite_error_uses_renderwidget.json",
+  "expect": {
+    "response_type": "thrust",
+    "require_staging_line": true,
+    "require_separator_line": true,
+    "require_single_separator": true,
+    "require_code_after_separator": true,
+    "require_valid_javascript": true,
+    "must_contain": [
+      "_____javascript"
+    ],
+    "must_match": [
+      {
+        "pattern": "space\\.current\\.renderWidget\\(",
+        "flags": "u"
+      },
+      {
+        "pattern": "teapot",
+        "flags": "u"
+      },
+      {
+        "pattern": "renderer\\s*:",
+        "flags": "u"
+      }
+    ],
+    "must_not_match": [
+      {
+        "pattern": "space\\.current\\.patchWidget\\(\"teapot\"",
+        "flags": "u"
+      }
+    ]
+  }
+}

@@ -1,6 +1,10 @@
 import { globToRegExp, normalizePathSegment } from "../utils/app_files.js";
-import { createRuntimeGroupIndex } from "./group_runtime.js";
 import { parseProjectModuleExtensionFilePath } from "./layout.js";
+import {
+  collectProjectPathsFromFileIndexShards,
+  collectReadableModuleShardIds,
+  getRuntimeGroupIndexFromStateSystem
+} from "./module_state.js";
 import { collectAccessibleModuleEntries, compareRankedEntries } from "./overrides.js";
 
 function normalizeExtensionPattern(value) {
@@ -26,9 +30,9 @@ function matchesExtensionPattern(entry, compiledPatterns) {
 }
 
 function listResolvedExtensionRequestPathGroups(options = {}) {
-  const { maxLayer, requests = [], runtimeParams, username, watchdog } = options;
+  const { maxLayer, requests = [], runtimeParams, stateSystem, username } = options;
 
-  if (!watchdog || typeof watchdog.getPaths !== "function") {
+  if (!stateSystem) {
     return Object.create(null);
   }
 
@@ -54,15 +58,23 @@ function listResolvedExtensionRequestPathGroups(options = {}) {
     return Object.create(null);
   }
 
-  const accessibleEntries = collectAccessibleModuleEntries(watchdog.getPaths(), {
-    groupIndex:
-      typeof watchdog.getIndex === "function"
-        ? createRuntimeGroupIndex(watchdog.getIndex("group_index"), runtimeParams)
-        : null,
-    maxLayer,
-    parseProjectPath: parseProjectModuleExtensionFilePath,
-    username
-  });
+  const groupIndex = getRuntimeGroupIndexFromStateSystem(stateSystem, runtimeParams);
+  const accessibleEntries = collectAccessibleModuleEntries(
+    collectProjectPathsFromFileIndexShards(
+      stateSystem,
+      collectReadableModuleShardIds({
+        groupIndex,
+        maxLayer,
+        username
+      })
+    ),
+    {
+      groupIndex,
+      maxLayer,
+      parseProjectPath: parseProjectModuleExtensionFilePath,
+      username
+    }
+  );
 
   const selectedEntriesByKey = new Map(
     normalizedRequests.map((request) => [request.key, new Map()])
@@ -90,7 +102,7 @@ function listResolvedExtensionRequestPathGroups(options = {}) {
 }
 
 function listResolvedExtensionRequestPaths(options = {}) {
-  const { maxLayer, patterns = [], runtimeParams, username, watchdog } = options;
+  const { maxLayer, patterns = [], runtimeParams, stateSystem, username } = options;
   const results = listResolvedExtensionRequestPathGroups({
     maxLayer,
     requests: [
@@ -100,8 +112,8 @@ function listResolvedExtensionRequestPaths(options = {}) {
       }
     ],
     runtimeParams,
+    stateSystem,
     username,
-    watchdog
   });
 
   return results.default || [];

@@ -99,7 +99,7 @@ export function post(context) {
     requestUrl: context.requestUrl
   });
   const username = context.user && context.user.username;
-  const watchdog = context.watchdog;
+  const stateSystem = context.stateSystem;
 
   if (Array.isArray(payload.requests)) {
     return {
@@ -107,8 +107,8 @@ export function post(context) {
         maxLayer,
         requests,
         runtimeParams: context.runtimeParams,
+        stateSystem,
         username,
-        watchdog
       })
     };
   }
@@ -118,8 +118,8 @@ export function post(context) {
     maxLayer,
     patterns,
     runtimeParams: context.runtimeParams,
+    stateSystem,
     username,
-    watchdog
   });
 
   return {

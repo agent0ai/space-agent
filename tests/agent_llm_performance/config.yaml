@@ -30,13 +30,14 @@ run:
   repeat_count: 1
   keep_generations: all
   active_prompts:
-    - 077A_surgical_followup_and_stop
-    - 077B_exact_id_then_same_widget
-    - 077C_finish_or_fix_loop
+    - 082A_069A_reliability_surgical
+    - 082B_069A_output_gate_and_reuse
+    - 082C_state_machine_hard_edges
   active_cases:
     - page_title_requires_execution
     - smalltalk_hi_terminal
     - time_requires_execution
+    - whole_page_flip_after_scope_clarification_uses_dom_root
     - screenshot_download_without_helper_uses_browser_js
     - screenshot_after_helper_unavailable_uses_browser_js
     - followup_after_screenshot_refusal_requires_browser_js
@@ -64,6 +65,7 @@ run:
     - terminal_after_weather_ready
     - reverse_geocode_after_precise_followup
     - unpack_collapsed_weather_payload
+    - live_fact_double_check_requires_refetch
     - create_note_after_user_detail_read
     - write_user_yaml_after_read
     - selective_text_edit_requires_read_first
@@ -75,6 +77,8 @@ run:
     - space_navigation_after_take_me_there_uses_open_helper
     - space_navigation_after_user_push_uses_open_helper
     - recover_known_file_after_write_error
+    - full_widget_rewrite_after_patch_rewrite_error_uses_renderwidget
+    - widget_missing_without_replacement_requires_terminal_truth
     - followup_edit_requires_well_formed_thrust
     - terminal_after_successful_widget_patch
     - terminal_after_successful_retry_patch

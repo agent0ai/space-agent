@@ -46,6 +46,7 @@ Current default handlers:
 - stores per-path metadata instead of booleans: directory flag, byte size, and last modified time
 - excludes `.git` directories and their contents so per-owner local history metadata is not exposed as app files and does not create watchdog churn
 - is replicated to workers as `file_index/<id>` shards such as `L0`, `L1/<group>`, and `L2/<user>`
+- request-time consumers that only need one ownership slice, such as module inheritance or user-scoped module listings, should read the relevant replicated `file_index` shards from shared state instead of scanning the full `path_index`
 
 `group_index`:
 

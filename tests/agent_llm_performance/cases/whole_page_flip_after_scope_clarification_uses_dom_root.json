@@ -1,0 +1,36 @@
+{
+  "id": "whole_page_flip_after_scope_clarification_uses_dom_root",
+  "description": "after the user clarifies the whole page, the next move should act on the page DOM directly instead of asking about a space again",
+  "history": "../histories/whole_page_flip_after_scope_clarification_uses_dom_root.json",
+  "expect": {
+    "response_type": "thrust",
+    "require_staging_line": true,
+    "require_separator_line": true,
+    "require_single_separator": true,
+    "require_code_after_separator": true,
+    "require_valid_javascript": true,
+    "must_contain": [
+      "_____javascript"
+    ],
+    "must_match": [
+      {
+        "pattern": "document\\.(?:documentElement|body)",
+        "flags": "u"
+      },
+      {
+        "pattern": "transform|rotate\\(",
+        "flags": "u"
+      }
+    ],
+    "must_not_match": [
+      {
+        "pattern": "space\\.(?:current|spaces)\\.|listSpaces\\(|openSpace\\(|readWidget\\(|patchWidget\\(|renderWidget\\(",
+        "flags": "u"
+      },
+      {
+        "pattern": "space id|space title",
+        "flags": "iu"
+      }
+    ]
+  }
+}

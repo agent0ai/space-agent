@@ -464,7 +464,7 @@ export const buildOnscreenAgentSystemPromptSections = globalThis.space.extend(
 
       return {
         ...context,
-        automaticallyLoadedSkillsSection: "",
+        justLoadedSkillsSection: "",
         basePrompt: LOCAL_ONSCREEN_AGENT_SYSTEM_PROMPT,
         customPrompt,
         localProfile: true,
@@ -478,17 +478,14 @@ export const buildOnscreenAgentSystemPromptSections = globalThis.space.extend(
     );
     const customPrompt = formatCustomUserInstructions(context.systemPrompt);
     const skillsSection = await skills.buildOnscreenSkillsPromptSection();
-    const automaticallyLoadedSkillsSection =
-      await skills.buildOnscreenAutomaticallyLoadedSkillsPromptSection();
+    const justLoadedSkillsSection = await skills.buildOnscreenJustLoadedSkillsPromptSection();
 
     return {
       ...context,
-      automaticallyLoadedSkillsSection,
+      justLoadedSkillsSection,
       basePrompt,
       customPrompt,
-      sections: [basePrompt, customPrompt, skillsSection, automaticallyLoadedSkillsSection].filter(
-        Boolean
-      ),
+      sections: [basePrompt, customPrompt, skillsSection, justLoadedSkillsSection].filter(Boolean),
       skillsSection
     };
   }

@@ -112,6 +112,10 @@ function createUser(projectRoot, username, password, options = {}) {
   return createUserInternal(projectRoot, username, password, options, loadAuthKeys(projectRoot));
 }
 
+function isGuestUsername(username) {
+  return normalizeUsername(username).startsWith(GUEST_USERNAME_PREFIX);
+}
+
 function setUserPassword(projectRoot, username, password, options = {}) {
   const authKeys = loadAuthKeys(projectRoot);
   const normalizedUsername = normalizeUsername(username);
@@ -189,4 +193,50 @@ function createGuestUser(projectRoot, options = {}) {
   throw new Error("Failed to create guest account. Try again.");
 }
 
-export { createGuestUser, createUser, setUserPassword };
+function deleteUser(projectRoot, username, options = {}) {
+  const normalizedUsername = normalizeUsername(username);
+  const runtimeParams = options.runtimeParams || null;
+
+  if (!normalizedUsername) {
+    throw new Error(`Invalid username: ${String(username || "")}`);
+  }
+
+  const userDir = buildUserAbsolutePath(projectRoot, normalizedUsername, "", runtimeParams);
+
+  if (!fs.existsSync(userDir)) {
+    return false;
+  }
+
+  fs.rmSync(userDir, {
+    force: true,
+    recursive: true
+  });
+  recordAppPathMutations(
+    {
+      projectRoot,
+      runtimeParams
+    },
+    [`/app/L2/${normalizedUsername}/`]
+  );
+
+  return true;
+}
+
+function deleteGuestUser(projectRoot, username, options = {}) {
+  const normalizedUsername = normalizeUsername(username);
+
+  if (!isGuestUsername(normalizedUsername)) {
+    throw new Error(`Refusing to delete non-guest user through deleteGuestUser(): ${normalizedUsername}`);
+  }
+
+  return deleteUser(projectRoot, normalizedUsername, options);
+}
+
+export {
+  createGuestUser,
+  createUser,
+  deleteGuestUser,
+  deleteUser,
+  isGuestUsername,
+  setUserPassword
+};

@@ -6,6 +6,7 @@ Primary sources:
 
 - `app/L0/_all/mod/_core/admin/AGENTS.md`
 - `app/L0/_all/mod/_core/admin/views/agent/AGENTS.md`
+- `app/L0/_all/mod/_core/admin/views/agent/skills.js`
 - `app/L0/_all/mod/_core/admin/views/agent/store.js`
 - `app/L0/_all/mod/_core/admin/views/agent/api.js`
 - `app/L0/_all/mod/_core/open_router/AGENTS.md`
@@ -23,6 +24,19 @@ It owns:
 - its own LLM transport switch between remote API streaming and the browser-local Hugging Face provider
 
 It does not depend on `_core/onscreen_agent` internals.
+
+## Skill Discovery
+
+The admin agent now uses the same shared browser-side skill helper as the onscreen agent:
+
+- top-level catalog entries come from readable `mod/*/*/ext/skills/*/SKILL.md`
+- the shared helper reads the current document's `<x-skill-context>` tags before deciding which skills are eligible
+- the admin shell exports `admin`, so admin-owned skills may require `metadata.when.tags: [admin]`
+- `metadata.just_loaded` works here too, so the admin prompt can append a `just loaded` block without hardcoding specific skill ids
+- `space.admin.loadSkill("path")` loads a matching `ext/skills/.../SKILL.md` file on demand
+- admin skill discovery is still firmware-clamped because `views/agent/skills.js` resolves those skill paths with explicit `maxLayer=0`
+
+That means admin execution can still use normal app-file APIs across L0, L1, and L2 for operational work, while the prompt-facing skill catalog and skill bodies remain uninfluenced by writable customware layers.
 
 ## Provider Model
 

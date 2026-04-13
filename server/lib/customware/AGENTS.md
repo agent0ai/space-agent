@@ -14,6 +14,7 @@ Current files:
 
 - `layout.js`: path normalization, entity-id normalization, logical-to-disk resolution for `L0`/`L1`/`L2`, and parser helpers for app, group, user, module, and extension paths
 - `layer_limit.js`: `maxLayer` parsing, normalization, and request-level resolution
+- `module_state.js`: shared-state-backed module/group index readers and shard-scoped module discovery helpers
 - `git_history.js`: optional per-owner local Git history scheduling, repository discovery, commit listing, rollback, and `.git` metadata shielding for writable `L1` and `L2`
 - `user_quota.js`: optional per-user `L2` folder size accounting, cached current-size reads, and quota projection checks for app-file mutations
 - `group_files.js`: normalized `L1/<group>/group.yaml` read and write helpers used by CLI-managed group editing; membership adds ensure the target writable group directory exists first
@@ -74,6 +75,8 @@ High-level resolution order:
 Important rules:
 
 - `layer_limit.js` constrains module and extension resolution through `maxLayer`
+- `layer_limit.js` also accepts `X-Space-Max-Layer` as an explicit request-level override source for module and extension fetches
+- worker-side module lookup must read replicated `file_index` and group shards from the shared `stateSystem`; only the primary watchdog owns filesystem scanning and shard publication
 - frontend HTML anchors resolve through module `ext/html/...` paths and JS hooks resolve through module `ext/js/...` paths
 - modules may also resolve other extension-owned assets through the same ranked `ext/...` override model when the frontend calls `extensions_load` directly; the current first-party example is `ext/pages/*.yaml`
 - exact same override keys replace lower-ranked entries
@@ -102,7 +105,7 @@ Rules:
 - keep permission, duplication, overlap, path-normalization, and logical-to-disk resolution logic centralized here
 - frontend callers should derive writable roots from the canonical permission rules and the `user_self_info` identity fields instead of depending on a serialized scope payload
 - callers that need server-confirmed writable discovery may pass `access: "write"` or `writableOnly: true` to `file_list` or `file_paths`; repository pickers may add `gitRepositories: true` with a pattern such as `**/.git/` to receive writable owner roots like `L1/<group>/` and `L2/<user>/`
-- when `CUSTOMWARE_GIT_HISTORY` is enabled, writable `L1` and `L2` file mutations schedule debounced per-owner Git history commits
+- when `CUSTOMWARE_GIT_HISTORY` is enabled, writable `L1` and `L2` file mutations schedule debounced per-owner Git history commits; in clustered runtime, worker writes defer that scheduling to the primary after it rebuilds the authoritative watchdog state for the changed logical paths
 - when `USER_FOLDER_SIZE_LIMIT_BYTES` is positive, `file_access.js` must check all app-file writes, copies, moves, and deletes through `user_quota.js` before mutation; projected growth over the cap is rejected, while a user folder already over cap may only perform mutations whose net `L2/<user>/` size delta is negative
 - user-folder quota accounting is cached per resolved `L2/<user>/` root and normal app-file mutations update that cache by byte deltas instead of rescanning the whole folder on every write; other backend app-path mutation callers invalidate the affected cache through `recordAppPathMutations`, and Git history commits, rollback, and revert also invalidate affected L2 quota cache entries because backend `.git` metadata can change outside the app-file mutation delta
 
@@ -112,6 +115,12 @@ Rules:
 - module metadata lookup
 - Git-backed installs and updates
 - module removal
+
+Module discovery rules:
+
+- request-time module reads and listings must consume replicated shared-state shards instead of calling watchdog path-walk helpers directly
+- normal override resolution should limit shard reads to readable `L0`, readable `L1`, and the authenticated user's `L2`
+- admin-only cross-user module listings may expand to selected `L2/<user>` shards or all replicated `L2/*` shards as needed, but should still stay shard-scoped instead of scanning the whole app index
 
 When `USER_FOLDER_SIZE_LIMIT_BYTES` is positive, first-time module installs into `L2/<user>/` must clone into a system temp directory first, measure that tree, and pass the quota projection before moving it into the user folder. Existing module updates still invalidate affected user quota cache entries after mutation because their final Git object growth is not known until the update completes.
 
@@ -129,6 +138,7 @@ Admin-only access is required for aggregated or cross-user user-layer listings.
 - `CUSTOMWARE_GIT_HISTORY=false` disables automatic history scheduling, but the runtime parameter defaults to `true`
 - each writable `L1/<group>/` and `L2/<user>/` owner root may become its own local Git repository when history is enabled
 - file writes, deletes, copies, moves, auth/user writes, group writes, and module installs schedule a debounced commit for the affected owner root
+- in clustered runtime, workers must not keep their own owner-root Git commit debounces; they publish changed logical app paths once, and the primary schedules the debounced commit after `applyProjectPathChanges(...)` finishes rebuilding the authoritative indexes
 - the debounce window starts at 10 seconds of quiet, drops to 5 seconds after a pending owner root has waited more than 1 minute, drops to 1 second after 5 minutes, and commits immediately after 10 minutes
 - server shutdown flushes pending commits
 - commit listing supports page `limit`, page `offset`, and open-ended `fileFilter` matching across changed paths and nested filenames; filtered list responses include full per-commit file action entries for listed commits, not only the matching files, but still do not include patch bodies
@@ -147,6 +157,6 @@ Admin-only access is required for aggregated or cross-user user-layer listings.
 - do not add ad hoc filesystem walks or permission checks to endpoints when this subtree already owns the rule
 - keep changes to path semantics, inheritance, or permissions centralized here
 - publish logical app-path mutations through the shared mutation-capture path after mutations that affect indexed module, group, user, or file state
-- if path, layer, module-resolution, or permission rules change, also update `app/L0/_all/mod/_core/onscreen_agent/ext/skills/development/` because its development skills mirror this contract
+- if path, layer, module-resolution, or permission rules change, also update `app/L0/_all/mod/_core/skillset/ext/skills/development/` because the shared development skill mirrors this contract
 - if path, layer, module-resolution, or permission rules change, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/server/`
 - if you change path normalization, group semantics, `maxLayer`, file access, or module-management rules, update this file and the relevant server or API docs in the same session

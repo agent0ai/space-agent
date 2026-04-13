@@ -60,6 +60,7 @@ Current defaults:
 - params: `temperature: 0.2`
 - max tokens: `64000`
 - display mode: `compact`
+- first run with no `~/conf/onscreen-agent.yaml`: start with the compact avatar-plus-chat box horizontally centered, with its bottom edge targeting whichever is lower on screen: `7em` above the viewport bottom or `90%` of viewport height, instead of restoring browser-global position state
 
 ## Runtime Surface
 
@@ -69,6 +70,7 @@ That namespace is the stable external entry point for:
 
 - showing or hiding the overlay, including revealing a browser-persisted edge-hidden peeking pose before normal use resumes
 - triggering prompt submission from outside the module
+- handling guarded preset-button prompt submission for spaces and similar launchers without queueing over an already busy send loop
 
 The active chat surface also publishes the current prompt/history snapshot on `space.chat`.
 
@@ -89,6 +91,8 @@ The settings and prompt-history dialogs reuse the shared `_core/visual/forms/dia
 The settings dialog now has two provider tabs named `API` and `Local`. `API` keeps the OpenAI-compatible endpoint, model, and key fields. `Local` mounts the shared Hugging Face config sidebar in onscreen mode, so the overlay reads the same saved-model list and live WebGPU worker state as the routed Local LLM page and the admin chat. Opening the Local tab should refresh saved-model shortcuts without booting the worker; saving local settings persists the selected repo id and dtype, then starts background model preparation. When no local model is selected and saved models exist, the Local panel preselects the browser-wide last successfully loaded saved model from `_core/huggingface/manager.js`, falling back to the first saved entry if that last-used entry was discarded. When no local model is selected, no local model is loaded, and the shared saved-model list is empty, the Local panel prefills the Hugging Face model field with the same testing-page default: `onnx-community/gemma-4-E4B-it-ONNX`.
 
 The API-key composer blocker applies only to the default API-provider configuration with no API key. Local Hugging Face mode can send without an API key and falls back to loading the selected local model on the first message if background preparation has not finished.
+
+Preset launchers should use `space.onscreenAgent.submitExamplePrompt(...)` instead of `submitPrompt(...)` when they need strict “send now or refuse” behavior. That guarded helper opens the overlay, checks the live composer blocker state, shows `Don't forget to configure your LLM first.` through the overlay bubble when the default API-key overlay is blocking input, shows `I'm in the middle of something...` when the overlay is already sending or executing or compacting, and only then seeds the draft and submits.
 
 For remote API mode, `_core/onscreen_agent/api.js` now finalizes the upstream fetch request through extension seam `_core/onscreen_agent/api.js/prepareOnscreenAgentApiRequest`. Provider-specific request policy such as OpenRouter headers belongs in headless helper modules like `_core/open_router`, so prompt assembly in `llm.js` no longer hardcodes those headers.
 

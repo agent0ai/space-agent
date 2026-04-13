@@ -62,6 +62,7 @@ Current rules:
 - they operate on app-rooted paths and supported endpoints also accept `~` or `~/...`
 - `file_list` and `file_paths` accept `access: "write"` or `writableOnly: true` when callers need only writable app paths instead of the default readable path set
 - `file_list` and `file_paths` accept `gitRepositories: true`; with patterns such as `**/.git/`, `file_paths` returns matching local-history owner roots like `L1/<group>/` or `L2/<user>/` while keeping `.git` metadata reserved and hidden
+- `file_paths` also accepts an optional explicit `maxLayer` body or query value when module-oriented discovery should ignore higher writable layers; this is used by the admin agent skill catalog so firmware-backed `ext/skills/` files are not shadowed by L1 or L2 customware
 - batch operations validate all targets before any mutation begins
 - when `USER_FOLDER_SIZE_LIMIT_BYTES` is positive, `file_write`, `file_copy`, `file_move`, `file_delete`, and module removal through `file_access.js` enforce the per-`L2/<user>/` folder quota before mutation; quota errors return `413`
 - single-file or single-folder copy and move requests must keep working when request plumbing omits `entries`; only real batch calls should forward an `entries` array to the shared helper
@@ -87,7 +88,8 @@ Module endpoints:
 Current rules:
 
 - these endpoints delegate to `server/lib/customware/module_manage.js`
-- writable operations must reuse the shared permission model and refresh the watchdog after mutation
+- request-time reads should consume replicated shared-state shards instead of calling watchdog scan helpers directly
+- writable operations must reuse the shared permission model and publish concrete changed logical paths through the shared mutation flow so the primary refreshes replicated module state
 - when `USER_FOLDER_SIZE_LIMIT_BYTES` is positive, new `module_install` writes into `L2/<user>/` are measured in a system temp directory and quota-checked before the module tree is moved into the user folder
 
 Runtime and identity endpoints:
@@ -100,6 +102,7 @@ Runtime and identity endpoints:
 Important notes:
 
 - `extensions_load` resolves module-owned `ext/...` request paths through the shared layered override system and supports grouped request batches
+- `extensions_load` should read the replicated shared-state shards for the caller's visible module owners rather than scanning watchdog paths directly
 - `debug_path_index` is an authenticated debugging endpoint for clustered-runtime verification; it returns filtered local `path_index` entries plus a stable hash so tests can compare worker replicas without walking the filesystem directly
 - frontend HTML anchors and JS hooks resolve through `ext/html/...` and `ext/js/...` request paths respectively
 - frontend modules may also enumerate other extension-resolved metadata assets through this endpoint when those files should honor readable-layer permissions plus same-path layered overrides; the current first-party example is `ext/pages/*.yaml`
@@ -118,7 +121,7 @@ Handlers receive the request context assembled by `server/router/router.js`, inc
 - authenticated user
 - project directories
 - auth service
-- watchdog and derived indexes
+- shared request infrastructure such as `stateSystem`, mutation sync, and any helper-owned indexes needed by the delegated subsystem
 
 Handlers may return:
 
@@ -133,6 +136,6 @@ Throw errors with a `statusCode` when the route should return a non-500 error.
 - keep endpoints narrow and explicit
 - keep auth, permission, inheritance, and filesystem policy in shared helpers
 - do not add endpoint-local filesystem walks when `path_index` or shared helpers already answer the question
-- if frontend-facing API or extension-resolution semantics change, also update `app/L0/_all/mod/_core/onscreen_agent/ext/skills/development/` because its development skills mirror this contract
+- if frontend-facing API or extension-resolution semantics change, also update `app/L0/_all/mod/_core/skillset/ext/skills/development/` because the shared development skill mirrors this contract
 - if endpoint-family semantics change, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/server/api/`
 - if you add or remove endpoints, or change endpoint-family semantics, update this file and `/server/AGENTS.md`

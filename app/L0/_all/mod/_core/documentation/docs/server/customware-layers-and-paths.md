@@ -70,6 +70,7 @@ Current contract:
 - the parameter defaults to `true`
 - each writable `L1/<group>/` and `L2/<user>/` root is its own local Git repository when history is enabled
 - mutations schedule a commit after 10 seconds of quiet for that owner root
+- in clustered runtime, workers do not keep their own debounced Git commit timers; they publish changed logical paths once, and the primary schedules the owner-root commit after rebuilding the authoritative indexes for that change
 - if an owner root keeps receiving writes, the debounce drops to 5 seconds after 1 minute of waiting, 1 second after 5 minutes, and immediate commit after 10 minutes
 - pending commits are flushed during server shutdown
 - history listing is paginated with `limit` and `offset`, may filter by changed file path or nested filename substring, and returns metadata plus full per-commit file action entries for listed commits without loading full diffs
@@ -115,10 +116,11 @@ Resolution rules:
 - different extension filenames under one extension point compose together
 - `module_inheritance.js` owns `/mod/...` resolution
 - `extension_overrides.js` owns extension lookup resolution
+- request-time module and extension lookup reads replicated shared-state shards for the relevant readable owners instead of scanning the full watchdog path index
 
 ## `maxLayer`
 
-`maxLayer` limits module and extension lookup, not normal app-file APIs.
+`maxLayer` limits module and extension lookup, not normal app-file APIs. The narrow first-party exception is explicit module-oriented `file_paths` discovery when a caller passes `maxLayer` intentionally, such as the admin agent's firmware-clamped `ext/skills` catalog lookup.
 
 Examples:
 

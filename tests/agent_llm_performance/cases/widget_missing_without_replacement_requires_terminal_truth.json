@@ -1,0 +1,43 @@
+{
+  "id": "widget_missing_without_replacement_requires_terminal_truth",
+  "description": "when the requested widget lookup failed and framework lists no replacement widgets, the next reply should truthfully report that failure instead of fabricating stale code-state",
+  "history": "../histories/widget_missing_without_replacement_requires_terminal_truth.json",
+  "expect": {
+    "response_type": "terminal",
+    "must_match_any": [
+      {
+        "pattern": "not found",
+        "flags": "iu"
+      },
+      {
+        "pattern": "failed",
+        "flags": "iu"
+      },
+      {
+        "pattern": "missing",
+        "flags": "iu"
+      },
+      {
+        "pattern": "unavailable",
+        "flags": "iu"
+      },
+      {
+        "pattern": "can(?:not|'t) verify",
+        "flags": "iu"
+      },
+      {
+        "pattern": "space-3",
+        "flags": "u"
+      }
+    ],
+    "must_not_contain": [
+      "_____javascript"
+    ],
+    "must_not_match": [
+      {
+        "pattern": "BTC|ETH|\\$\\d",
+        "flags": "u"
+      }
+    ]
+  }
+}

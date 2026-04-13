@@ -99,6 +99,8 @@ Current behavior:
 
 `file_paths` is the pattern-discovery endpoint used by systems such as skill discovery.
 
+It also accepts an optional explicit `maxLayer` filter when a caller needs module-oriented discovery to stay within a firmware or lower-layer ceiling. The current first-party example is the admin agent skill catalog, which resolves readable `mod/*/*/ext/skills/*/SKILL.md` files with `maxLayer=0` so writable customware layers do not influence prompt-facing skill text.
+
 Behavior summary:
 
 - accepts path patterns rather than exact file paths

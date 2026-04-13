@@ -10,10 +10,13 @@ import {
   getLayerHistoryCommitDiff,
   getLayerHistoryOperationPreview,
   listLayerHistoryCommits,
+  recordAppPathMutations,
   revertLayerHistoryCommit,
   resolveGitHistoryDebounceMs,
-  rollbackLayerHistory
+  rollbackLayerHistory,
+  scheduleGitHistoryCommitsForProjectPaths
 } from "../server/lib/customware/git_history.js";
+import { setRuntimeAppPathMutationHandler } from "../server/runtime/app_path_mutations.js";
 
 function createRuntimeParams(values = {}) {
   return {
@@ -118,6 +121,28 @@ try {
   assert.equal(resolveGitHistoryDebounceMs(5 * 60_000), 1_000);
   assert.equal(resolveGitHistoryDebounceMs(10 * 60_000), 0);
   assert.equal(resolveGitHistoryDebounceMs(60_000, 2_000), 2_000);
+
+  setRuntimeAppPathMutationHandler(() => true);
+  recordAppPathMutations(
+    {
+      projectRoot,
+      runtimeParams
+    },
+    ["/app/L2/bob/worker-only.txt"]
+  );
+  assert.deepEqual(await flushGitHistoryCommits({ throwOnError: true }), []);
+  setRuntimeAppPathMutationHandler(null);
+
+  scheduleGitHistoryCommitsForProjectPaths(
+    {
+      projectRoot,
+      runtimeParams
+    },
+    ["/app/L2/bob/worker-only.txt"]
+  );
+  const primaryScheduledFlush = await flushGitHistoryCommits({ throwOnError: true });
+  assert.equal(primaryScheduledFlush.length, 1);
+  assert.equal(primaryScheduledFlush[0].path, "L2/bob/");
 
   writeAppFile({
     content: "one\n",

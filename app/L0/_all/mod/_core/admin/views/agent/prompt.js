@@ -150,6 +150,7 @@ export async function buildRuntimeAdminSystemPrompt(systemPrompt = "", options =
   );
   const customPrompt = formatCustomUserInstructions(systemPrompt);
   const skillsSection = await skills.buildAdminSkillsPromptSection();
+  const justLoadedSkillsSection = await skills.buildAdminJustLoadedSkillsPromptSection();
 
-  return [basePrompt, customPrompt, skillsSection].filter(Boolean).join("\n\n");
+  return [basePrompt, customPrompt, skillsSection, justLoadedSkillsSection].filter(Boolean).join("\n\n");
 }

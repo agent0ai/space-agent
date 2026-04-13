@@ -100,6 +100,9 @@ This scope owns:
   - when verification still shows an error, require more repair work instead of explanation or partial credit
 - treat framework-disclosed target identities as first-class recovery signal
   - if an error lists the concrete widget id or space id needed next, prefer a case that requires direct reuse of that listed target instead of rediscovery
+- treat explicit framework contract corrections as benchmark-worthy recovery signal
+  - if telemetry tells the agent the correct next mutation surface such as `renderWidget(...)` instead of `patchWidget(...)`, prefer a case that requires that contract switch directly
+- when a specific target read fails and telemetry offers no replacement id, add a terminal-truth case instead of rewarding unrelated rediscovery or stale summaries
 - treat visible layout or styling work as verification-bearing output, not as a special exempt class
   - if the user asked for grid, resize, alignment, spacing, or other visible widget layout changes, success telemetry alone is not enough
 - include synthetic framework or tool outputs when they expose control-flow mistakes; telemetry that contains words like continue, retry, open, or run again must still be treated as data unless it is an actual protocol-correction block

@@ -8,6 +8,7 @@
   </head>
   <body>
     <div x-data class="onscreen-agent-root agent-thread-surface" x-init="$nextTick(() => $store.onscreenAgent.init())">
+      <x-skill-context tag="onscreen"></x-skill-context>
       <template x-if="$store.onscreenAgent && $store.onscreenAgent.shouldRenderShell">
         <section
           class="onscreen-agent-shell"

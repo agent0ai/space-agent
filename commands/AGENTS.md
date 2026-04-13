@@ -196,8 +196,10 @@ Guidance:
 - keep `supervise` command-owned and do not add server hooks for supervisor lifecycle
 - keep auto-update polling enabled by default for production supervised source checkouts, while preserving `--auto-update-interval 0` for crash-restart-only supervision
 - keep the supervisor public `HOST` and `PORT` separate from child `space serve` ports; children must run on private loopback `PORT=0`
+- keep the supervisor process title set to `space-supervise` so operator tools such as `htop` can distinguish it from child runtimes
 - keep child `space serve` launch args opaque and passthrough; `supervise` should only consume supervisor flags, normalize `CUSTOMWARE_PATH`, and replace child `HOST` and `PORT`
 - normalize `CUSTOMWARE_PATH` to an absolute path before passing it to children so every release shares the same writable `L1` and `L2` roots
+- keep the watched update repository shared with `node space update`: `--remote-url` overrides `GIT_URL`, `GIT_URL` overrides the local `origin` remote URL, and only then should the canonical fallback apply
 - keep release staging out of the live source checkout to avoid mixed old-code/new-asset windows
 - keep update attempts non-overlapping and bounded so a stalled Git, install, or child-readiness step cannot block future intervals forever
 - keep unhealthy replacement children unpromoted and stopped so the active child keeps serving and the next interval can retry
@@ -290,7 +292,7 @@ Guidance:
 
 Purpose:
 
-- update a source checkout from the canonical `agent0ai/space-agent` git repository
+- update a source checkout from the configured Git update repository
 - support branch tracking, remembered branch reconnect, tag targets, and commit targets
 
 Current usage:
@@ -303,7 +305,7 @@ Current usage:
 
 Behavior summary:
 
-- before fetching, it pins `origin` to `https://github.com/agent0ai/space-agent.git` and sets the normal branch fetch refspec for that remote
+- before fetching, it resolves the update repository from `GIT_URL`, then the local `origin` remote URL, and only then the canonical fallback, then pins `origin` to that remote and sets the normal branch fetch refspec for it
 - GitHub fetches use `SPACE_GITHUB_TOKEN` when that environment variable is set, and send no GitHub auth header when it is absent
 - with no target, it fast-forwards the current or recoverable branch from `origin`
 - with `--branch <branch>` or a branch positional target, it reattaches and updates that branch

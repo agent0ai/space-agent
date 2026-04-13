@@ -42,6 +42,12 @@ CUSTOMWARE_GIT_HISTORY:
   allowed: [true, false]
   default: true
   frontend_exposed: false
+GIT_URL:
+  description: Optional git repository URL used by update flows such as node space update and node space supervise when checking and cloning releases.
+  type: text
+  allowed: ["*"]
+  default: ""
+  frontend_exposed: false
 USER_FOLDER_SIZE_LIMIT_BYTES:
   description: Maximum on-disk size in bytes for each L2 user folder. Set to 0 to disable the limit.
   type: number

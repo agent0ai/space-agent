@@ -6,6 +6,7 @@
   </head>
   <body>
     <div x-data class="spaces-view-root">
+      <x-skill-context :tags="$store.spacesPage?.hasCurrentSpace ? 'space:open' : ''"></x-skill-context>
       <template x-if="$store.spacesPage">
         <section
           class="spaces-canvas"
@@ -102,7 +103,6 @@
                     class="spaces-config-field-textarea"
                     placeholder="Add space-specific instructions for the Space Agent."
                     x-model="$store.spacesPage.currentSpaceInstructionsDraft"
-                    @input="$store.spacesPage.queueCurrentSpaceMetaSave()"
                     @blur="void $store.spacesPage.flushCurrentSpaceMetaSave({ suppressErrors: true })"
                   ></textarea>
                 </label>

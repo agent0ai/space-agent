@@ -5,6 +5,7 @@ import {
   APP_DIR,
   ASSET_DIR,
   FILE_WATCH_CONFIG_PATH,
+  JOBS_DIR,
   PAGES_DIR,
   PROJECT_ROOT,
   SERVER_TMP_DIR
@@ -17,6 +18,7 @@ import { createWatchdog } from "./lib/file_watch/watchdog.js";
 import { createTmpWatch, ensureServerTmpDir } from "./lib/tmp/tmp_watch.js";
 import { loadProjectEnvFiles } from "./lib/utils/env_files.js";
 import { createRuntimeParams } from "./lib/utils/runtime_params.js";
+import { JobRunner } from "./jobs/job_runner.js";
 import { createLocalMutationSync } from "./runtime/request_mutations.js";
 import { sendJson } from "./router/responses.js";
 import { createRequestHandler } from "./router/router.js";
@@ -151,6 +153,17 @@ async function createAgentServer(overrides = {}) {
       stateSystem,
       watchdog
     });
+  const jobRunner =
+    overrides.jobRunner ||
+    new JobRunner({
+      auth: resolvedAuth,
+      jobDir: JOBS_DIR,
+      mutationSync,
+      projectRoot,
+      runtimeParams,
+      stateSystem,
+      watchdog
+    });
 
   const apiRegistry = await loadApiRegistry(apiDir);
   const requestHandler = createRequestHandler({
@@ -162,6 +175,7 @@ async function createAgentServer(overrides = {}) {
     mutationSync,
     pagesDir,
     runtimeParams,
+    stateSystem,
     stateSync,
     workerNumber: normalizedWorkerNumber,
     watchdog,
@@ -203,6 +217,7 @@ async function createAgentServer(overrides = {}) {
     stateSystem,
     runtimeParams,
     server,
+    jobRunner,
     browserUrl: buildBrowserUrl(browserHost, activePort),
     async listen() {
       tmpWatch.start();
@@ -212,6 +227,7 @@ async function createAgentServer(overrides = {}) {
         if (resolvedAuth && typeof resolvedAuth.initialize === "function") {
           await resolvedAuth.initialize();
         }
+        await jobRunner.start();
 
         return await new Promise((resolve, reject) => {
           server.once("error", reject);
@@ -224,12 +240,14 @@ async function createAgentServer(overrides = {}) {
           });
         });
       } catch (error) {
+        jobRunner.stop();
         tmpWatch.stop();
         watchdog.stop();
         throw error;
       }
     },
     async close() {
+      jobRunner.stop();
       await flushGitHistoryCommits();
       tmpWatch.stop();
       watchdog.stop();

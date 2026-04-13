@@ -10,18 +10,16 @@ Documentation is top priority for this module. After any change under `_core/ons
 
 ## Documentation Hierarchy
 
-`_core/onscreen_agent/AGENTS.md` owns the overlay runtime, shared onscreen skill-loading contract, and the map of deeper docs inside this subtree.
+`_core/onscreen_agent/AGENTS.md` owns the overlay runtime and the shared onscreen skill-loading contract.
 
 Current deeper docs:
 
 - `app/L0/_all/mod/_core/onscreen_agent/prompts/AGENTS.md`
-- `app/L0/_all/mod/_core/onscreen_agent/ext/skills/development/AGENTS.md`
 
 Parent vs child split:
 
 - this file owns overlay-wide runtime behavior, persistence, execution flow, skill loading, and cross-surface prompt contracts
 - `prompts/AGENTS.md` owns the shipped prompt files, token-budget rules, and prompt-text editing guidance
-- `ext/skills/development/AGENTS.md` owns the onscreen development skill tree and its mirrored frontend or backend source contracts
 
 Child doc section pattern:
 
@@ -34,23 +32,21 @@ Update rules:
 
 - update this file when overlay-wide runtime behavior, skill loading, or ownership boundaries change
 - update the deeper prompt doc when shipped prompt file behavior, wording strategy, or token-budget rules change
-- update the deeper development-skill doc when the development skill tree, routing map, or mirrored source contracts change
-- when framework, router, API, path, permission, or auth contracts change in ways that affect the development skill tree, update the deeper doc in the same session
+- when framework, router, API, path, permission, or auth contracts change in ways that affect the shared development skill tree, update `app/L0/_all/mod/_core/skillset/ext/skills/development/AGENTS.md` in the same session
 
 ## Ownership
 
 This module owns:
 
 - `ext/html/page/router/overlay/end/onscreen-agent.html`: thin adapter that mounts the overlay into the router overlay seam
-- `ext/skills/`: starter onscreen-agent skill folders, each ending in `SKILL.md`
 - `ext/js/_core/onscreen_agent/llm.js/buildOnscreenAgentExampleMessages/end/*.js`: prompt-example extensions that prepend live few-shot conversations ahead of thread history
-- `panel.html`: overlay UI
+- `panel.html`: overlay UI and the module-owned `onscreen` skill-context tag exported through `<x-skill-context>`
 - `response-markdown.css`: overlay-local markdown presentation overrides for assistant responses
 - `store.js`: floating-shell state, send loop, persistence, avatar drag behavior, edge-hide peeking state, history resize behavior, display mode, and overlay menus
 - `view.js`: shared-thread-view wiring
-- `skills.js`: onscreen skill discovery, skill frontmatter metadata flags, `space.skills.load(...)`, and skill-related JS extension seams
+- `skills.js`: onscreen skill discovery wrappers around shared `/mod/_core/skillset/skills.js`, skill frontmatter metadata flags, `space.skills.load(...)`, and skill-related JS extension seams
 - `llm.js`, `api.js`, `execution.js`, `attachments.js`, and `llm-params.js`: local runtime helpers
-- `llm.js` owns LLM-facing system-prompt file loading, optional example-message construction, always-loaded skill injection into the system prompt, runtime system-prompt assembly, prompt-instance caching, separate transient-message construction, final request assembly, history-compaction prompt loading, and the model-facing JS extension seams
+- `llm.js` owns LLM-facing system-prompt file loading, optional example-message construction, just-loaded skill injection into the system prompt, runtime system-prompt assembly, prompt-instance caching, separate transient-message construction, final request assembly, history-compaction prompt loading, and the model-facing JS extension seams
 - `api.js` owns chat transport, HTTP error handling, streaming response parsing, the shared `OnscreenAgentLlmClient` superclass plus provider subclasses for OpenAI-compatible API streaming and local Hugging Face streaming, and the API-request preparation seam `prepareOnscreenAgentApiRequest`; prompt-shaping logic lives in `llm.js`
 - `llm-params.js` delegates YAML parsing to the shared framework `js/yaml-lite.js` utility but still enforces the overlay-specific top-level `key: value` params contract
 - `config.js` and `storage.js`: persisted settings, browser-stored overlay UI state, and history
@@ -90,6 +86,7 @@ Legacy compatibility:
 - browser UI state loads from `sessionStorage` first, then `localStorage`, then legacy config fields as a migration fallback when browser storage is still empty
 - `storage.js` still accepts legacy `collapsed` values when older browser state or configs are loaded
 - `storage.js` also normalizes numeric coordinate scalars before the overlay store applies `agent_x` and `agent_y`, and it normalizes `hidden_edge` through the shared config helper before the store trusts the peeking state
+- when `~/conf/onscreen-agent.yaml` is missing, `storage.js` treats that load as first-run state instead of restoring browser-global overlay position data, and `store.js` places the visible compact overlay box with its full width centered while its bottom edge targets whichever is lower on screen: `7em` above the viewport bottom or `90%` of viewport height before the first persistence write
 - when config is rewritten, overlay position and display state fields must not be written back into `~/conf/onscreen-agent.yaml`
 
 Current defaults:
@@ -112,10 +109,10 @@ Prompt rules:
 - examples are optional, empty by default, and are inserted as ordinary alternating user or assistant messages ahead of live history rather than being folded into the system prompt
 - example messages count toward prompt-history token totals and appear in the prompt-history modal, but automatic or manual history compaction may replace only live history turns, never the examples or transient section
 - the runtime system prompt also injects a stable `## prompt includes` section from `_core/promptinclude`; that section must explain that readable `*.system.include.md` files are appended below into the system prompt and readable `*.transient.include.md` files are emitted later into transient context, and the wrapper text should stay outside `prompts/system-prompt.md` so owner-module prompt extensions can evolve without editing the base firmware prompt
-- skill frontmatter may include a `metadata` object for runtime-owned flags; `metadata.always_loaded: true` marks a readable skill file for automatic prompt inclusion
-- the runtime prompt appends the top-level onscreen skill catalog built from readable `mod/*/*/ext/skills/*/SKILL.md` files
+- skill frontmatter may include a `metadata` object for runtime-owned flags; `metadata.when.tags` requires live `<x-skill-context>` tags before a skill becomes catalog-loadable, and `metadata.just_loaded` may be either `true` or another `{ tags: [...] }` condition for automatic prompt inclusion after the catalog
+- the runtime prompt appends the top-level onscreen skill catalog built from readable `mod/*/*/ext/skills/*/SKILL.md` files that are currently eligible under the live document skill-context tags
 - the catalog prompt block should stay compact and plain-text: `skills`, one short loader hint, then `skills id|name|description↓` rows
-- after that catalog, the runtime appends a compact `auto loaded` block containing repeated `id: <skill-id>` markers plus the skill body text for readable `mod/*/*/ext/skills/**/SKILL.md` entries whose frontmatter sets `metadata.always_loaded: true`; do not inject frontmatter there because the catalog already carries name and description
+- after that catalog, the runtime appends a compact `just loaded` block containing repeated `id: <skill-id>` markers plus the skill body text for readable `mod/*/*/ext/skills/**/SKILL.md` entries whose `metadata.just_loaded` condition currently passes; do not inject frontmatter there because the catalog already carries name and description
 - readable `*.system.include.md` app files should be appended after the prompt-include instructions block as separate system-prompt sections, sorted alphabetically by full logical path and prefixed with `source: /logical/path` for prompt inspection
 - the trailing transient message may also include a `prompt includes` section from `_core/promptinclude`; it should batch-read readable `**/*.transient.include.md` app files through `file_paths` plus `file_read`, sort them alphabetically by full logical path, and render each file as `/logical/path` followed by one fenced block containing the exact file body
 - prompt construction exposes JS seams at `_core/onscreen_agent/llm.js/fetchDefaultOnscreenAgentSystemPrompt`, `_core/onscreen_agent/llm.js/fetchOnscreenAgentHistoryCompactPrompt`, `_core/onscreen_agent/llm.js/buildOnscreenAgentSystemPromptSections`, `_core/onscreen_agent/llm.js/buildOnscreenAgentExampleMessages`, `_core/onscreen_agent/llm.js/buildOnscreenAgentHistoryMessages`, `_core/onscreen_agent/llm.js/buildOnscreenAgentTransientSections`, `_core/onscreen_agent/llm.js/buildOnscreenAgentPromptInput`, and `_core/onscreen_agent/llm.js/buildRuntimeOnscreenAgentSystemPrompt`
@@ -124,10 +121,10 @@ Prompt rules:
 - the API-mode fetch branch must finalize its upstream request through `api.js` seam `_core/onscreen_agent/api.js/prepareOnscreenAgentApiRequest`; provider-specific headers or body rewrites belong in extension modules such as `_core/open_router`, not in `llm.js`
 - `api.js` may fold consecutive prepared `user` or `assistant` payload messages into alternating transport turns with `\n\n` joins immediately before the fetch call, but that transport-only fold must not mutate prepared prompt entries, prompt-history state, or stored live history
 - the built-in example extension under `ext/js/_core/onscreen_agent/llm.js/buildOnscreenAgentExampleMessages/end/user-self-info.js` should prepend a framework prompt asking the agent to check user detail, an assistant execution reply that calls `space.api.userSelfInfo()`, and a framework execution-result message populated with the live API result so the model sees both the expected execution format and the current user snapshot
-- the top-level skill catalog and `auto loaded` block are model-facing prompt context and therefore belong to `llm.js` orchestration even though `skills.js` still owns low-level skill discovery helpers and `space.skills.load(...)`
-- `_core/spaces` currently uses the sections seam only to inject a space-local `## Current Space Agent Instructions` section when the current space defines agent instructions; generic spaces workflow guidance belongs in the always-loaded `spaces` skill, and live widget catalogs or current-space details should be loaded on demand instead of being pre-injected into the prompt
+- the top-level skill catalog and `just loaded` block are model-facing prompt context and therefore belong to `llm.js` orchestration even though `skills.js` still owns low-level skill discovery helpers and `space.skills.load(...)`
+- `_core/spaces` currently uses the sections seam only to inject a space-local `## Current Space Agent Instructions` section when the current space defines agent instructions; generic spaces workflow guidance belongs in the route-scoped `just loaded` `spaces` skill, and live widget catalogs or current-space details should be loaded on demand instead of being pre-injected into the prompt
 - `_core/promptinclude` uses the system-prompt sections seam plus the transient sections seam to inject persistent prompt-include instructions, readable `*.system.include.md` system-prompt sections, and readable `*.transient.include.md` transient blocks without adding promptinclude-specific branching to `llm.js`
-- module-specific prompt workflow rules and helper-specific execution guidance should live in owner-module always-loaded skills or owner-module `_core/onscreen_agent/...` prompt extensions, not in the base firmware prompt unless the rule is overlay-generic
+- module-specific prompt workflow rules and helper-specific execution guidance should live in owner-module just-loaded skills or owner-module `_core/onscreen_agent/...` prompt extensions, not in the base firmware prompt unless the rule is overlay-generic
 - the firmware prompt should start with an environment block that explains the agent is a JavaScript-based browser assistant living inside the live page and acting through browser state plus Space Agent runtime APIs
 - the firmware prompt should define a `$mission` block above `$protocol`; that `$mission` should tell the agent to be useful, follow the latest `$human_command`, and drive the user toward `$verified_completion` with minimal correct steps
 - the firmware prompt should also make the mission-level authority explicit: the agent acts as ship administrator for the runtime, uses available system authority on the user's behalf, and should do the work directly instead of asking for ordinary permission or assistance
@@ -149,7 +146,7 @@ Prompt rules:
 - the firmware prompt should make clear that in `$task_mode` a `$terminal_response` is the final non-executing shot for that turn, so it is forbidden before `$verified_completion` except for one truly unavoidable blocking question, and prompt wording should phrase violations as `$mission failed`
 - the firmware prompt should tell the agent that a `$thrust_response` is the only assistant output that keeps the task loop alive because it causes execution and yields the next `$framework_telemetry` turn
 - the firmware prompt should tell the agent that `space.api.userSelfInfo()` returns `{ username, fullName, groups, managedGroups }` and that writable app roots are derived from `username`, `managedGroups`, and `_admin` membership in `groups`
-- the firmware prompt should also remind the agent to `return await ...` for browser mutations that need confirmation, should refer to the active thread as `space.chat`, should use `space.utils.yaml.parse(...)` plus `space.utils.yaml.stringify(...)`, should explain writable-scope discovery from `space.api.userSelfInfo()` plus the standard layer rules, and should leave domain-specific widget workflow guidance to the always-loaded `spaces` skill instead of duplicating it in the base firmware prompt
+- the firmware prompt should also remind the agent to `return await ...` for browser mutations that need confirmation, should refer to the active thread as `space.chat`, should use `space.utils.yaml.parse(...)` plus `space.utils.yaml.stringify(...)`, should explain writable-scope discovery from `space.api.userSelfInfo()` plus the standard layer rules, and should leave domain-specific widget workflow guidance to the route-scoped `just loaded` `spaces` skill instead of duplicating it in the base firmware prompt
 - the firmware prompt should use first-party helpers such as `/mod/_core/skillset/screenshots.js` for reusable browser tasks instead of teaching remote script injection
 - the firmware prompt should enforce telemetry truth: the `$staging_sequence` must describe the code in the same message, read-only execution may not be narrated as mutation, success claims require matching success telemetry for that exact action, and an `execution error` telemetry turn forbids any success claim
 - the firmware prompt should also tell the agent that after a read stage, if the next mutation is clear, it must continue immediately with another `$thrust_response` rather than spending a `$terminal_response` on progress narration such as `I have it loaded and can patch next`
@@ -167,7 +164,7 @@ Prompt rules:
 - shipped firmware prompt changes should be compared in `tests/agent_llm_performance/` first, and live prompt promotion should require both automated harness success and manual review of the nominal passes
 - `execution.js` should fail fast when `_____javascript` is inline instead of occupying its own line, and should surface a direct protocol error telling the agent to put the explanatory sentence on the previous line and the separator alone on the next line
 - the firmware prompt should explain the prepared-message block markers explicitly: `_____user` means the real human user, `_____framework` means a runtime-generated follow-up turn, and `_____transient` is auto-injected mutable context
-- prompt-facing text here is token-budgeted; when editing `prompts/system-prompt.md`, prompt wrapper strings in `skills.js`, or any always-loaded skill, measure the prompt surface with the local tokenizer in the same session and prefer plain text, short labels, minimal markdown, minimal filler, and no unnecessary trailing punctuation
+- prompt-facing text here is token-budgeted; when editing `prompts/system-prompt.md`, prompt wrapper strings in `skills.js`, or any just-loaded skill, measure the prompt surface with the local tokenizer in the same session and prefer plain text, short labels, minimal markdown, minimal filler, and no unnecessary trailing punctuation
 - `prompts/compact-prompt.md` is used for user-triggered history compaction
 - `prompts/compact-prompt-auto.md` is used for automatic compaction during the loop
 
@@ -177,7 +174,7 @@ Overlay chat behavior is intentionally extensible through `ext/js/` hooks rather
 
 Current stable seams:
 
-- `skills.js` exposes `_core/onscreen_agent/skills.js/listDiscoveredSkillFiles`, `_core/onscreen_agent/skills.js/loadOnscreenSkillIndex`, `_core/onscreen_agent/skills.js/loadOnscreenSkillCatalog`, `_core/onscreen_agent/skills.js/buildOnscreenSkillsPromptSection`, `_core/onscreen_agent/skills.js/buildOnscreenAutomaticallyLoadedSkillsPromptSection`, `_core/onscreen_agent/skills.js/loadOnscreenSkill`, and `_core/onscreen_agent/skills.js/installOnscreenSkillRuntime`; use these for skill discovery, virtual skills, skill-catalog source data, overriding automatic-skill source generation, overriding skill loads, or augmenting `space.skills`
+- `skills.js` exposes `_core/onscreen_agent/skills.js/listDiscoveredSkillFiles`, `_core/onscreen_agent/skills.js/loadOnscreenSkillIndex`, `_core/onscreen_agent/skills.js/loadOnscreenSkillCatalog`, `_core/onscreen_agent/skills.js/buildOnscreenSkillsPromptSection`, `_core/onscreen_agent/skills.js/buildOnscreenJustLoadedSkillsPromptSection`, `_core/onscreen_agent/skills.js/loadOnscreenSkill`, and `_core/onscreen_agent/skills.js/installOnscreenSkillRuntime`; use these for skill discovery, virtual skills, skill-catalog source data, overriding just-loaded skill source generation, overriding skill loads, or augmenting `space.skills`
 - `llm.js` exposes `_core/onscreen_agent/llm.js/fetchDefaultOnscreenAgentSystemPrompt`, `_core/onscreen_agent/llm.js/fetchOnscreenAgentHistoryCompactPrompt`, `_core/onscreen_agent/llm.js/buildOnscreenAgentSystemPromptSections`, `_core/onscreen_agent/llm.js/buildOnscreenAgentExampleMessages`, `_core/onscreen_agent/llm.js/buildOnscreenAgentHistoryMessages`, `_core/onscreen_agent/llm.js/buildRuntimeOnscreenAgentSystemPrompt`, `_core/onscreen_agent/llm.js/buildOnscreenAgentTransientSections`, `_core/onscreen_agent/llm.js/buildOnscreenAgentPromptInput`, `_core/onscreen_agent/llm.js/buildOnscreenAgentPromptMessageContext`, `_core/onscreen_agent/llm.js/createOnscreenAgentPromptInstance`, and `_core/onscreen_agent/llm.js/prepareOnscreenAgentCompletionRequest`; use these when the extension changes model-facing context, including system-prompt sections, example conversations, transient blocks, prompt-instance lifecycle, or final outbound message shaping
 - `execution.js` exposes `_core/onscreen_agent/execution.js/validateOnscreenAgentExecutionBlockPlan`; this seam owns block-level execution-plan validation, should stay generic to the overlay execution protocol, and feature modules should attach their own task-specific validators from `ext/js/` instead of adding those checks directly to `execution.js`
 - `api.js` exposes `_core/onscreen_agent/api.js/streamOnscreenAgentCompletion` as the transport seam and `_core/onscreen_agent/api.js/prepareOnscreenAgentApiRequest` as the prepared-request mutation seam for API-mode fetches
@@ -190,6 +187,7 @@ Current runtime namespace:
 - prepared user messages with attachments should append one compact helper block that uses `Chat runtime access↓` for the runtime-access notes and `Attachments↓` before the attachment rows, so multiline helper data is visibly framed as continuing below each label
 - `space.onscreenAgent.show(options?)` opens the overlay, first reveals any persisted edge-hidden peeking pose back to the in-screen threshold position, and preserves the current display mode unless `options.mode` explicitly requests compact or full
 - `space.onscreenAgent.submitPrompt(promptText, options?)` opens the overlay, first reveals any persisted edge-hidden peeking pose back to the in-screen threshold position, seeds the composer, and submits or queues the prompt through the owned send loop while preserving the current display mode unless `options.mode` explicitly requests compact or full
+- `space.onscreenAgent.submitExamplePrompt(promptText, options?)` is the guarded preset-button variant for spaces and similar launchers: it opens the overlay, refuses to queue into an already busy send loop, shows `Don't forget to configure your LLM first.` through the overlay bubble when the composer is blocked by the default API-key warning, shows `I'm in the middle of something...` when the overlay is already sending or executing or compacting, and only then seeds the composer and submits the prompt while preserving the current display mode unless `options.mode` explicitly requests compact or full
 
 Current `processOnscreenAgentMessage` phases:
 
@@ -267,7 +265,7 @@ Current overlay behavior:
 - empty-response protocol-correction messages must stay short and should tell the agent to continue from the conversation above instead of depending on a specific prior turn type such as execution output
 - `space.skills.load("<path>")` loads onscreen skills on demand using skill ids relative to `ext/skills/` and excluding the trailing `/SKILL.md`
 - only top-level skills are injected into the prompt catalog by default; routing skills can direct the agent to deeper skill ids
-- any readable skill at any depth may also be auto-injected into the prompt when its frontmatter sets `metadata.always_loaded: true`
+- any readable skill at any depth may also be auto-injected into the prompt when its frontmatter sets `metadata.just_loaded` and that condition passes against the live document skill-context tags
 - loaded onscreen skills are captured as execution-side effects and inserted into the immediate execution-output turn with the full skill file content, even when the JavaScript block uses plain `await space.skills.load(...)` without a final `return`; once that turn is stale, history compaction may replace it with a shorter loaded-skill summary
 - on-demand loaded skill content enters history through `skills.js` plus `execution.js`, not through `llm.js`; `llm.js` is responsible for how that already-loaded history is normalized and sent to the model
 - skill discovery uses the app-file permission model plus layered owner-scope ordering, and same-module layered overrides replace lower-ranked skill files before the catalog is built
@@ -285,7 +283,7 @@ Current overlay behavior:
 - keep onscreen skill discovery and runtime behavior separate from the admin agent even when copying skill content for starter coverage
 - keep overlay-local Hugging Face glue limited to snapshot shaping, settings state, and calls into the shared `_core/huggingface/manager.js`; do not fork a second Hugging Face worker or import admin-agent local-provider helpers
 - keep `ext/skills/development/` aligned with the current frontend and read-only backend contracts so the onscreen agent's development guidance does not drift
-- keep prompt-surface strings lean: prefer `id|name|description` rows, short block labels, and body-only auto-loaded skill text over verbose wrappers
+- keep prompt-surface strings lean: prefer `id|name|description` rows, short block labels, and body-only just-loaded skill text over verbose wrappers
 - if behavior becomes meaningfully shared with the admin agent, promote it into `_core/framework` or `_core/visual` instead of creating cross-surface dependencies
 - if overlay runtime, prompt construction, execution protocol, or skill loading changes, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/agent/`
 - if you change the router overlay contract, persistence paths, skill discovery, or prompt execution behavior, update this file and the relevant parent docs in the same session

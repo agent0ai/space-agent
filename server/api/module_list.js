@@ -26,8 +26,8 @@ export async function get(context) {
       projectRoot: context.projectRoot,
       runtimeParams: context.runtimeParams,
       search: readListSearch(context),
+      stateSystem: context.stateSystem,
       username: context.user?.username,
-      watchdog: context.watchdog
     });
   } catch (error) {
     throw createHttpError(error.message || "Module list failed.", Number(error.statusCode) || 500);

@@ -34,6 +34,7 @@ recommended starting points
 - prompt or execution protocol: `agent/prompt-and-execution.md`
 - skills or this documentation surface: `agent/skills-and-documentation.md`
 - server routing or pages: `server/request-flow-and-pages.md`
+- server jobs or maintenance loops: `server/jobs-and-maintenance.md`
 - app-file APIs: `server/api/files.md`
 - module, login, or runtime endpoints: `server/api/modules-and-runtime.md`
 - auth and sessions: `server/auth-and-sessions.md`
@@ -54,6 +55,7 @@ agent/onscreen-agent-runtime.md|Onscreen Agent Runtime|Overlay ownership, persis
 agent/prompt-and-execution.md|Prompt And Execution|Prompt assembly order, message markers, execution transcript rules, and compaction behavior.
 agent/skills-and-documentation.md|Skills And Documentation|Skill discovery rules, top-level versus nested skills, conflict rules, and the documentation skill/helper contract.
 server/request-flow-and-pages.md|Request Flow And Pages|Exact server routing order, page shell contracts, auth gating, and direct app-file fetches.
+server/jobs-and-maintenance.md|Jobs And Maintenance|Primary-owned periodic jobs, interval scheduling, mutation publishing, and guest cleanup maintenance rules.
 server/api/files.md|File APIs|The authenticated file endpoints, path forms, writable discovery, folder downloads, and optional local history APIs.
 server/api/modules-and-runtime.md|Module And Runtime APIs|Module endpoints, login/runtime endpoints, `extensions_load`, and identity helpers.
 server/auth-and-sessions.md|Auth And Sessions|User storage layout, sealed password/session records, and login/runtime auth behavior.

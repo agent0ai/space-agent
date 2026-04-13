@@ -50,12 +50,14 @@ Current public shell assets:
 - owns the login flow, guest creation flow, and pre-auth layout
 - reads injected `meta[name="space-config"]` tags directly so guest-login UI can follow backend runtime parameters without authenticated module imports
 - declares the shared Space Agent favicon set and the `Login | Space Agent` document title
+- detects when the browser does not expose the Web Crypto APIs needed for password login, blocks the broken sign-in and guest-account path, and shows an explicit HTTPS-or-localhost requirement instead of surfacing raw `crypto.subtle` errors
 - grants same-tab launcher access in `sessionStorage` after successful password sign-in so the tab that just authenticated can land on `/` while fresh tabs still route through `/enter`
 - renders the guest-account removal warning with yellow warning treatment and a recovery-safe inline Google Material Symbols warning icon, without depending on authenticated icon fonts
 - keeps the self-host call-to-action visually separated from the sign-in form even when guest account creation is disabled and the guest-only block is hidden
 - opens the self-host call-to-action as a two-panel login-styled modal: `Native App` and `Own Server` panels split left-right on desktop and stack top-bottom on mobile, with a privacy/security subtitle, one short explanatory line per panel, a large inline Material icon, and a local inline-icon action button
 - keeps the modal's outbound URLs as navigation only: the native app button links to the `agent0ai/space-agent` latest-release redirect, and the server-hosting button links to the README `#host` section
 - keeps the mobile shell scrollable when the viewport is shorter than the content, and reserves extra small-screen side spacing for the intro column rather than inflating the login card
+- keeps the mirrored canvas gradient and star or glow backdrop pinned to fixed viewport layers while the login shell content scrolls
 - keeps login-specific styling and motion local
 
 `enter.html`:
@@ -78,6 +80,7 @@ Current public shell assets:
 Rules:
 
 - keep the mirrored public backdrop aligned with `_core/visual`
+- keep both the mirrored base canvas gradient and the mirrored star or glow scene fixed to the viewport so public-shell scrolling never drags them
 - if the shared backdrop visuals or runtime behavior change, review and update these mirrored files in the same session
 - keep public-shell assets under `server/pages/res/` instead of embedding large data blobs into page HTML
 - keep the shared favicon asset family in `server/pages/res/` and derive it from the onscreen-agent assistant helmet avatar so browser tabs, installs, and Apple touch shortcuts stay visually aligned

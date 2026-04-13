@@ -55,8 +55,8 @@ This module owns:
 - `views/agent/`: admin-side agent surface
 - `views/files/`: admin Files tab adapter that mounts `_core/file_explorer`
 - `views/modules/`: firmware-backed modules panel
-- `skills/`: top-level admin skill folders, each with `SKILL.md`
 - `res/`: admin-local visual assets
+- `ext/skills/`: admin-owned skill files exposed through the shared module skill discovery contract
 
 Inactive area:
 
@@ -69,6 +69,7 @@ The admin module is mounted only through the page-specific `page/admin/body/star
 Current shell responsibilities:
 
 - `views/shell/shell.html` owns the split two-pane layout
+- `views/shell/shell.html` also exports the admin-page skill-context tag through `<x-skill-context tag="admin">`
 - `views/shell/shell.js` owns split sizing, drag-resize behavior, orientation-dependent layout, `?url=` startup handling, and leave-admin navigation back into the current iframe URL
 - `views/shell/page.js` owns admin tabs, quick actions, tab keyboard behavior, cached `space.api.userSelfInfo()` state, and `_admin` membership checks derived from `groups`
 - the admin topbar keeps tab controls in a real tablist and ends with a non-tab leave-admin icon button that calls the same `adminShell.leaveAdminArea()` action as the dashboard card
@@ -76,7 +77,7 @@ Current shell responsibilities:
 - the active admin tab is remembered in `sessionStorage`
 - iframe-local routed navigation such as the onscreen menu Dashboard action should keep the right-hand pane inside the iframe unless the action explicitly leaves `/admin`
 
-`/admin` runs with `maxLayer=0`, so all module and extension fetches for the admin UI stay firmware-backed even though app-file APIs still work across normal readable or writable layers.
+`/admin` runs with `maxLayer=0`, so all module and extension fetches for the admin UI stay firmware-backed even though app-file APIs still work across normal readable or writable layers. Standard same-origin `fetch("/mod/...")` requests from the browser runtime must carry that active max-layer value too so ad hoc module reads stay L0-clamped.
 
 ## Admin Sub-Areas
 
@@ -89,14 +90,16 @@ High-level ownership:
 
 ## Skills Contract
 
-Admin skills live under `skills/*/SKILL.md`.
+Admin agent skills are discovered through the same shared browser-side skill helper as the onscreen agent, but the admin runtime explicitly resolves them with `maxLayer=0` so only firmware-backed skill files influence the admin prompt and `space.admin.loadSkill(...)`.
 
 Current rules:
 
-- `views/agent/skills.js` discovers top-level skill folders by listing `L0/_all/mod/_core/admin/skills/`
-- the admin agent prompt receives a compact catalog of those top-level skills
+- `views/agent/skills.js` discovers top-level skill files through the shared `ext/skills` contract with an explicit `maxLayer=0` lookup
+- live page-owned `<x-skill-context>` tags still filter that catalog the same way they do for the onscreen agent; the admin shell exports `admin`, and individual skills may use `metadata.when.tags` or `metadata.just_loaded`
+- the admin agent prompt receives a compact catalog of those top-level skills plus a `just loaded` block for currently eligible `metadata.just_loaded` skills
 - the actual skill content is loaded on demand through `space.admin.loadSkill(name)`
 - keep skill folders stable and top-level if they should appear in the catalog
+- admin-owned skill files now live under `ext/skills/...` inside the owning module instead of a private `skills/` root
 
 ## Development Guidance
 

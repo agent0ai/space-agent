@@ -21,6 +21,7 @@ import {
 } from "./user_quota.js";
 import { createEmptyGroupIndex } from "./overrides.js";
 import { globToRegExp, normalizePathSegment } from "../utils/app_files.js";
+import { isProjectPathWithinMaxLayer, normalizeMaxLayer } from "./layer_limit.js";
 
 function createHttpError(message, statusCode) {
   const error = new Error(message);
@@ -875,7 +876,6 @@ function normalizeTransferRequests(options = {}, actionType) {
     }
 
     ensurePublicAppProjectPath(resolvedSourcePath.projectPath);
-
     if (actionType === "copy") {
       ensureReadableProjectPath(resolvedSourcePath.projectPath, accessController);
     } else {
@@ -894,7 +894,6 @@ function normalizeTransferRequests(options = {}, actionType) {
     }
 
     ensurePublicAppProjectPath(destinationProjectPath);
-
     if (destinationProjectPath === resolvedSourcePath.projectPath) {
       throw createHttpError(`Source and destination must differ: ${requestedFromPath}`, 400);
     }
@@ -1270,7 +1269,6 @@ function listAppPaths(options = {}) {
     if (targetPathInfo && targetPathInfo.kind === "owner-path") {
       ensureProjectPathAccess(baseProjectPath, accessController, accessMode);
     }
-
     const repositoryPaths = listLayerHistoryRepositories({
       access: accessMode,
       projectRoot: options.projectRoot,
@@ -1302,7 +1300,6 @@ function listAppPaths(options = {}) {
   }
 
   ensurePublicAppProjectPath(resolvedPath.projectPath);
-
   if (!resolvedPath.isDirectory) {
     ensureProjectPathAccess(resolvedPath.projectPath, accessController, accessMode);
 
@@ -1377,6 +1374,7 @@ function listAppPaths(options = {}) {
 function listAppPathsByPatterns(options = {}) {
   const compiledPatterns = compileFilePathPatterns(options.patterns);
   const accessMode = normalizeAccessMode(options.access || (options.writableOnly ? "write" : "read"));
+  const maxLayer = normalizeMaxLayer(options.maxLayer);
   const output = Object.create(null);
 
   for (const { sourcePattern } of compiledPatterns) {
@@ -1398,6 +1396,12 @@ function listAppPathsByPatterns(options = {}) {
 
     for (const repository of repositories) {
       const repositoryPath = normalizePathSegment(repository.path);
+      const repositoryProjectPath = normalizeAppProjectPath(repository.path, { isDirectory: true });
+
+      if (!repositoryProjectPath || !isProjectPathWithinMaxLayer(repositoryProjectPath, maxLayer)) {
+        continue;
+      }
+
       const syntheticGitPaths = [
         ".git/",
         `${stripTrailingSlash(repositoryPath)}/.git/`,
@@ -1437,6 +1441,10 @@ function listAppPathsByPatterns(options = {}) {
 
   for (const projectPath of getSortedProjectPaths(options.watchdog)) {
     if (isReservedAppProjectPath(projectPath)) {
+      continue;
+    }
+
+    if (!isProjectPathWithinMaxLayer(projectPath, maxLayer)) {
       continue;
     }
 

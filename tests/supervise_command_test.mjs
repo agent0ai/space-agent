@@ -3,6 +3,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { __test as superviseTest } from "../commands/supervise.js";
+import { buildServeProcessTitle, buildSupervisorProcessTitle } from "../server/lib/utils/process_title.js";
 
 test("supervise keeps serve args opaque and reserves only supervisor-owned flags", () => {
   const { options, serveArgs } = superviseTest.parseSuperviseArgs([
@@ -68,4 +69,19 @@ test("supervise resolves public bind and required customware from args then env"
   );
   assert.equal(superviseTest.resolvePublicHost({}, serveArgs, env), "1.2.3.4");
   assert.equal(superviseTest.resolvePublicPort({}, serveArgs, env), 4567);
+});
+
+test("supervise defaults state dir to project-root supervisor folder", () => {
+  assert.equal(
+    superviseTest.resolveDefaultStateDir("/workspace/agent-one"),
+    path.join("/workspace/agent-one", "supervisor")
+  );
+});
+
+test("runtime process titles stay distinct and short enough for htop-style listings", () => {
+  assert.equal(buildSupervisorProcessTitle(), "space-supervise");
+  assert.equal(buildServeProcessTitle(), "space-serve");
+  assert.equal(buildServeProcessTitle({ clusterPrimary: true }), "space-serve-p");
+  assert.equal(buildServeProcessTitle({ workerNumber: 1 }), "space-serve-w1");
+  assert.equal(buildServeProcessTitle({ workerNumber: 12 }), "space-serve-w12");
 });

@@ -1,7 +1,7 @@
 import { createGitClient } from "../server/lib/git/client_create.js";
+import { resolveConfiguredUpdateRemoteUrl } from "./lib/update_remote.js";
 
 const DEFAULT_REMOTE = "origin";
-const UPDATE_REMOTE_URL = "https://github.com/agent0ai/space-agent.git";
 const UPDATE_REMOTE_FETCH_REFSPEC = "+refs/heads/*:refs/remotes/origin/*";
 const UPDATE_BRANCH_CONFIG_KEY = "space.updateBranch";
 
@@ -64,15 +64,15 @@ async function rememberBranch(gitClient, branchName) {
   await gitClient.writeConfig(UPDATE_BRANCH_CONFIG_KEY, branchName);
 }
 
-async function ensureUpdateRemote(gitClient) {
+async function ensureUpdateRemote(gitClient, remoteUrl) {
   const remoteUrlConfigPath = `remote.${DEFAULT_REMOTE}.url`;
   const remoteFetchConfigPath = `remote.${DEFAULT_REMOTE}.fetch`;
   const currentRemoteUrl = await gitClient.readConfig(remoteUrlConfigPath);
   const currentFetchRefspec = await gitClient.readConfig(remoteFetchConfigPath);
 
-  if (currentRemoteUrl !== UPDATE_REMOTE_URL) {
-    await gitClient.writeConfig(remoteUrlConfigPath, UPDATE_REMOTE_URL);
-    console.log(`Configured ${DEFAULT_REMOTE} update remote as ${UPDATE_REMOTE_URL}.`);
+  if (currentRemoteUrl !== remoteUrl) {
+    await gitClient.writeConfig(remoteUrlConfigPath, remoteUrl);
+    console.log(`Configured ${DEFAULT_REMOTE} update remote as ${remoteUrl}.`);
   }
 
   if (currentFetchRefspec !== UPDATE_REMOTE_FETCH_REFSPEC) {
@@ -222,7 +222,7 @@ async function checkoutTargetRevision(gitClient, remoteName, fetchedDefaultBranc
 
 export const help = {
   name: "update",
-  summary: "Fetch and apply source-checkout updates from the canonical Space Agent repository.",
+  summary: "Fetch and apply source-checkout updates from the configured Git update repository.",
   usage: [
     "node space update",
     "node space update --branch <branch>",
@@ -231,7 +231,7 @@ export const help = {
     "node space update <commit>"
   ],
   description:
-    "For source checkouts only. The updater pins origin to https://github.com/agent0ai/space-agent.git before fetching, then prefers native Git, then NodeGit when installed and loadable, then isomorphic-git. For GitHub remotes it uses SPACE_GITHUB_TOKEN when that environment variable is set, and sends no GitHub auth header when it is not. Without an argument, it fast-forwards the current branch from origin, or reconnects from detached HEAD to the remembered or default origin branch first. You can also target a branch explicitly with --branch <branch> or a bare branch name. Version tags and short/full commit hashes move the current or remembered branch to that exact revision when possible, falling back to detached HEAD only when no branch can be recovered.",
+    "For source checkouts only. The updater uses GIT_URL when it is set, otherwise the local origin remote URL, and falls back to the canonical Space Agent repository only when neither is configured. It pins origin to that update remote before fetching, then prefers native Git, then NodeGit when installed and loadable, then isomorphic-git. For GitHub remotes it uses SPACE_GITHUB_TOKEN when that environment variable is set, and sends no GitHub auth header when it is not. Without an argument, it fast-forwards the current branch from origin, or reconnects from detached HEAD to the remembered or default origin branch first. You can also target a branch explicitly with --branch <branch> or a bare branch name. Version tags and short/full commit hashes move the current or remembered branch to that exact revision when possible, falling back to detached HEAD only when no branch can be recovered.",
   arguments: [
     {
       name: "<branch>",
@@ -264,15 +264,19 @@ export const help = {
 export async function execute(context) {
   const { branchName, target } = parseUpdateArgs(context.args);
   const gitClient = await createGitClient({ projectRoot: context.projectRoot });
+  const updateRemoteUrl = resolveConfiguredUpdateRemoteUrl({
+    env: process.env,
+    projectRoot: context.projectRoot
+  });
 
   if (process.env.SPACE_GIT_BACKEND || gitClient.name !== "native") {
     console.log(`Using ${gitClient.label}.`);
   }
 
   await gitClient.ensureCleanTrackedFiles();
-  await ensureUpdateRemote(gitClient);
+  await ensureUpdateRemote(gitClient, updateRemoteUrl);
 
-  console.log(`Fetching updates from ${UPDATE_REMOTE_URL}...`);
+  console.log(`Fetching updates from ${updateRemoteUrl}...`);
   const { defaultBranch } = await gitClient.fetchRemote(DEFAULT_REMOTE);
 
   if (branchName) {

@@ -24,6 +24,7 @@ Documentation is top priority for this area. After any change under `server/` or
 Current subsystem-local docs in the server tree:
 
 - `server/api/AGENTS.md`
+- `server/jobs/AGENTS.md`
 - `server/router/AGENTS.md`
 - `server/pages/AGENTS.md`
 - `server/runtime/AGENTS.md`
@@ -83,10 +84,12 @@ Parent and child split rules:
 - enforce auth, session, module, and app-file access boundaries
 - optionally maintain adaptive-debounced per-owner local Git history repositories for writable `L1/<group>/` and `L2/<user>/` roots when `CUSTOMWARE_GIT_HISTORY` is enabled
 - optionally enforce `USER_FOLDER_SIZE_LIMIT_BYTES` for each on-disk `L2/<user>/` folder through app-file mutation quota checks that use cached per-user size totals
+- run deterministic primary-owned periodic maintenance jobs from `server/jobs/` for backend-enforced cleanup such as guest-account pruning
 - keep the backend-only auth secret outside the logical app tree, using shared environment injection via `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` for multi-instance deployments or local fallback storage under `server/data/`
 - manage `server/tmp/` as janitor-backed transient storage for low-RAM server-side artifacts such as folder-download archives
 - resolve runtime parameters from launch overrides, stored `.env` values, process environment variables, and schema defaults, including backend storage parameters such as `CUSTOMWARE_PATH`
 - when `WORKERS>1`, run a clustered primary-plus-worker runtime where the primary owns authoritative shared state and the live watchdog while workers serve HTTP in parallel
+- expose distinct OS process titles for operator visibility: `space-serve` for single-process runtime, `space-serve-p` for clustered primary, and `space-serve-w<N>` for clustered workers
 - expose `frontend_exposed` runtime parameters to page shells as injected meta tags
 - expose the resolved project version string to page shells that declare the `SPACE_PROJECT_VERSION` placeholder, using `server/lib/utils/project_version.js` as the shared resolver
 - support local development and source-checkout update flows without turning the server into business-logic orchestration
@@ -98,6 +101,7 @@ Current server layout:
 - `server/app.js`: server factory and subsystem bootstrap; it normalizes the handling worker number before request routing so `Space-Worker` stays present in both single-process and clustered runtime
 - `server/server.js`: startup entry used by the CLI and thin host flows
 - `server/runtime/`: clustered worker runtime, unified state replication, request-mutation sync, and worker bootstrap
+- `server/jobs/`: primary-only periodic maintenance job discovery, scheduling, and job modules
 - `server/config.js`: filesystem roots and static server paths
 - `server/dev_server.js`: source-checkout dev supervisor used by `npm run dev`
 - `server/lib/utils/runtime_params.js`: shared runtime-parameter schema loading, validation, startup resolution, and frontend-exposure metadata
@@ -105,6 +109,7 @@ Current server layout:
 - `server/data/`: gitignored backend-only secret storage used as the local fallback for auth keys when shared deployment secrets are not injected
 - `server/api/`: endpoint modules loaded by endpoint name
 - `server/router/`: top-level request routing, page handling, `/mod/...` serving, direct app-file fetches, request context, response helpers, proxy transport, and CORS handling
+- `server/lib/utils/process_title.js`: canonical OS process-title helper for direct serve, clustered primary, clustered workers, and supervisor-owned runtime naming
 - `server/lib/utils/project_version.js`: shared project-version resolver for Git-tag source checkouts and package-version fallback display in page shells
 - `server/lib/customware/`: logical app-path normalization, customware-root resolution, group and inheritance logic, extension override resolution, app-file access, and module management
 - `server/lib/customware/git_history.js`: optional writable-layer local Git history scheduling, repository discovery, paginated commit listing, file-diff reads, operation previews, rollback, revert, and commit-loop suppression
@@ -131,7 +136,8 @@ Core runtime contracts:
 - request identity is derived from the server-issued `space_session` cookie via router-side request context plus the auth service
 - the raw `space_session` cookie remains a browser bearer token, but `L2/<username>/meta/logins.json` stores only backend-keyed verifiers plus signed metadata, so reading app-side session files does not reveal a replayable cookie
 - password verifiers remain in `L2/<username>/meta/password.json`, but the SCRAM verifier is sealed with a backend-held key so the file is no longer self-sufficient
-- `WORKERS` defaults to `1`; when it is greater than `1`, the runtime forks HTTP workers, keeps the primary as the authoritative watchdog and unified state owner, lets workers perform normal request work and filesystem mutations locally, and publishes versioned state deltas or snapshots back out from the primary after those mutations commit
+- `WORKERS` defaults to `1`; when it is greater than `1`, the runtime forks HTTP workers, keeps the primary as the authoritative watchdog and unified state owner, lets workers perform normal request work and filesystem mutations locally, and publishes versioned state deltas or snapshots back out from the primary after those mutations commit; worker-owned writes also rely on that same primary post-rebuild path to schedule any debounced writable-layer Git history commits
+- primary-owned background jobs also run only on that authoritative runtime owner: the lone server process when `WORKERS=1`, or the clustered primary when `WORKERS>1`
 - responses expose `Space-State-Version` and `Space-Worker`; requests may send `Space-State-Version` as a required minimum replicated version, and the router may briefly wait for worker catch-up before handling the request
 - runtime auth may switch to a single-user mode where every request resolves to the implicit `user` principal
 - `/login` stays the public password-login entry
@@ -140,7 +146,7 @@ Core runtime contracts:
 - `HOST` and `PORT` come from the same runtime-parameter system as other server params instead of a special-case startup path; `PORT=0` is valid when a caller wants the OS to assign a free port, and the started runtime object must publish the resolved bound `port` and `browserUrl` after `listen()`
 - `/api/proxy`, `/mod/...`, and direct app-file fetches require an authenticated session unless an endpoint explicitly opts into anonymous access
 - `/mod/...` resolution uses the layered customware model and honors `maxLayer`, which defaults to `2`
-- `/admin` requests effectively force `maxLayer=0` for module and extension resolution through explicit request data, query parameters, or admin-origin fallback
+- `/admin` requests effectively force `maxLayer=0` for module and extension resolution through explicit request data, query parameters, the `X-Space-Max-Layer` request header, or admin-origin fallback
 - `/~/path` maps to the authenticated user's `L2/<username>/path`
 - logical `/app/L1/...` and `/app/L2/...` paths may resolve to disk outside the repo when `CUSTOMWARE_PATH` is configured, while `/app/L0/...` remains repo-backed
 - `USER_FOLDER_SIZE_LIMIT_BYTES=0` disables user-folder quotas; positive values cap each `L2/<user>/` folder in bytes, block projected growth over the cap, and allow only size-reducing app-file mutations while a folder is already over the cap
@@ -154,6 +160,7 @@ Core runtime contracts:
 The server relies on a small set of shared infrastructure contracts. Do not re-implement them inside endpoints or handlers.
 
 - `server/lib/file_watch/` owns the canonical live view of app files through `path_index`, `group_index`, and `user_index`
+- request-time worker code should consume replicated shared-state shards derived from those indexes instead of depending on watchdog-specific scanning helpers; the watchdog remains the primary-owned producer of those shards
 - `server/lib/customware/file_access.js` is the canonical entry point for authenticated app-file list, read, write, delete, copy, move, and info operations
 - `server/lib/customware/user_quota.js` is the canonical per-user folder-size quota helper; callers must enforce quota through shared app-file mutation helpers instead of adding endpoint-local size checks
 - file listing and pattern discovery may be filtered to writable paths through the shared file-access helper, and Git repository discovery returns writable owner roots without exposing `.git` metadata
@@ -167,6 +174,7 @@ The server relies on a small set of shared infrastructure contracts. Do not re-i
 - `server/server.js` owns the human-facing startup banner for direct serve launches and must print the shared Git-derived version without changing the separate listening-URL line that supervisor tooling parses
 - `server/runtime/request_mutations.js` is the canonical worker-side mutation capture and commit layer for clustered runtime writes
 - `server/runtime/state_system.js` is the canonical primary-owned shared state engine for cross-worker coordination, replicated index shards, primary-only challenge state, delta replay, and named locks
+- `server/jobs/job_runner.js` is the canonical primary-owned periodic job scheduler and should reuse `state_system.js` named locks instead of inventing parallel lockfiles or second schedulers
 - `server/lib/utils/project_version.js` is the canonical project-version resolver for both the CLI version command and page-shell version display
 - `app/L0/_all/mod/_core/framework/js/yaml-lite.js` is the canonical YAML parser and serializer for both browser and server code; server modules import it directly instead of maintaining a duplicate server-side helper
 - `server/lib/customware/layout.js` is the canonical logical-to-disk resolver for repo `L0` and configured writable `L1`/`L2` roots

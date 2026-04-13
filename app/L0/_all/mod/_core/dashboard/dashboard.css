@@ -12,23 +12,6 @@
   margin: 0 auto;
 }
 
-.dashboard-shell::before {
-  content: "";
-  position: absolute;
-  top: -8rem;
-  left: 4%;
-  width: min(46rem, 72vw);
-  height: 28rem;
-  border-radius: 999px;
-  background:
-    radial-gradient(ellipse at 30% 35%, rgba(125, 220, 255, 0.1) 0%, transparent 74%),
-    radial-gradient(ellipse at 72% 42%, rgba(121, 237, 216, 0.08) 0%, transparent 76%),
-    radial-gradient(ellipse at 50% 80%, rgba(148, 188, 255, 0.08) 0%, transparent 78%);
-  filter: blur(28px);
-  opacity: 0.68;
-  pointer-events: none;
-}
-
 .dashboard-stack {
   position: relative;
   z-index: 1;

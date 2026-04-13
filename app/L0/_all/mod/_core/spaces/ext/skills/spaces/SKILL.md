@@ -2,7 +2,12 @@
 name: Spaces Widgets
 description: Create, patch, move, and remove widgets
 metadata:
-  always_loaded: true
+  when:
+    tags:
+      - route:spaces
+  just_loaded:
+    tags:
+      - space:open
 ---
 
 Use this skill for widget work in a space

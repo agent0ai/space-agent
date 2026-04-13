@@ -28,8 +28,9 @@ Cluster runtime rules:
 - `WORKERS=1` stays on the normal single-process runtime
 - `WORKERS>1` starts a primary plus worker-process model through `cluster.js`
 - workers own normal HTTP handling, cookie validation, and local filesystem writes
-- the primary owns the authoritative watchdog and the authoritative unified state system
+- the primary owns the authoritative watchdog, the authoritative unified state system, and any server-owned periodic jobs
 - workers keep replica watchdog snapshots and apply primary-published state deltas or snapshot resets by version
+- clustered processes should set distinct OS process titles for operator tools: the primary uses `space-serve-p`, and workers use `space-serve-w<N>` with stable worker ordinals
 
 Unified state-system rules:
 
@@ -40,12 +41,13 @@ Unified state-system rules:
 - entries may opt out of replication with `replicate: false`; those entries stay primary-only and may carry a TTL
 - named locks are explicit and token-based through `acquireLock` and `releaseLock`
 - login challenges live in the primary-only `login_challenge/<token>` area today, and future shared coordination should reuse this system instead of inventing ad hoc primary RPC paths
+- periodic job scheduling should also reuse this primary-owned coordination surface, especially named locks, rather than adding process-local lockfiles or worker-side schedulers
 
 Mutation and visibility rules:
 
 - mutating request paths are captured through `request_mutations.js`
 - workers perform the filesystem mutation first, then commit the affected logical project paths to the primary once
-- the primary updates the authoritative watchdog-derived state and publishes deltas or snapshots asynchronously; writes do not wait for every worker to acknowledge
+- the primary updates the authoritative watchdog-derived state, schedules any debounced writable-layer Git history commits for those rebuilt owner roots, and publishes deltas or snapshots asynchronously; writes do not wait for every worker to acknowledge
 - request-to-request freshness is enforced through `Space-State-Version`: responses advertise the worker's current replicated version, and requests may require a minimum version before handling continues
 - responses also advertise `Space-Worker`; clustered workers use stable ordinal numbers starting at `1`, while single-process runtime reports `0`
 

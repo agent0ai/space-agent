@@ -32,6 +32,7 @@ This module owns:
 - the file filter is open-ended and filters which commits are listed; matching commits still receive full changed-file metadata so sidebar pills and right-side details are not limited to the matching file
 - list rows should emphasize human-readable relative time, place a `CURRENT` pill between relative and full time when the commit is current, and summarize changed filenames in compact outline-only action-colored pills capped to three full rows
 - regular commit timeline nodes, relative time labels, and non-current selected hashes use the blue changed-file accent; only the current commit keeps the green current-time accent
+- commit rows suppress the browser's native blue tap-highlight flash so click and touch feedback stays inside the module-owned hover, selection, and current-state styling
 - the commit-pill overflow marker must be the first pill, and its count must include every changed file not actually rendered because of the 10-file cap or the measured three-row fit
 - the selected-commit detail header should show separate outline pills for added, modified, and deleted file counts when those counts are non-zero
 - changed-file detail rows should use neutral row chrome, color only the action icon, and open a colorized diff modal through `space.api.gitHistoryDiff(...)`

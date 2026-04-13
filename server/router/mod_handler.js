@@ -2,10 +2,11 @@ import path from "node:path";
 
 import { resolveRequestMaxLayer } from "../lib/customware/layer_limit.js";
 import { resolveProjectPathFromAbsolute } from "../lib/customware/layout.js";
+import { hasIndexedProjectPath } from "../lib/customware/module_state.js";
 import { resolveInheritedModuleProjectPath } from "../lib/customware/module_inheritance.js";
 import { sendFile, sendNotFound } from "./responses.js";
 
-function resolveModuleFilePath(projectRoot, requestPath, username, watchdog, options = {}) {
+function resolveModuleFilePath(projectRoot, requestPath, username, stateSystem, options = {}) {
   const normalizedPath = path.posix.normalize(requestPath);
 
   if (!normalizedPath.startsWith("/mod/")) {
@@ -22,16 +23,16 @@ function resolveModuleFilePath(projectRoot, requestPath, username, watchdog, opt
     projectRoot,
     requestPath: normalizedPath,
     runtimeParams: options.runtimeParams,
+    stateSystem,
     username,
-    watchdog
   });
 
   return resolvedModulePath ? resolvedModulePath.absolutePath : "";
 }
 
 function handleModuleRequest(res, requestPath, options = {}) {
-  const { headers, projectRoot, requestUrl, runtimeParams, username, watchdog } = options;
-  const filePath = resolveModuleFilePath(projectRoot, requestPath, username, watchdog, {
+  const { headers, projectRoot, requestUrl, runtimeParams, stateSystem, username } = options;
+  const filePath = resolveModuleFilePath(projectRoot, requestPath, username, stateSystem, {
     headers,
     requestUrl,
     runtimeParams
@@ -45,7 +46,7 @@ function handleModuleRequest(res, requestPath, options = {}) {
   const projectPath = projectRoot
     ? resolveProjectPathFromAbsolute(projectRoot, filePath, { runtimeParams })
     : "";
-  const knownMissing = Boolean(watchdog && projectPath && watchdog.covers(projectPath) && !watchdog.hasPath(projectPath));
+  const knownMissing = Boolean(stateSystem && projectPath && !hasIndexedProjectPath(stateSystem, projectPath));
 
   sendFile(res, filePath, {
     knownMissing

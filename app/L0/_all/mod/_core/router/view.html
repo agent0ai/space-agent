@@ -13,6 +13,7 @@
           x-init="$nextTick(() => { space.visual?.installStaticBackdrop?.($refs.backdrop); $store.router.mount({ outlet: $refs.outlet, viewport: $refs.viewport }); })"
           x-destroy="space.visual?.destroyStaticBackdrop?.($refs.backdrop); $store.router.unmount()"
         >
+          <x-skill-context :tags="$store.router.current?.path ? `route:${$store.router.current.path}` : ''"></x-skill-context>
           <div class="space-backdrop" x-ref="backdrop" data-space-backdrop aria-hidden="true">
             <div class="space-backdrop-layer space-backdrop-glow"></div>
             <div class="space-backdrop-layer space-backdrop-stars space-backdrop-stars-deep"></div>

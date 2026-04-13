@@ -43,7 +43,9 @@ These markers matter for prompt inspection, execution flows, and staged widget w
 Prompt construction includes two skill-related sections:
 
 - the top-level skill catalog built from readable `mod/*/*/ext/skills/*/SKILL.md` files
-- the `auto loaded` block for readable skills anywhere under `ext/skills/**/SKILL.md` whose frontmatter sets `metadata.always_loaded: true`
+- the `just loaded` block for readable skills anywhere under `ext/skills/**/SKILL.md` whose `metadata.just_loaded` condition currently passes
+
+Both sections are filtered by the current document's live `<x-skill-context>` tags before prompt assembly.
 
 Top-level skill catalog rows use the compact shape:
 

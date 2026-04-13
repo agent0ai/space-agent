@@ -1,0 +1,13 @@
+examples:
+  - text: What's the weather here?
+    code: |
+      await helpers.sendPrompt(example.text)
+  - text: Make me a Tetris game
+    code: |
+      await helpers.sendPrompt(example.text)
+  - text: Flip the space upside down slowly
+    code: |
+      await helpers.sendPrompt(example.text)
+  - text: What's the Bitcoin and ETH price?
+    code: |
+      await helpers.sendPrompt(example.text)

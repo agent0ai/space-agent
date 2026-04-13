@@ -1,4 +1,5 @@
 import { copyAppPath, copyAppPaths, createHttpError } from "../lib/customware/file_access.js";
+import { resolveRequestMaxLayer } from "../lib/customware/layer_limit.js";
 import { runTrackedMutation } from "../runtime/request_mutations.js";
 
 function readPayload(context) {
@@ -13,11 +14,17 @@ function hasBatchCopy(payload) {
 
 export async function post(context) {
   const payload = readPayload(context);
+  const maxLayer = resolveRequestMaxLayer({
+    body: payload,
+    headers: context.headers,
+    requestUrl: context.requestUrl
+  });
 
   try {
     return await runTrackedMutation(context, async () => {
       const options = {
         fromPath: String(payload.fromPath || context.params.fromPath || ""),
+        maxLayer,
         projectRoot: context.projectRoot,
         runtimeParams: context.runtimeParams,
         toPath: String(payload.toPath || context.params.toPath || ""),

@@ -1,4 +1,5 @@
 import { createHttpError, readAppFile, readAppFiles } from "../lib/customware/file_access.js";
+import { resolveRequestMaxLayer } from "../lib/customware/layer_limit.js";
 
 function readPayload(context) {
   return context.body && typeof context.body === "object" && !Buffer.isBuffer(context.body)
@@ -22,10 +23,16 @@ function hasBatchRead(payload) {
 
 function handleRead(context) {
   const payload = readPayload(context);
+  const maxLayer = resolveRequestMaxLayer({
+    body: payload,
+    headers: context.headers,
+    requestUrl: context.requestUrl
+  });
 
   try {
     const options = {
       encoding: readEncoding(context),
+      maxLayer,
       path: readPath(context),
       projectRoot: context.projectRoot,
       runtimeParams: context.runtimeParams,

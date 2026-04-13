@@ -14,13 +14,22 @@ body.space-theme-canvas {
   margin: 0;
   position: relative;
   isolation: isolate;
+  background-color: var(--color-canvas-deep);
+  color: var(--color-text-primary);
+}
+
+body.space-theme-canvas::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -2;
   background: linear-gradient(
     180deg,
     var(--color-canvas-elevated) 0%,
     var(--color-canvas) 52%,
     var(--color-canvas-deep) 100%
   );
-  color: var(--color-text-primary);
 }
 
 .space-backdrop {

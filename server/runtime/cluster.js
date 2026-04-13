@@ -3,15 +3,20 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createAgentServer, createServerBootstrap } from "../app.js";
-import { FILE_WATCH_CONFIG_PATH } from "../config.js";
+import { FILE_WATCH_CONFIG_PATH, JOBS_DIR } from "../config.js";
+import { JobRunner } from "../jobs/job_runner.js";
 import { createAuthService } from "../lib/auth/service.js";
-import { flushGitHistoryCommits, recordAppPathMutations } from "../lib/customware/git_history.js";
+import {
+  flushGitHistoryCommits,
+  scheduleGitHistoryCommitsForProjectPaths
+} from "../lib/customware/git_history.js";
 import {
   clearUserFolderSizeCache,
   invalidateUserFolderSizeCacheForProjectPaths
 } from "../lib/customware/user_quota.js";
 import { createWatchdog } from "../lib/file_watch/watchdog.js";
 import { createTmpWatch } from "../lib/tmp/tmp_watch.js";
+import { applyProcessTitle, buildServeProcessTitle } from "../lib/utils/process_title.js";
 import { hydrateRuntimeParams, serializeRuntimeParams } from "../lib/utils/runtime_params.js";
 import { setRuntimeAppPathMutationHandler } from "./app_path_mutations.js";
 import { IPC_MESSAGE_TYPES, createIpcRequestId } from "./ipc.js";
@@ -270,6 +275,7 @@ async function startClusterWorker() {
 
   const bootstrap = parseWorkerBootstrapEnv();
   const workerNumber = parseWorkerNumberEnv();
+  applyProcessTitle(buildServeProcessTitle({ workerNumber }));
   const runtimeParams = hydrateRuntimeParams(bootstrap.runtimeEntries);
   const pendingStateRequests = new Map();
   let app = null;
@@ -592,6 +598,7 @@ async function startClusteredServer(overrides = {}) {
     throw new Error("startClusteredServer() must run inside the cluster primary process.");
   }
 
+  applyProcessTitle(buildServeProcessTitle({ clusterPrimary: true }));
   const bootstrap = overrides.serverBootstrap || (await createServerBootstrap(overrides));
   const fileWatchConfigPath = path.resolve(overrides.fileWatchConfigPath || FILE_WATCH_CONFIG_PATH);
   const workerCount = normalizeWorkerCount(bootstrap.runtimeParams);
@@ -616,6 +623,7 @@ async function startClusteredServer(overrides = {}) {
   let rejectStartup = null;
   let runtime = null;
   let exitHandler = null;
+  let jobRunner = null;
   const workerNumbers = new Map();
 
   function sendWorkerMessage(worker, message) {
@@ -639,6 +647,16 @@ async function startClusteredServer(overrides = {}) {
   const auth =
     overrides.auth ||
     createAuthService({
+      projectRoot: bootstrap.projectRoot,
+      runtimeParams: bootstrap.runtimeParams,
+      stateSystem: primaryStateSystem,
+      watchdog
+    });
+  jobRunner =
+    overrides.jobRunner ||
+    new JobRunner({
+      auth,
+      jobDir: JOBS_DIR,
       projectRoot: bootstrap.projectRoot,
       runtimeParams: bootstrap.runtimeParams,
       stateSystem: primaryStateSystem,
@@ -695,12 +713,12 @@ async function startClusteredServer(overrides = {}) {
               });
 
               if (projectPaths.length > 0) {
-                recordAppPathMutations(
+                scheduleGitHistoryCommitsForProjectPaths(
                   {
                     projectRoot: bootstrap.projectRoot,
                     runtimeParams: bootstrap.runtimeParams
                   },
-                  projectPaths
+                  result.projectPaths || projectPaths
                 );
               }
 
@@ -821,6 +839,7 @@ async function startClusteredServer(overrides = {}) {
   try {
     await watchdog.start();
     await auth.initialize();
+    await jobRunner.start();
 
     const unsubscribe = watchdog.subscribe((event) => {
       if (closing) {
@@ -874,6 +893,7 @@ async function startClusteredServer(overrides = {}) {
       runtimeParams: bootstrap.runtimeParams,
       stateSync: createLocalStateSync(watchdog),
       stateSystem: primaryStateSystem,
+      jobRunner,
       tmpWatch,
       watchdog,
       async close() {
@@ -894,6 +914,7 @@ async function startClusteredServer(overrides = {}) {
           });
         });
 
+        jobRunner.stop();
         await flushGitHistoryCommits();
         tmpWatch.stop();
         watchdog.stop();
@@ -907,6 +928,7 @@ async function startClusteredServer(overrides = {}) {
   } catch (error) {
     closing = true;
     rejectStartup?.(error);
+    jobRunner?.stop();
     tmpWatch.stop();
     watchdog.stop();
     throw error;

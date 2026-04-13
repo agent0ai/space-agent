@@ -1,6 +1,7 @@
 import fs from "node:fs";
 
 import { createHttpError, getAppFolderDownloadInfo } from "../lib/customware/file_access.js";
+import { resolveRequestMaxLayer } from "../lib/customware/layer_limit.js";
 import {
   createArchiveReadStream,
   createAttachmentDisposition,
@@ -19,7 +20,15 @@ function readPath(context) {
 }
 
 function resolveFolderInfo(context) {
+  const payload = readPayload(context);
+  const maxLayer = resolveRequestMaxLayer({
+    body: payload,
+    headers: context.headers,
+    requestUrl: context.requestUrl
+  });
+
   return getAppFolderDownloadInfo({
+    maxLayer,
     path: readPath(context),
     projectRoot: context.projectRoot,
     runtimeParams: context.runtimeParams,

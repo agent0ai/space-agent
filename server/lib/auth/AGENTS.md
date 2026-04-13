@@ -17,7 +17,7 @@ Current files:
 - `passwords.js`: verifier and proof helpers
 - `user_files.js`: canonical `L2/<username>/user.yaml` and `meta/` read or write helpers
 - `user_index.js`: derived user and session index snapshot builder
-- `user_manage.js`: create user, set password, and create guest user helpers
+- `user_manage.js`: create user, delete user, set password, and create guest user helpers
 
 ## Storage Contract
 
@@ -40,7 +40,7 @@ Current session rules:
 - the cookie is `HttpOnly`, `SameSite=Strict`, scoped to `/`, and carries a 30-day max age
 - login uses the shared challenge and proof flow from `service.js`
 - successful login writes a backend-keyed session verifier plus signed metadata into `meta/logins.json` and publishes the changed logical auth paths through the shared mutation-commit flow
-- when `CUSTOMWARE_GIT_HISTORY` is enabled, login, logout, verifier migration, user creation, and password reset writes may schedule the affected user's debounced local-history check, but `meta/password.json` and `meta/logins.json` are ignored by the L2 history repo and preserved during rollback
+- when `CUSTOMWARE_GIT_HISTORY` is enabled, login, logout, verifier migration, user creation, and password reset writes may schedule the affected user's debounced local-history check, but `meta/password.json` and `meta/logins.json` are ignored by the L2 history repo and preserved during rollback; clustered worker writes rely on the primary post-rebuild scheduling path instead of worker-local Git debounces
 - session records include signed metadata and an absolute expiry timestamp
 - session revocation deletes the stored session entry and publishes the changed logical auth path through the shared mutation-commit flow
 - unsigned or expired session records are rejected even if they exist on disk
@@ -64,6 +64,8 @@ Current user-index rules:
 `user_manage.js` currently owns:
 
 - `createUser(...)`
+- `deleteUser(...)`
+- `deleteGuestUser(...)`
 - `setUserPassword(...)`
 - `createGuestUser(...)`
 
@@ -74,6 +76,8 @@ Rules:
 - CLI-owned group assignment for `node space user create --groups ...` belongs in `commands/user.js` and `server/lib/customware/group_files.js`, not in `user_manage.js`; `user_manage.js` should stay focused on user storage and auth files
 - password resets rewrite the sealed verifier and clear active sessions
 - guest users are created under randomized `guest_` usernames
+- guest deletion removes the whole `L2/<username>/` root and publishes that logical path through the shared mutation path so replicated user and session indexes drop the guest immediately
+- periodic guest cleanup policy belongs in `server/jobs/`; `user_manage.js` owns the deletion primitive, not the schedule or file-index policy
 
 ## Development Guidance
 
@@ -81,6 +85,6 @@ Rules:
 - do not add direct cookie or session-file manipulation elsewhere when the auth service already owns the flow
 - do not hand-roll `password.json` contents outside backend helpers; use `password_generate`, `user_manage.js`, or auth-service helpers so the backend seal key is applied correctly
 - treat the current local file-backed auth model as a constrained infrastructure contract, not as a place to casually grow unrelated policy
-- if user storage, session semantics, or login flow change, also update `app/L0/_all/mod/_core/onscreen_agent/ext/skills/development/` because its development skills mirror this contract
+- if user storage, session semantics, or login flow change, also update `app/L0/_all/mod/_core/skillset/ext/skills/development/` because the shared development skill mirrors this contract
 - if user storage, session semantics, or login flow change, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/server/`
 - if user storage, session semantics, or login flow change, update this file and the relevant router or API docs in the same session

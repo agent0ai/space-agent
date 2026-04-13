@@ -61,6 +61,7 @@ const EXTENSION_BATCH_FALLBACK_MS = 32;
 const HTML_EXTENSIONS_LOAD_BATCH_WAIT_MS = 0;
 const HTML_EXTENSION_SCOPE = "html";
 const JS_EXTENSION_SCOPE = "js";
+const FRAMEWORK_HEAD_EXTENSION_POINT = "_core/framework/head/end";
 
 export const API_EXTENSION_EXCLUDED_ENDPOINTS = new Set([
   "/api/extensions_load",
@@ -77,6 +78,27 @@ function readCachedValue(area, key) {
   }
 
   return cache.get(area, key);
+}
+
+function ensureFrameworkHeadExtensionAnchor() {
+  const head = document.head;
+  if (!head) {
+    return null;
+  }
+
+  const existing = Array.from(head.children).find(
+    (child) =>
+      child.tagName === "X-EXTENSION" &&
+      child.getAttribute("id") === FRAMEWORK_HEAD_EXTENSION_POINT
+  );
+  if (existing instanceof HTMLElement) {
+    return existing;
+  }
+
+  const extension = document.createElement("x-extension");
+  extension.setAttribute("id", FRAMEWORK_HEAD_EXTENSION_POINT);
+  head.appendChild(extension);
+  return extension;
 }
 
 function ensureSpaceRuntime() {
@@ -742,7 +764,11 @@ const extensionObserverCallback = (mutations) => {
 
 /** @type {MutationObserver} */
 const extensionObserver = new MutationObserver(extensionObserverCallback);
-extensionObserver.observe(document.body, { childList: true, subtree: true });
+extensionObserver.observe(document.documentElement, { childList: true, subtree: true });
+
+// Framework-backed pages always get one head-side HTML seam for declarative
+// tags or inline bootstraps that should not require page-shell edits.
+ensureFrameworkHeadExtensionAnchor();
 
 // Do an initial scan for static x-extension tags
 // that already exist in the DOM (index.html), then rely on

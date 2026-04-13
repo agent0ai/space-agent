@@ -1,0 +1,80 @@
+generated_at: "2026-04-13T09:15:40.233Z"
+generation_id: 2026-04-13T09-15-40-233Z
+model: openai/gpt-5.4-mini
+prompts:
+  -
+    rank: 1
+    id: 080A_target_fate_contracts
+    passed_cases: 55
+    total_cases: 64
+    pass_rate: 0.8594
+    passed_attempts: 55
+    total_attempts: 64
+    attempt_pass_rate: 0.8594
+    failed_cases:
+      - whole_page_flip_after_scope_clarification_uses_dom_root
+      - screenshot_after_helper_unavailable_uses_browser_js
+      - silent_widget_failure_reopens_repair
+      - reverse_geocode_after_precise_followup
+      - unpack_collapsed_weather_payload
+      - terminal_after_successful_widget_patch
+      - terminal_after_successful_retry_patch
+      - direct_repair_after_known_widget_error
+      - remove_space_by_title_requires_discovery_first
+  -
+    rank: 2
+    id: 080C_scope_board
+    passed_cases: 48
+    total_cases: 64
+    pass_rate: 0.75
+    passed_attempts: 48
+    total_attempts: 64
+    attempt_pass_rate: 0.75
+    failed_cases:
+      - time_requires_execution
+      - screenshot_after_helper_unavailable_uses_browser_js
+      - fix_visible_widget_error_requires_readwidget
+      - look_at_it_now_uses_see_widget
+      - verification_reveals_remaining_widget_error_requires_correction
+      - partial_mitigation_is_not_completion
+      - on_screen_widget_complaint_stays_on_known_target
+      - silent_widget_failure_reopens_repair
+      - widget_patch_error_then_do_it_requires_recovery_action
+      - widget_not_found_error_uses_available_widget_id
+      - unpack_collapsed_weather_payload
+      - write_user_yaml_after_read
+      - protocol_correction_after_successful_open_requires_terminal
+      - terminal_after_framework_no_result_continue
+      - direct_repair_after_known_widget_error
+      - remove_space_by_title_requires_discovery_first
+  -
+    rank: 3
+    id: 080B_target_fate_registers
+    passed_cases: 43
+    total_cases: 64
+    pass_rate: 0.6719
+    passed_attempts: 43
+    total_attempts: 64
+    attempt_pass_rate: 0.6719
+    failed_cases:
+      - page_title_requires_execution
+      - fix_visible_widget_error_requires_readwidget
+      - look_at_it_now_uses_see_widget
+      - verification_reveals_remaining_widget_error_requires_correction
+      - partial_mitigation_is_not_completion
+      - on_screen_widget_complaint_stays_on_known_target
+      - silent_widget_failure_reopens_repair
+      - widget_patch_error_then_do_it_requires_recovery_action
+      - weather_omitted_scope
+      - weather_self_scope_followup
+      - weather_after_precise_location_fetch_error_keeps_location
+      - reverse_geocode_after_precise_followup
+      - unpack_collapsed_weather_payload
+      - recover_after_combined_widget_read_write_error
+      - space_navigation_after_current_helper_error_switches_family
+      - widget_missing_without_replacement_requires_terminal_truth
+      - terminal_after_framework_no_result_continue
+      - repeat_do_it_requires_execution
+      - no_false_success_after_error
+      - direct_repair_after_known_widget_error
+      - remove_space_by_title_requires_discovery_first

@@ -3,9 +3,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { buildBasicAuthHeader } from "../../../server/lib/git/shared.js";
+import { resolveConfiguredUpdateRemoteUrl } from "../update_remote.js";
 
 const DEFAULT_REMOTE_NAME = "origin";
-const DEFAULT_REMOTE_URL = "https://github.com/agent0ai/space-agent.git";
 const RELEASE_COMMAND_TIMEOUT_MS = 20 * 60 * 1000;
 const REMOTE_CHECK_TIMEOUT_MS = 60 * 1000;
 const UPDATE_BRANCH_CONFIG_KEY = "space.updateBranch";
@@ -216,24 +216,24 @@ async function resolveSourceBranch(projectRoot, requestedBranchName) {
   );
 }
 
-async function resolveSourceRemoteUrl(projectRoot, requestedRemoteUrl) {
-  if (requestedRemoteUrl) {
-    return requestedRemoteUrl;
-  }
-
-  const originUrl = await readLocalConfig(projectRoot, "remote.origin.url");
-  return originUrl || DEFAULT_REMOTE_URL;
+async function resolveSourceRemoteUrl(projectRoot, requestedRemoteUrl, runtimeArgs = [], env = process.env) {
+  return resolveConfiguredUpdateRemoteUrl({
+    env,
+    explicitRemoteUrl: requestedRemoteUrl,
+    projectRoot,
+    runtimeArgs
+  });
 }
 
 async function resolveUpdateSource(options) {
-  const { branchName, projectRoot, remoteUrl } = options;
+  const { branchName, projectRoot, remoteUrl, runtimeArgs = [] } = options;
 
   await ensureGitAvailable(projectRoot);
 
   return {
     branchName: await resolveSourceBranch(projectRoot, branchName),
     currentRevision: await readCurrentRevision(projectRoot),
-    remoteUrl: await resolveSourceRemoteUrl(projectRoot, remoteUrl)
+    remoteUrl: await resolveSourceRemoteUrl(projectRoot, remoteUrl, runtimeArgs, process.env)
   };
 }
 
@@ -387,7 +387,6 @@ async function ensureReleaseForRevision(options) {
 }
 
 export {
-  DEFAULT_REMOTE_URL,
   buildGitAuthConfigArgs,
   ensureReleaseForRevision,
   readRemoteBranchRevision,

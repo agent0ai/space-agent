@@ -1,4 +1,5 @@
 import { createHttpError, writeAppFile, writeAppFiles } from "../lib/customware/file_access.js";
+import { resolveRequestMaxLayer } from "../lib/customware/layer_limit.js";
 import { runTrackedMutation } from "../runtime/request_mutations.js";
 
 function readPayload(context) {
@@ -13,12 +14,18 @@ function hasBatchWrite(payload) {
 
 export async function post(context) {
   const payload = readPayload(context);
+  const maxLayer = resolveRequestMaxLayer({
+    body: payload,
+    headers: context.headers,
+    requestUrl: context.requestUrl
+  });
 
   try {
     return await runTrackedMutation(context, async () => {
       const options = {
         content: payload.content,
         encoding: String(payload.encoding || "utf8"),
+        maxLayer,
         path: String(payload.path || context.params.path || ""),
         projectRoot: context.projectRoot,
         runtimeParams: context.runtimeParams,

@@ -218,6 +218,7 @@ function createRequestHandler(options) {
     projectVersion: providedProjectVersion,
     projectRoot,
     runtimeParams,
+    stateSystem,
     stateSync,
     workerNumber,
     watchdog
@@ -272,6 +273,7 @@ function createRequestHandler(options) {
           port,
           projectRoot,
           runtimeParams,
+          stateSystem,
           requestContext,
           user: requestContext.user
         });
@@ -287,8 +289,8 @@ function createRequestHandler(options) {
           projectRoot,
           requestUrl,
           runtimeParams,
+          stateSystem,
           username: requestContext.user.username,
-          watchdog
         });
         return;
       }

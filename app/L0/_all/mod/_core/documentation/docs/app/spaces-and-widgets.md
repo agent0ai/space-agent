@@ -5,6 +5,8 @@ This doc covers the spaces runtime because it is one of the most important agent
 ## Primary Sources
 
 - `app/L0/_all/mod/_core/spaces/AGENTS.md`
+- `app/L0/_all/mod/_core/spaces/empty-canvas-examples.yaml`
+- `app/L0/_all/mod/_core/spaces/empty-canvas-examples.js`
 - `app/L0/_all/mod/_core/spaces/ext/skills/spaces/SKILL.md`
 - `app/L0/_all/mod/_core/spaces/storage.js`
 - `app/L0/_all/mod/_core/spaces/store.js`
@@ -23,9 +25,12 @@ Important files:
 Important rules:
 
 - new spaces start empty
+- on first login, `_core/spaces` uses the shared `_core/login_hooks/first_login` seam to copy or reuse the bundled `_core/spaces/onboarding_space/` template, whose `space.yaml` owns the `Big Bang` title, icon, color, and onboarding instructions, then on the main `/` shell rewrites the initial route so the router lands in that space instead of the default dashboard
+- while the spaces page is mounted with a current space, `view.html` exports a hidden `space:open` skill-context tag
 - widget ids come from widget filenames
 - the manifest should not invent fake untitled titles
 - widget source is now YAML-first; old `widgets/*.js` files are migration input only
+- space title and agent-instruction edits are draft-first in the sidebar and should flush on blur, panel close, route change, or unmount rather than persisting on every keystroke
 
 ## Runtime Namespaces
 
@@ -82,6 +87,25 @@ Rules:
 - widget-name pills are capped to two visible rows inside each card
 - the launcher still caps wide-screen rows at five cards
 
+## Empty Space Canvas
+
+When a space has no widgets yet, the routed canvas uses a slower staged onboarding sequence instead of one static placeholder.
+
+Rules:
+
+- keep the example-card placeholders above the text block for now, but keep them hidden until the final reveal
+- load the example buttons from `_core/spaces/empty-canvas-examples.yaml` instead of a hardcoded prompt array; each entry supplies visible button text plus a JavaScript click body compiled by `_core/spaces/empty-canvas-examples.js`
+- animate each onboarding text block independently instead of rewriting one existing sentence in place, and float each visible text independently so the copy does not move as one glued cluster
+- phase 1 shows `Just an empty space here`
+- phase 2 reveals a smaller `for now` with a visibly wider gap below the primary line and enough hold time to read both intro lines comfortably
+- phase 3 reveals `Tell your agent what to create`
+- phase 4 reveals a smaller `or try one of the examples above`
+- phase 5 reveals the example buttons after the examples line is already visible
+- keep the intro pair visible long enough to read after `for now` appears, and keep a brief gap between the intro pair fading out and the replacement pair fading in so the new lines do not appear during the old lines' exit animation
+- make the copy block itself clickable so users can skip the staged sequence and jump directly to the fully revealed final state
+- prompt-style example actions should call the spaces helper `sendPrompt(...)`, which routes into `space.onscreenAgent.submitExamplePrompt(...)` so default API-key blockers surface `Don't forget to configure your LLM first.` and active streaming or execution surfaces `I'm in the middle of something...` through the overlay bubble instead of silently queueing
+- reduced-motion users should not be forced through the staged animation; show the stable final copy and buttons immediately
+
 ## Widget Renderer Contract
 
 Preferred renderer shape:
@@ -125,6 +149,7 @@ Important protocol rules:
 - `readWidget(...)` returns numbered renderer lines for patch targeting
 - those numeric prefixes are display-only targets, not source text
 - prompt-side readbacks land in `_____framework` or `_____transient`
+- the first-party `spaces` skill is eligible only while the router exports `route:spaces`, and it becomes `just loaded` only while the page exports `space:open`
 
 ## When To Read More
 

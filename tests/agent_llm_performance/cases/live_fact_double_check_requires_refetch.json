@@ -1,0 +1,29 @@
+{
+  "id": "live_fact_double_check_requires_refetch",
+  "description": "after answering a live fact and the user says double check, the next reply must fetch again instead of restating the stale prior values",
+  "history": "../histories/live_fact_double_check_requires_refetch.json",
+  "expect": {
+    "response_type": "thrust",
+    "require_staging_line": true,
+    "require_separator_line": true,
+    "require_single_separator": true,
+    "require_code_after_separator": true,
+    "require_valid_javascript": true,
+    "must_contain": [
+      "_____javascript"
+    ],
+    "must_match": [
+      {
+        "pattern": "fetch\\(",
+        "flags": "u"
+      },
+      {
+        "pattern": "bitcoin|ethereum",
+        "flags": "iu"
+      }
+    ],
+    "must_not_contain": [
+      "Bitcoin is $70,740 and Ethereum is $2,184.80."
+    ]
+  }
+}

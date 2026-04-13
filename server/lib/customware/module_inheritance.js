@@ -1,22 +1,33 @@
-import { createRuntimeGroupIndex } from "./group_runtime.js";
 import { isProjectPathWithinMaxLayer } from "./layer_limit.js";
 import {
   normalizeModuleRequestPath,
   parseProjectModuleFilePath,
   resolveProjectAbsolutePath
 } from "./layout.js";
+import {
+  collectProjectPathsFromFileIndexShards,
+  collectReadableModuleShardIds,
+  getRuntimeGroupIndexFromStateSystem
+} from "./module_state.js";
 import { createEmptyGroupIndex, filterAccessibleModulePaths } from "./overrides.js";
 
-function findCandidateModuleProjectPaths(watchdog, requestPath, maxLayer) {
-  const filePaths = watchdog && typeof watchdog.getPaths === "function" ? watchdog.getPaths() : [];
+function findCandidateModuleProjectPaths(options = {}) {
+  const filePaths = collectProjectPathsFromFileIndexShards(
+    options.stateSystem,
+    collectReadableModuleShardIds({
+      groupIndex: options.groupIndex,
+      maxLayer: options.maxLayer,
+      username: options.username
+    })
+  );
 
   return filePaths.filter((projectPath) => {
-    if (!isProjectPathWithinMaxLayer(projectPath, maxLayer)) {
+    if (!isProjectPathWithinMaxLayer(projectPath, options.maxLayer)) {
       return false;
     }
 
     const modulePathInfo = parseProjectModuleFilePath(projectPath);
-    return Boolean(modulePathInfo && modulePathInfo.requestPath === requestPath);
+    return Boolean(modulePathInfo && modulePathInfo.requestPath === options.requestPath);
   });
 }
 
@@ -25,20 +36,23 @@ function resolveInheritedModuleProjectPath({
   projectRoot,
   requestPath,
   runtimeParams,
+  stateSystem,
   username,
-  watchdog
 }) {
   const normalizedRequestPath = normalizeModuleRequestPath(requestPath);
 
-  if (!normalizedRequestPath || !watchdog) {
+  if (!normalizedRequestPath || !stateSystem) {
     return null;
   }
 
-  const groupIndex =
-    typeof watchdog.getIndex === "function"
-      ? createRuntimeGroupIndex(watchdog.getIndex("group_index"), runtimeParams)
-      : createEmptyGroupIndex();
-  const candidatePaths = findCandidateModuleProjectPaths(watchdog, normalizedRequestPath, maxLayer);
+  const groupIndex = getRuntimeGroupIndexFromStateSystem(stateSystem, runtimeParams) || createEmptyGroupIndex();
+  const candidatePaths = findCandidateModuleProjectPaths({
+    groupIndex,
+    maxLayer,
+    requestPath: normalizedRequestPath,
+    stateSystem,
+    username
+  });
   const accessiblePaths = filterAccessibleModulePaths(candidatePaths, username, groupIndex, {
     maxLayer
   });

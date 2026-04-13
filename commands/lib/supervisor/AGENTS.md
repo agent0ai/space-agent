@@ -24,15 +24,17 @@ Current files:
 Stable behavior:
 
 - the supervisor process binds the public `HOST` and `PORT`
+- the supervisor process sets its OS process title to `space-supervise` so operators can distinguish it from `serve` children in tools such as `htop`
 - child servers always receive `HOST=127.0.0.1` and `PORT=0`
 - all non-supervisor CLI arguments are forwarded to child `space serve` processes as opaque launch arguments
 - public bind `HOST` and `PORT` come from the same `PARAM=VALUE` runtime-param form as `serve`, not command-specific flag aliases
 - `CUSTOMWARE_PATH` is required and is normalized to an absolute path before being passed to children
-- supervisor state defaults to `CUSTOMWARE_PATH/.space-supervisor`
-- staged releases live under the supervisor state directory, not in the live source checkout
+- supervisor state defaults to `<projectRoot>/supervisor`
+- staged releases live under that project-root supervisor directory, separate from both the live source files and `CUSTOMWARE_PATH`
 - auto-update polling uses `--auto-update-interval`, defaults to `300` seconds, and is disabled when the interval is less than or equal to `0`
 - auth keys are either inherited from `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` or generated once under supervisor state and injected into every child
 - `supervise` should stay independent from server runtime-param parsing so new `space serve` flags can flow through without a supervisor-specific change
+- the watched update repository is resolved in shared order: `--remote-url`, then `GIT_URL`, then the local `origin` remote URL, then the canonical fallback
 - GitHub update checks and staged release clones use the same `SPACE_GITHUB_TOKEN` auth rule as `node space update`, and send no GitHub auth header when that variable is unset
 - when the auto-update interval is greater than `0`, updates are staged by cloning the watched branch, checking out the exact remote revision, running `npm install --omit=optional`, then starting and health-checking the replacement child
 - update attempts never overlap; the next interval is scheduled only after the current attempt finishes or fails
@@ -47,8 +49,8 @@ The public command owns argument parsing. Helper modules should receive normaliz
 
 Runtime state written by this subtree:
 
-- `CUSTOMWARE_PATH/.space-supervisor/auth/auth_keys.json` by default, unless auth keys are injected through environment variables
-- `CUSTOMWARE_PATH/.space-supervisor/releases/<revision>/` release directories by default
+- `<projectRoot>/supervisor/auth/auth_keys.json` by default, unless auth keys are injected through environment variables
+- `<projectRoot>/supervisor/releases/<revision>/` release directories by default
 
 External commands used by this subtree:
 

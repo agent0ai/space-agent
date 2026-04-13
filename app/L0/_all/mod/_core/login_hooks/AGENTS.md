@@ -23,6 +23,7 @@ This scope owns:
 - first-login hook dispatch uses the explicit JS extension point `_core/login_hooks/first_login`
 - repeatable login hook dispatch uses the explicit JS extension point `_core/login_hooks/any_login`
 - first-login hooks run before the marker file is written and before any-login hooks on the same bootstrap
+- first-login hooks are the supported place for client-owned onboarding side effects; the current first-party example lives in `_core/spaces`, where a spaces-owned hook copies or reuses the initial onboarding space template and rewrites the main-shell default route before the router falls back to `#/dashboard`
 - any-login dispatch is frontend-detected and currently means the authenticated framework shell was reached with a same-origin `/login` referrer; do not silently broaden that heuristic without documenting it
 - hook context must include the current `identity`, `username`, `markerPath`, `isFirstLogin`, and `isLoginNavigation`
 - this module should fail soft at the page level: hook errors may log locally through the extension runtime, but they should not break authenticated shell bootstrap
@@ -32,4 +33,5 @@ This scope owns:
 - keep this module headless and bootstrap-focused
 - use the shared `_core/framework/initializer.js/initialize/end` seam instead of editing page shells
 - keep first-login persistence minimal and explicit so future client-owned lifecycle markers can share the same `meta/` folder without confusion
+- keep feature-owned onboarding behavior in first-login hook extensions owned by the feature module instead of hardcoding that behavior into `login-hooks.js`
 - if the marker path, dispatch order, extension point names, or login-detection heuristic changes, also update `/app/AGENTS.md` and the matching docs under `_core/documentation/docs/app/`

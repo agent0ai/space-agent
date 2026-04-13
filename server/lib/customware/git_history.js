@@ -528,6 +528,22 @@ function scheduleLayerHistoryTarget(target, options = {}) {
   pendingCommits.set(target.key, entry);
 }
 
+function scheduleGitHistoryCommitsForProjectPaths(options = {}, projectPaths = []) {
+  if (suppressionDepth > 0 || !isCustomwareGitHistoryEnabled(options.runtimeParams)) {
+    return [];
+  }
+
+  const targets = collectLayerHistoryTargets(options, projectPaths);
+
+  for (const target of targets) {
+    scheduleLayerHistoryTarget(target, {
+      debounceMs: options.debounceMs
+    });
+  }
+
+  return targets;
+}
+
 function recordAppPathMutations(options = {}, projectPaths = []) {
   recordCapturedProjectPathMutations(projectPaths);
 
@@ -545,19 +561,7 @@ function recordAppPathMutations(options = {}, projectPaths = []) {
     return [];
   }
 
-  if (suppressionDepth > 0 || !isCustomwareGitHistoryEnabled(options.runtimeParams)) {
-    return [];
-  }
-
-  const targets = collectLayerHistoryTargets(options, projectPaths);
-
-  for (const target of targets) {
-    scheduleLayerHistoryTarget(target, {
-      debounceMs: options.debounceMs
-    });
-  }
-
-  return targets;
+  return scheduleGitHistoryCommitsForProjectPaths(options, projectPaths);
 }
 
 function clearPendingEntry(entry) {
@@ -835,6 +839,7 @@ export {
   listLayerHistoryRepositories,
   listLayerHistoryCommits,
   recordAppPathMutations,
+  scheduleGitHistoryCommitsForProjectPaths,
   revertLayerHistoryCommit,
   resolveLayerHistoryTargetForRequest,
   resolveGitHistoryDebounceMs,

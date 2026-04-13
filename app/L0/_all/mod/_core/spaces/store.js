@@ -36,6 +36,7 @@ import {
   saveSpaceMeta,
   upsertWidget
 } from "/mod/_core/spaces/storage.js";
+import { loadEmptyCanvasExamples } from "/mod/_core/spaces/empty-canvas-examples.js";
 import {
   DEFAULT_SPACE_ICON,
   DEFAULT_SPACE_ICON_COLOR,
@@ -75,6 +76,48 @@ const EMPTY_SPACE_FLOAT_PROFILE = Object.freeze({
   rotationPeriodMs: 17600,
   xRadius: 7.2,
   yRadius: 8.2
+});
+const EMPTY_SPACE_TEXT_FLOAT_PROFILES = Object.freeze([
+  {
+    orbitPeriodMs: 13600,
+    phase: 0.2,
+    rotationAmplitude: 1.4,
+    rotationPeriodMs: 18800,
+    xRadius: 5.8,
+    yRadius: 6.2
+  },
+  {
+    orbitPeriodMs: 14900,
+    phase: 1.35,
+    rotationAmplitude: 1.1,
+    rotationPeriodMs: 17100,
+    xRadius: 4.4,
+    yRadius: 5.1
+  },
+  {
+    orbitPeriodMs: 14300,
+    phase: 2.45,
+    rotationAmplitude: 1.35,
+    rotationPeriodMs: 19400,
+    xRadius: 5.4,
+    yRadius: 6
+  },
+  {
+    orbitPeriodMs: 15500,
+    phase: 3.1,
+    rotationAmplitude: 1,
+    rotationPeriodMs: 18200,
+    xRadius: 4.2,
+    yRadius: 4.8
+  }
+]);
+const EMPTY_SPACE_SEQUENCE_PROFILE = Object.freeze({
+  buttonsDelayMs: 2400,
+  examplesLineDelayMs: 2400,
+  firstLineDelayMs: 500,
+  introGapDelayMs: 2400,
+  lineSwapGapDelayMs: 3600,
+  promptLineDelayMs: 2200
 });
 
 function positiveModulo(value, divisor) {
@@ -1588,36 +1631,53 @@ function createLoadingCanvasState() {
   return { root, title };
 }
 
-function createEmptyCanvasState() {
-  const examplePrompts = [
-    "What's the weather here?",
-    "Make me a Tetris game",
-    "Flip the space upside down slowly",
-    "What's the Bitcoin and ETH price?"
-  ];
+function createEmptyCanvasState(exampleDefinitions = []) {
   const root = createElement("section", "spaces-empty-canvas");
   const content = createElement("div", "spaces-empty-canvas-content");
-  const title = createElement("h2", "spaces-empty-canvas-title");
-  const firstLine = createElement("span", "spaces-empty-canvas-line", "Just an empty space here,");
-  const secondLine = createElement("span", "spaces-empty-canvas-line", "tell the Space Agent what to do...");
+  const copy = createElement("div", "spaces-empty-canvas-copy");
+  const primarySlot = createElement("div", "spaces-empty-canvas-copy-slot spaces-empty-canvas-copy-slot-primary");
+  const secondarySlot = createElement("div", "spaces-empty-canvas-copy-slot spaces-empty-canvas-copy-slot-secondary");
+  const firstFloater = createElement("div", "spaces-empty-canvas-floater spaces-empty-canvas-floater-intro-primary");
+  const secondFloater = createElement("div", "spaces-empty-canvas-floater spaces-empty-canvas-floater-intro-secondary");
+  const thirdFloater = createElement("div", "spaces-empty-canvas-floater spaces-empty-canvas-floater-prompt");
+  const fourthFloater = createElement("div", "spaces-empty-canvas-floater spaces-empty-canvas-floater-examples-copy");
+  const firstText = createElement("p", "spaces-empty-canvas-text spaces-empty-canvas-text-intro-primary", "Just an empty space here");
+  const secondText = createElement("p", "spaces-empty-canvas-text spaces-empty-canvas-text-intro-secondary", "for now");
+  const thirdText = createElement(
+    "p",
+    "spaces-empty-canvas-text spaces-empty-canvas-text-prompt",
+    "Tell your agent what to create"
+  );
+  const fourthText = createElement(
+    "p",
+    "spaces-empty-canvas-text spaces-empty-canvas-text-examples-copy",
+    "or try one of the examples above"
+  );
   const examples = createElement("div", "spaces-empty-canvas-examples");
 
-  title.append(firstLine, secondLine);
-  examplePrompts.forEach((promptText) => {
-    const button = createElement("button", "spaces-empty-canvas-example", promptText);
+  copy.tabIndex = 0;
+  copy.setAttribute("role", "button");
+  copy.setAttribute("aria-label", "Show all empty space guidance");
+  content.dataset.emptyCanvasStage = "boot";
+  firstFloater.appendChild(firstText);
+  secondFloater.appendChild(secondText);
+  thirdFloater.appendChild(thirdText);
+  fourthFloater.appendChild(fourthText);
+  primarySlot.append(firstFloater, thirdFloater);
+  secondarySlot.append(secondFloater, fourthFloater);
+  copy.append(primarySlot, secondarySlot);
+  exampleDefinitions.forEach((exampleDefinition) => {
+    const button = createElement("button", "spaces-empty-canvas-example", exampleDefinition.text);
     button.type = "button";
-    button.addEventListener("click", async () => {
+    button.addEventListener("click", async (event) => {
       button.disabled = true;
 
       try {
-        if (!globalThis.space?.onscreenAgent?.submitPrompt) {
-          throw new Error("space.onscreenAgent.submitPrompt(...) is not available.");
-        }
-
-        await globalThis.space.onscreenAgent.submitPrompt(promptText);
+        await exampleDefinition.execute(event);
       } catch (error) {
         logSpacesError("empty canvas example click failed", error, {
-          promptText
+          exampleId: exampleDefinition.id,
+          promptText: exampleDefinition.text
         });
       } finally {
         button.disabled = false;
@@ -1626,10 +1686,250 @@ function createEmptyCanvasState() {
     examples.appendChild(button);
   });
 
-  content.append(title, examples);
+  content.append(examples, copy);
   root.appendChild(content);
 
-  return { root, title };
+  return {
+    copy,
+    content,
+    floaters: [firstFloater, secondFloater, thirdFloater, fourthFloater],
+    root
+  };
+}
+
+function startEmptyCanvasSequenceAnimation(elements, motionQuery = null) {
+  const stageHost = elements?.content || elements || null;
+  const skipTarget = elements?.copy || null;
+
+  if (!stageHost) {
+    return () => {};
+  }
+
+  const stageSteps = [
+    ["intro-primary", EMPTY_SPACE_SEQUENCE_PROFILE.firstLineDelayMs],
+    ["intro-secondary", EMPTY_SPACE_SEQUENCE_PROFILE.introGapDelayMs],
+    ["swap-gap", EMPTY_SPACE_SEQUENCE_PROFILE.lineSwapGapDelayMs],
+    ["prompt", EMPTY_SPACE_SEQUENCE_PROFILE.promptLineDelayMs],
+    ["examples-copy", EMPTY_SPACE_SEQUENCE_PROFILE.examplesLineDelayMs],
+    ["buttons", EMPTY_SPACE_SEQUENCE_PROFILE.buttonsDelayMs]
+  ];
+  let stageTimeouts = [];
+
+  const clearTimers = () => {
+    stageTimeouts.forEach((timeoutId) => {
+      window.clearTimeout(timeoutId);
+    });
+    stageTimeouts = [];
+  };
+
+  const setStage = (stage) => {
+    if (!stageHost.isConnected) {
+      return;
+    }
+
+    stageHost.dataset.emptyCanvasStage = stage;
+  };
+
+  const jumpToFinalStage = () => {
+    clearTimers();
+    setStage("buttons");
+  };
+
+  const start = () => {
+    clearTimers();
+
+    if (!stageHost.isConnected) {
+      return;
+    }
+
+    if (motionQuery?.matches) {
+      jumpToFinalStage();
+      return;
+    }
+
+    let elapsedMs = 0;
+    stageSteps.forEach(([stageName, delayMs], index) => {
+      elapsedMs += delayMs;
+      const timeoutId = window.setTimeout(() => {
+        setStage(stageName);
+      }, elapsedMs);
+      stageTimeouts.push(timeoutId);
+
+      if (index === 0 && delayMs === 0) {
+        setStage(stageName);
+      }
+    });
+  };
+
+  const handleMotionPreferenceChange = () => {
+    start();
+  };
+  const handleSkipClick = () => {
+    jumpToFinalStage();
+  };
+  const handleSkipKeydown = (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    jumpToFinalStage();
+  };
+
+  if (motionQuery) {
+    if (typeof motionQuery.addEventListener === "function") {
+      motionQuery.addEventListener("change", handleMotionPreferenceChange);
+    } else if (typeof motionQuery.addListener === "function") {
+      motionQuery.addListener(handleMotionPreferenceChange);
+    }
+  }
+
+  if (skipTarget) {
+    skipTarget.addEventListener("click", handleSkipClick);
+    skipTarget.addEventListener("keydown", handleSkipKeydown);
+  }
+
+  start();
+
+  return () => {
+    clearTimers();
+
+    if (motionQuery) {
+      if (typeof motionQuery.removeEventListener === "function") {
+        motionQuery.removeEventListener("change", handleMotionPreferenceChange);
+      } else if (typeof motionQuery.removeListener === "function") {
+        motionQuery.removeListener(handleMotionPreferenceChange);
+      }
+    }
+
+    if (skipTarget) {
+      skipTarget.removeEventListener("click", handleSkipClick);
+      skipTarget.removeEventListener("keydown", handleSkipKeydown);
+    }
+  };
+}
+
+function combineCleanupFunctions(...cleanups) {
+  return () => {
+    cleanups.forEach((cleanup) => {
+      if (typeof cleanup === "function") {
+        cleanup();
+      }
+    });
+  };
+}
+
+function applyEmptyCanvasTextPose(element, x, y, rotation) {
+  if (!element) {
+    return;
+  }
+
+  element.style.setProperty("--spaces-empty-text-float-x", `${x.toFixed(1)}px`);
+  element.style.setProperty("--spaces-empty-text-float-y", `${y.toFixed(1)}px`);
+  element.style.setProperty("--spaces-empty-text-float-rotate", `${rotation.toFixed(1)}deg`);
+}
+
+function startEmptyCanvasTextFloatAnimation(elements, motionQuery = null) {
+  const floaters = Array.isArray(elements)
+    ? elements.filter(Boolean).map((element, index) => ({
+      element,
+      profile: EMPTY_SPACE_TEXT_FLOAT_PROFILES[index % EMPTY_SPACE_TEXT_FLOAT_PROFILES.length]
+    }))
+    : [];
+
+  if (!floaters.length) {
+    return () => {};
+  }
+
+  let frame = 0;
+  let startTime = 0;
+
+  const resetPose = () => {
+    floaters.forEach(({ element }) => {
+      applyEmptyCanvasTextPose(element, 0, 0, 0);
+    });
+  };
+
+  const step = (timestamp) => {
+    const hasConnectedElement = floaters.some(({ element }) => element.isConnected);
+
+    if (!hasConnectedElement) {
+      frame = 0;
+      return;
+    }
+
+    if (motionQuery?.matches) {
+      frame = 0;
+      startTime = 0;
+      resetPose();
+      return;
+    }
+
+    if (!startTime) {
+      startTime = timestamp;
+    }
+
+    const elapsed = timestamp - startTime;
+    floaters.forEach(({ element, profile }) => {
+      if (!element.isConnected) {
+        return;
+      }
+
+      const orbitAngle = ((elapsed / profile.orbitPeriodMs) * TAU) + profile.phase;
+      const rotationAngle = ((elapsed / profile.rotationPeriodMs) * TAU) + (profile.phase * 0.75);
+
+      applyEmptyCanvasTextPose(
+        element,
+        Math.cos(orbitAngle) * profile.xRadius,
+        Math.sin(orbitAngle) * profile.yRadius,
+        Math.sin(rotationAngle) * profile.rotationAmplitude
+      );
+    });
+
+    frame = window.requestAnimationFrame(step);
+  };
+
+  const start = () => {
+    window.cancelAnimationFrame(frame);
+    frame = 0;
+    startTime = 0;
+    resetPose();
+
+    if (motionQuery?.matches) {
+      return;
+    }
+
+    frame = window.requestAnimationFrame(step);
+  };
+
+  const handleMotionPreferenceChange = () => {
+    start();
+  };
+
+  if (motionQuery) {
+    if (typeof motionQuery.addEventListener === "function") {
+      motionQuery.addEventListener("change", handleMotionPreferenceChange);
+    } else if (typeof motionQuery.addListener === "function") {
+      motionQuery.addListener(handleMotionPreferenceChange);
+    }
+  }
+
+  start();
+
+  return () => {
+    window.cancelAnimationFrame(frame);
+    frame = 0;
+
+    if (motionQuery) {
+      if (typeof motionQuery.removeEventListener === "function") {
+        motionQuery.removeEventListener("change", handleMotionPreferenceChange);
+      } else if (typeof motionQuery.removeListener === "function") {
+        motionQuery.removeListener(handleMotionPreferenceChange);
+      }
+    }
+
+    resetPose();
+  };
 }
 
 function applyFloatingTitlePose(element, x, y, rotation) {
@@ -3972,7 +4272,17 @@ const spacesModel = {
     grid.replaceChildren();
 
     if (!spaceRecord.widgetIds.length) {
-      const emptyCanvas = createEmptyCanvasState();
+      let exampleDefinitions = [];
+
+      try {
+        exampleDefinitions = await loadEmptyCanvasExamples();
+      } catch (error) {
+        logSpacesError("loadEmptyCanvasExamples failed", error, {
+          spaceId: spaceRecord.id
+        });
+      }
+
+      const emptyCanvas = createEmptyCanvasState(exampleDefinitions);
 
       this.currentCanvasBounds = null;
       this.currentResolvedLayout = null;
@@ -3981,7 +4291,9 @@ const spacesModel = {
       grid.style.removeProperty("width");
       grid.style.removeProperty("height");
       grid.appendChild(emptyCanvas.root);
-      this.emptyCanvasCleanup = startFloatingTitleAnimation(emptyCanvas.title, this.motionQuery);
+      const floatingCleanup = startEmptyCanvasTextFloatAnimation(emptyCanvas.floaters, this.motionQuery);
+      const sequenceCleanup = startEmptyCanvasSequenceAnimation(emptyCanvas, this.motionQuery);
+      this.emptyCanvasCleanup = combineCleanupFunctions(floatingCleanup, sequenceCleanup);
       this.renderFadeCleanup = playGridFadeIn(grid, this.motionQuery);
       syncSpacesRuntimeState();
       return;

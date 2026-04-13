@@ -1,0 +1,81 @@
+generated_at: "2026-04-13T09:32:37.029Z"
+generation_id: 2026-04-13T09-32-37-029Z
+model: openai/gpt-5.4-mini
+prompts:
+  -
+    rank: 1
+    id: 081A_069A_scope_and_collapse_surgical
+    passed_cases: 58
+    total_cases: 64
+    pass_rate: 0.9063
+    passed_attempts: 58
+    total_attempts: 64
+    attempt_pass_rate: 0.9063
+    failed_cases:
+      - look_at_it_now_uses_see_widget
+      - widget_patch_error_then_do_it_requires_recovery_action
+      - reverse_geocode_after_precise_followup
+      - write_user_yaml_after_read
+      - widget_missing_without_replacement_requires_terminal_truth
+      - remove_space_by_title_requires_discovery_first
+  -
+    rank: 2
+    id: 081B_069A_contract_switch_and_truth
+    passed_cases: 48
+    total_cases: 64
+    pass_rate: 0.75
+    passed_attempts: 48
+    total_attempts: 64
+    attempt_pass_rate: 0.75
+    failed_cases:
+      - page_title_requires_execution
+      - time_requires_execution
+      - fix_visible_widget_error_requires_readwidget
+      - verification_reveals_remaining_widget_error_requires_correction
+      - partial_mitigation_is_not_completion
+      - on_screen_widget_complaint_stays_on_known_target
+      - silent_widget_failure_reopens_repair
+      - widget_patch_error_then_do_it_requires_recovery_action
+      - unpack_collapsed_weather_payload
+      - write_user_yaml_after_read
+      - terminal_after_successful_widget_patch
+      - terminal_after_successful_retry_patch
+      - protocol_correction_after_successful_open_requires_terminal
+      - terminal_after_framework_no_result_continue
+      - repeat_do_it_requires_execution
+      - direct_repair_after_known_widget_error
+  -
+    rank: 3
+    id: 081C_069A_small_router_reset
+    passed_cases: 39
+    total_cases: 64
+    pass_rate: 0.6094
+    passed_attempts: 39
+    total_attempts: 64
+    attempt_pass_rate: 0.6094
+    failed_cases:
+      - page_title_requires_execution
+      - screenshot_download_without_helper_uses_browser_js
+      - screenshot_after_helper_unavailable_uses_browser_js
+      - download_html_without_helper_uses_browser_js
+      - fix_visible_widget_error_requires_readwidget
+      - verification_reveals_remaining_widget_error_requires_correction
+      - partial_mitigation_is_not_completion
+      - on_screen_widget_complaint_stays_on_known_target
+      - silent_widget_failure_reopens_repair
+      - widget_patch_error_then_do_it_requires_recovery_action
+      - unpack_collapsed_weather_payload
+      - write_user_yaml_after_read
+      - selective_yaml_edit_requires_read_first
+      - space_navigation_after_user_push_uses_open_helper
+      - widget_missing_without_replacement_requires_terminal_truth
+      - terminal_after_successful_widget_patch
+      - terminal_after_successful_retry_patch
+      - protocol_correction_after_successful_open_requires_terminal
+      - terminal_after_framework_no_result_info
+      - terminal_after_framework_no_result_continue
+      - terminal_after_result_commandlike_literal
+      - terminal_after_result_retry_literal
+      - protocol_nudge_requires_real_thrust
+      - continue_after_widget_load_success
+      - direct_repair_after_known_widget_error

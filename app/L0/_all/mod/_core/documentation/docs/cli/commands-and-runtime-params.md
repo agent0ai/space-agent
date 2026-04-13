@@ -58,11 +58,11 @@ The command tree prefers a small number of readable top-level commands with expl
 
 ## `update`
 
-`node space update` updates a source checkout from the canonical Space Agent repository.
+`node space update` updates a source checkout from the configured Git update repository.
 
 Current behavior:
 
-- before fetching, it pins `origin` to `https://github.com/agent0ai/space-agent.git`
+- before fetching, it resolves the update repository from `GIT_URL`, then the local `origin` remote URL, and only then the canonical fallback, then pins `origin` to that remote
 - for GitHub remotes, it uses `SPACE_GITHUB_TOKEN` when set and otherwise sends no GitHub auth header
 - with no target, it fast-forwards the current or recoverable branch from `origin`
 - with `--branch <branch>` or a branch positional target, it reattaches and updates that branch
@@ -76,14 +76,16 @@ Current behavior:
 Current behavior:
 
 - binds the public `HOST` and `PORT` in the supervisor process
+- sets the supervisor OS process title to `space-supervise` so operator tools can distinguish it from child runtimes
 - requires `CUSTOMWARE_PATH`, whether provided as a launch param, stored `.env` value, or process environment variable
 - normalizes `CUSTOMWARE_PATH` to an absolute path before passing it to child servers
 - starts real `space serve` children on private loopback `HOST=127.0.0.1 PORT=0`
 - treats all non-supervisor CLI arguments as opaque `space serve` launch arguments, only rewriting child `HOST`, child `PORT`, and `CUSTOMWARE_PATH`
 - periodically checks the watched Git remote and branch for a newer revision when `--auto-update-interval` is greater than `0`
+- resolves the watched Git remote from `--remote-url`, then `GIT_URL`, then the local `origin` remote URL, and only then the canonical fallback
 - for GitHub remotes, update checks and staged release clones use `SPACE_GITHUB_TOKEN` when set and otherwise send no GitHub auth header
 - accepts `--auto-update-interval <seconds>`, defaulting to `300`; values less than or equal to `0` disable update checks and leave crash-restart supervision active
-- stages updates in `CUSTOMWARE_PATH/.space-supervisor/releases/` by default
+- stages updates in `<projectRoot>/supervisor/releases/` by default
 - runs `npm install --omit=optional` inside staged releases
 - switches the proxy to a replacement child only after the child prints its listening URL and passes `/api/health`
 - keeps update attempts non-overlapping; the next interval is scheduled only after the current attempt finishes or fails
@@ -113,7 +115,7 @@ Current supervisor options:
 
 Supervisor state:
 
-- default state directory: `CUSTOMWARE_PATH/.space-supervisor`
+- default state directory: `<projectRoot>/supervisor`
 - shared child auth keys: `auth/auth_keys.json`, unless `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` are already injected
 - staged source releases: `releases/<revision>/`
 
@@ -129,6 +131,12 @@ Current startup output:
 
 - prints `space server version <resolved version>` before the listening banner
 - preserves the separate `space server listening at <url>` line so supervisor readiness parsing stays stable
+
+Current process titles:
+
+- single-process `serve`: `space-serve`
+- clustered primary: `space-serve-p`
+- clustered worker `N`: `space-serve-w<N>`
 
 Current override forms:
 
@@ -154,6 +162,7 @@ Current params:
 - `SINGLE_USER_APP`
 - `ALLOW_GUEST_USERS`
 - `CUSTOMWARE_GIT_HISTORY`
+- `GIT_URL`
 - `USER_FOLDER_SIZE_LIMIT_BYTES`
 
 Important fields per param:
@@ -173,7 +182,8 @@ Only params with `frontend_exposed: true` are injected into page-shell meta tags
 - `WORKERS`: number of parallel HTTP worker processes for `serve` and `supervise`; `1` keeps the single-process runtime, and larger values start a clustered primary plus worker model with one authoritative replicated state host
 - `SINGLE_USER_APP`: implicit always-authenticated `user` principal with virtual `_admin` access
 - `ALLOW_GUEST_USERS`: enables guest creation from the login screen when password login is enabled
-- `CUSTOMWARE_GIT_HISTORY`: enables optional debounced local Git history repositories for writable `L1/<group>/` and `L2/<user>/` roots; defaults to `true`; owner-root commits wait 10 seconds of quiet, then shorten to 5 seconds after 1 minute of pending writes, 1 second after 5 minutes, and immediate commit after 10 minutes
+- `CUSTOMWARE_GIT_HISTORY`: enables optional debounced local Git history repositories for writable `L1/<group>/` and `L2/<user>/` roots; defaults to `true`; owner-root commits wait 10 seconds of quiet, then shorten to 5 seconds after 1 minute of pending writes, 1 second after 5 minutes, and immediate commit after 10 minutes; with `WORKERS>1`, those debounced commits are scheduled only by the clustered primary after it rebuilds authoritative state for worker-reported path changes
+- `GIT_URL`: optional Git repository URL used by `node space update` and `node space supervise`; if unset they fall back to the local `origin` remote URL and only then to the canonical repo URL
 - `USER_FOLDER_SIZE_LIMIT_BYTES`: optional per-user `L2/<user>/` folder cap in bytes; `0` disables it, and positive values make app-file mutations reject projected growth over the cap while still allowing mutations that reduce an already-over-limit folder
 - `user` and `group` commands flush pending local-history commits before returning when `CUSTOMWARE_GIT_HISTORY` is enabled because those commands are short-lived processes
 - `node space set CUSTOMWARE_PATH=<path>` should be run before creating users or groups when writable state should live outside the source checkout, because `user` and `group` commands resolve that stored parameter before deciding where `L1` and `L2` files belong

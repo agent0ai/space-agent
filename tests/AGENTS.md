@@ -37,11 +37,14 @@ This scope owns:
 
 - repo-level test harnesses under `tests/`
 - `customware_git_history_test.mjs`: focused server-side harness for optional writable-layer Git history, adaptive debounce rules, repository discovery, pagination, nested filename filters with full file metadata, diff reads, operation previews, revert, ignore rules, and rollback or forward-travel preservation
+- `file_api_request_context_test.mjs`: live HTTP regression coverage for file endpoints that depend on router-supplied `headers` and `requestUrl` request-context fields
 - `github_auth_test.mjs`: focused coverage for GitHub token resolution via `SPACE_GITHUB_TOKEN`, no-auth behavior when the token is absent, and supervisor Git command auth-header injection
+- `module_discovery_state_test.mjs`: focused coverage for state-backed module inheritance, extension lookup, and module-management visibility across firmware `L0`, group `L1`, self `L2`, and admin cross-user `L2` access
 - `server_cluster_test.mjs`: clustered-runtime smoke and stress coverage for cross-worker file-write visibility, version fencing, guest creation, login challenge, login completion, cookie validation, and 8-worker index-parity checks through the temporary debug path-index endpoint
 - `set_command_test.mjs`: focused coverage for `space set` `KEY=VALUE` parsing, rejection of non-assignment arguments, and ordered multi-assignment application
-- `supervise_command_test.mjs`: focused coverage for `supervise` argument partitioning, opaque child `space serve` arg forwarding, child `HOST` and `PORT` rewriting, and `CUSTOMWARE_PATH` resolution
+- `supervise_command_test.mjs`: focused coverage for `supervise` argument partitioning, opaque child `space serve` arg forwarding, child `HOST` and `PORT` rewriting, `CUSTOMWARE_PATH` resolution, and the default project-root `supervisor/` state directory
 - `state_system_test.mjs`: focused coverage for the unified primary-owned state system, delta pruning, TTL behavior, and named lock semantics
+- `update_remote_test.mjs`: focused coverage for shared update-repository URL resolution from explicit config, runtime `GIT_URL`, environment, and local git origin fallback
 - `user_folder_quota_test.mjs`: focused server-side harness for `USER_FOLDER_SIZE_LIMIT_BYTES`, cached per-user `L2` size accounting, write growth rejection, size-reducing writes, deletes, batch aggregation, and copy checks
 - standalone repo-level verification scripts such as `yaml_lite_test.mjs`
 - `project_version_test.mjs`: focused helper coverage for package-version display tags and project-version fallback behavior used by the CLI and page shells

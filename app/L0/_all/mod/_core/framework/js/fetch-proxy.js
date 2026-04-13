@@ -3,6 +3,7 @@ import {
   applyStateVersionRequestHeader,
   observeStateVersionFromResponse
 } from "./state-version.js";
+import { getConfiguredModuleMaxLayer } from "./moduleResolution.js";
 
 const FETCH_PROXY_MARKER = Symbol.for("space.fetch-proxy-installed");
 const proxyFallbackOrigins = new Set();
@@ -70,6 +71,10 @@ function isSameOriginRequest(targetUrl) {
   return new URL(targetUrl, window.location.href).origin === window.location.origin;
 }
 
+function isModuleRequest(targetUrl) {
+  return new URL(targetUrl, window.location.href).pathname.startsWith("/mod/");
+}
+
 function withStateVersionHeader(request) {
   if (!isSameOriginRequest(request.url)) {
     return request;
@@ -77,6 +82,15 @@ function withStateVersionHeader(request) {
 
   const headers = new Headers(request.headers);
   applyStateVersionRequestHeader(headers);
+
+  if (isModuleRequest(request.url)) {
+    const maxLayer = getConfiguredModuleMaxLayer();
+
+    if (maxLayer !== null && !headers.has("X-Space-Max-Layer")) {
+      headers.set("X-Space-Max-Layer", String(maxLayer));
+    }
+  }
+
   return new Request(request, {
     headers
   });

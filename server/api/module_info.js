@@ -80,8 +80,8 @@ export async function get(context) {
       path: readInfoPath(context),
       projectRoot: context.projectRoot,
       runtimeParams: context.runtimeParams,
+      stateSystem: context.stateSystem,
       username: context.user?.username,
-      watchdog: context.watchdog
     });
   } catch (error) {
     throw createHttpError(error.message || "Module info lookup failed.", Number(error.statusCode) || 500);

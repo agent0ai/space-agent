@@ -1,6 +1,10 @@
 ---
 name: Admin Users
 description: Create, update, remove, and explain user accounts, password verifiers, sessions, and user-root storage as an admin.
+metadata:
+  when:
+    tags:
+      - onscreen
 ---
 
 Use this skill for concrete user-account work.

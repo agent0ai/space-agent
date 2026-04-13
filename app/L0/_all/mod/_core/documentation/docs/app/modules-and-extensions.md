@@ -69,6 +69,8 @@ Resolution rules:
 - the caller names only the seam
 - matching files live under `mod/<author>/<repo>/ext/html/some/path/*.html`
 - extension files should stay thin and normally mount the real component or view
+- `_core/framework` also injects `_core/framework/head/end` into `document.head` during bootstrap so layers can add declarative head-side tags or inline bootstraps without editing page shells
+- dynamic extension and component discovery watches the whole document tree, so seams and components inserted under `head` are hydrated the same way as body-mounted ones
 
 Important shared router seams include:
 
@@ -78,6 +80,8 @@ Important shared router seams include:
 - `page/router/route/end`
 - `page/router/overlay/start`
 - `page/router/overlay/end`
+
+The authenticated router backdrop comes from `_core/visual` and stays on fixed viewport layers behind the routed shell, so route-content scrolling should happen inside `.router-stage` without moving the shared canvas gradient or starfield.
 
 Current first-party shell extension example:
 
@@ -94,10 +98,10 @@ Rules:
 - the wrapped function becomes async
 - hooks resolve under `mod/<author>/<repo>/ext/js/<extension-point>/*.js` or `*.mjs`
 - wrapped functions expose `/start` and `/end` hook points
-- framework-backed page boot exposes `_core/framework/initializer.js/initialize`; its `/end` hook is the normal place for once-per-page integrations such as analytics bootstrap or `document.head` tag setup
+- framework-backed page boot also creates the `_core/framework/head/end` HTML seam in `document.head`; use that seam when the integration can stay declarative, and use `_core/framework/initializer.js/initialize/end` when the setup must stay imperative
 - feature-specific prompt or execution behavior for the onscreen agent should be supplied from the owning module through `_core/onscreen_agent/...` extension seams, not hardcoded into `_core/onscreen_agent`
 - headless helper modules are valid first-party modules too: `_core/promptinclude` has no route or UI, but it extends `_core/onscreen_agent/llm.js/buildOnscreenAgentSystemPromptSections` and `_core/onscreen_agent/llm.js/buildOnscreenAgentTransientSections` to auto-inject readable `**/*.system.include.md` files into the overlay system prompt and readable `**/*.transient.include.md` files into the overlay transient context
-- `_core/login_hooks` is another headless helper module: it extends `_core/framework/initializer.js/initialize/end`, checks for the client-owned `~/meta/login_hooks.json` marker, dispatches `_core/login_hooks/first_login` once when that marker is absent, and dispatches `_core/login_hooks/any_login` when the authenticated shell was reached directly from `/login`
+- `_core/login_hooks` is another headless helper module: it extends `_core/framework/initializer.js/initialize/end`, checks for the client-owned `~/meta/login_hooks.json` marker, dispatches `_core/login_hooks/first_login` once when that marker is absent, and dispatches `_core/login_hooks/any_login` when the authenticated shell was reached directly from `/login`; `_core/spaces` currently consumes `_core/login_hooks/first_login` through `ext/js/_core/login_hooks/first_login/big-bang-space.js` to copy or reuse the module-owned `Big Bang` onboarding space and rewrite the root-shell default route before dashboard loads
 - `_core/open_router` is a headless provider-policy module: it extends `_core/onscreen_agent/api.js/prepareOnscreenAgentApiRequest/end` and `_core/admin/views/agent/api.js/prepareAdminAgentApiRequest/end`, detects when API mode targets an OpenRouter upstream endpoint, and applies the OpenRouter-specific request headers there instead of hardcoding them inside the chat runtimes
 
 Uncached HTML `<x-extension>` lookups are grouped before they hit `/api/extensions_load`:
@@ -126,6 +130,24 @@ Current first-party example:
 - page `path` values may be shorthand route paths such as `huggingface`, prefixed hash paths such as `#/huggingface`, or direct `/mod/...` HTML paths such as `/mod/_core/huggingface/view.html`
 - page manifests are module assets, not writable app-file state
 
+## `<x-skill-context>`
+
+Modules may also export live skill-filter tags with hidden helper elements:
+
+```html
+<x-skill-context tag="admin"></x-skill-context>
+<x-skill-context :tags="$store.router.current?.path ? `route:${$store.router.current.path}` : ''"></x-skill-context>
+```
+
+Rules:
+
+- these elements are non-visual helpers, not user-facing UI
+- the current document's `tag` and `tags` values are unioned at skill-discovery time
+- skill frontmatter may use `metadata.when.tags` to require those tags before catalog inclusion or explicit load eligibility
+- skill frontmatter may use `metadata.just_loaded` as either `true` or another `{ tags: [...] }` condition for automatic prompt injection after the catalog
+- modules own the actual tag names they emit; there is no separate centralized registry in the framework
+- Alpine-bound attributes are the normal way to keep those tags synced with routed or store-owned state
+
 ## `<x-component>`
 
 The component loader accepts both full HTML documents and fragments.
@@ -135,6 +157,7 @@ Behavior:
 - styles and stylesheets are appended to the mount target
 - module scripts are loaded via dynamic `import()`
 - nested `<x-component>` tags are loaded recursively
+- dynamic discovery watches `document.documentElement`, so components inserted into `head` after bootstrap are still loaded
 - wrapper attributes are exposed to descendants through `xAttrs($el)`
 
 The normal ownership split is:

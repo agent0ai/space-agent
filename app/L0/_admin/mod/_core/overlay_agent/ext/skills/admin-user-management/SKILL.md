@@ -1,6 +1,10 @@
 ---
 name: Admin User Management
 description: Admin-only router skill for users, groups, passwords, and account storage in the layered Space Agent runtime.
+metadata:
+  when:
+    tags:
+      - onscreen
 ---
 
 Use this skill when the user asks to create or remove users, reset passwords, revoke sessions, manage groups, explain admin membership, or describe where account data is stored.
