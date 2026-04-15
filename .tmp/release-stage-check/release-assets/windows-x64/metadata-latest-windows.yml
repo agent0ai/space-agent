@@ -1,8 +1,0 @@
-version: 0.42.0
-files:
-  - url: "Space Agent Setup 0.42.0 x64.exe"
-    size: 140
-    sha512: sha-win-x64
-path: "Space Agent Setup 0.42.0 x64.exe"
-sha512: sha-win-x64
-releaseDate: 2026-04-15T12:00:00.000Z

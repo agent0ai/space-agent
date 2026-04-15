@@ -1,8 +1,0 @@
-version: 0.42.0
-files:
-  - url: Space-Agent-0.42.0-x64.AppImage
-    size: 160
-    sha512: sha-linux-x64
-path: Space-Agent-0.42.0-x64.AppImage
-sha512: sha-linux-x64
-releaseDate: 2026-04-15T12:00:00.000Z
