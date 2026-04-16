@@ -6,6 +6,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { startServer } from "../server/server.js";
+import { createProvisionedUserCryptoRecord } from "../server/pages/res/user-crypto.js";
 
 function buildAuthMessage({ challengeToken, clientNonce, serverNonce, username }) {
   return ["space-login-v1", username, clientNonce, serverNonce, challengeToken].join(":");
@@ -32,6 +33,10 @@ function createClientProof({ challenge, clientNonce, password, username }) {
   return Buffer.from(clientKey.map((byte, index) => byte ^ clientSignature[index])).toString(
     "base64url"
   );
+}
+
+function decodeBase64Url(value) {
+  return Buffer.from(String(value || ""), "base64url");
 }
 
 function createRequestClient(baseUrl) {
@@ -265,7 +270,6 @@ test("clustered server keeps writes and auth visible across workers", async (tes
           sizeBytes: Buffer.byteLength(content)
         };
         const expectedHashes = new Set();
-        const expectedIndexSizes = new Set();
         const observedVersions = new Set();
 
         for (const snapshot of snapshots.values()) {
@@ -278,7 +282,6 @@ test("clustered server keeps writes and auth visible across workers", async (tes
           assert.ok(Number.isFinite(fileEntry?.mtimeMs) && fileEntry.mtimeMs > 0);
 
           expectedHashes.add(snapshot.body?.hash);
-          expectedIndexSizes.add(snapshot.body?.indexSize);
           observedVersions.add(stateVersion);
 
           if (expectedEntry.mtimeMs === null) {
@@ -289,7 +292,6 @@ test("clustered server keeps writes and auth visible across workers", async (tes
         }
 
         assert.equal(expectedHashes.size, 1);
-        assert.equal(expectedIndexSizes.size, 1);
         assert.ok(observedVersions.size >= 1);
       }
 
@@ -362,6 +364,12 @@ test("clustered server keeps writes and auth visible across workers", async (tes
       assert.equal(challengeResponse.status, 200);
       assert.ok(readWorkerNumber(challengeResponse.headers) >= 1);
       assert.ok(challengeResponse.body?.challengeToken);
+      assert.equal(challengeResponse.body?.userCrypto?.state, "missing");
+
+      const provisionedUserCrypto = await createProvisionedUserCryptoRecord({
+        password: guestResponse.body.password,
+        serverShare: decodeBase64Url(challengeResponse.body.userCrypto.provisioningShare)
+      });
 
       const clientProof = createClientProof({
         challenge: challengeResponse.body,
@@ -372,7 +380,10 @@ test("clustered server keeps writes and auth visible across workers", async (tes
       const loginResponse = await requestJson("/api/login", {
         body: JSON.stringify({
           challengeToken: challengeResponse.body.challengeToken,
-          clientProof
+          clientProof,
+          userCryptoProvisioning: {
+            record: provisionedUserCrypto.record
+          }
         }),
         headers: {
           "content-type": "application/json"

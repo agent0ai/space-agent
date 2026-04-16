@@ -85,7 +85,7 @@ Parent and child split rules:
 - optionally maintain adaptive-debounced per-owner local Git history repositories for writable `L1/<group>/` and `L2/<user>/` roots when `CUSTOMWARE_GIT_HISTORY` is enabled
 - optionally enforce `USER_FOLDER_SIZE_LIMIT_BYTES` for each on-disk `L2/<user>/` folder through app-file mutation quota checks that use cached per-user size totals
 - run deterministic primary-owned periodic maintenance jobs from `server/jobs/` for backend-enforced cleanup such as guest-account pruning
-- keep the backend-only auth secrets outside the logical app tree, using shared environment injection via `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` plus local gitignored fallback storage under `server/data/`; `userCrypto` also keeps a local backend-share cache there, while the shared `L2/<username>/meta/user_crypto.json` record carries a backend-sealed copy for multi-instance recovery
+- keep the backend-only auth secrets outside the logical app tree, using shared environment injection via `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` plus local gitignored fallback storage under `server/data/` by default or `SPACE_AUTH_DATA_DIR` when that override is set; `userCrypto` also keeps a local backend-share cache there, while the shared `L2/<username>/meta/user_crypto.json` record carries a backend-sealed copy for multi-instance recovery
 - manage `server/tmp/` as janitor-backed transient storage for low-RAM server-side artifacts such as folder-download archives
 - resolve runtime parameters from launch overrides, stored `.env` values, process environment variables, and schema defaults, including backend storage parameters such as `CUSTOMWARE_PATH`
 - when `WORKERS>1`, run a clustered primary-plus-worker runtime where the primary owns authoritative shared state and the live watchdog while workers serve HTTP in parallel
@@ -106,7 +106,7 @@ Current server layout:
 - `server/dev_server.js`: source-checkout dev supervisor used by `npm run dev`
 - `server/lib/utils/runtime_params.js`: shared runtime-parameter schema loading, validation, startup resolution, and frontend-exposure metadata
 - `server/pages/`: page shells for `/`, `/login`, `/enter`, and `/admin`, plus public shell assets under `server/pages/res/`
-- `server/data/`: gitignored backend-only secret storage used as the local fallback for auth keys and per-user `userCrypto` server shares when shared deployment secrets are not injected
+- `server/data/`: gitignored backend-only secret storage used as the default local fallback for auth keys and per-user `userCrypto` server shares when shared deployment secrets are not injected and `SPACE_AUTH_DATA_DIR` is unset
 - `server/api/`: endpoint modules loaded by endpoint name
 - `server/router/`: top-level request routing, page handling, `/mod/...` serving, direct app-file fetches, request context, response helpers, proxy transport, and CORS handling
 - `server/lib/utils/process_title.js`: canonical OS process-title helper for direct serve, clustered primary, clustered workers, and supervisor-owned runtime naming
@@ -136,7 +136,7 @@ Core runtime contracts:
 - request identity is derived from the server-issued `space_session` cookie via router-side request context plus the auth service
 - the raw `space_session` cookie remains a browser bearer token, but `L2/<username>/meta/logins.json` stores only backend-keyed verifiers plus signed metadata, including a stable backend-generated `sessionId`, so reading app-side session files does not reveal a replayable cookie
 - password verifiers remain in `L2/<username>/meta/password.json`, but the SCRAM verifier is sealed with a backend-held key so the file is no longer self-sufficient
-- per-user wrapped browser-encryption state may also live in `L2/<username>/meta/user_crypto.json`; that record now includes a backend-sealed server-share envelope for multi-instance recovery, while a local backend-share cache may also live under `server/data/user_crypto/`; the plaintext share is never stored in the app tree
+- per-user wrapped browser-encryption state may also live in `L2/<username>/meta/user_crypto.json`; that record now includes a backend-sealed server-share envelope for multi-instance recovery, while a local backend-share cache may also live under `server/data/user_crypto/` or the matching `SPACE_AUTH_DATA_DIR/user_crypto/` override path; the plaintext share is never stored in the app tree
 - `WORKERS` defaults to `1`; when it is greater than `1`, the runtime forks HTTP workers, keeps the primary as the authoritative watchdog and unified state owner, lets workers perform normal request work and filesystem mutations locally, and publishes versioned state deltas or snapshots back out from the primary after those mutations commit; worker-owned writes also rely on that same primary post-rebuild path to schedule any debounced writable-layer Git history commits
 - primary-owned background jobs also run only on that authoritative runtime owner: the lone server process when `WORKERS=1`, or the clustered primary when `WORKERS>1`
 - responses expose `Space-State-Version` and `Space-Worker`; requests may send `Space-State-Version` as a required minimum replicated version, and the router may briefly wait for worker catch-up before handling the request
@@ -154,7 +154,7 @@ Core runtime contracts:
 - `/L0/...`, `/L1/...`, and `/L2/...` direct fetches require authentication and use the same read permission model as the file APIs
 - non-`/mod`, non-`/api`, and non-app-fetch requests stay limited to the root page shells and page actions owned by `server/pages/`
 - `/logout` is handled by the pages layer and clears the current session before redirecting to `/login`
-- autoscaled or multi-instance deployments must inject the same `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` values into every instance; the local `server/data/` fallback is for single-instance development and other shared-filesystem setups
+- autoscaled or multi-instance deployments must inject the same `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` values into every instance; the local `server/data/` or `SPACE_AUTH_DATA_DIR` fallback is for single-instance development and other shared-filesystem setups
 
 ## Shared Infrastructure Contracts
 
@@ -170,7 +170,7 @@ The server relies on a small set of shared infrastructure contracts. Do not re-i
 - `server/lib/customware/module_inheritance.js` and `server/lib/customware/extension_overrides.js` are the canonical module and extension resolution helpers
 - `server/lib/customware/module_manage.js` is the canonical module list, info, install, and remove helper
 - `server/lib/auth/service.js` is the canonical session and login service
-- `server/lib/auth/keys_manage.js` is the canonical backend auth-key loader, with shared-env override support and local `server/data/` fallback
+- `server/lib/auth/keys_manage.js` is the canonical backend auth-key loader, with shared-env override support and local `server/data/` or `SPACE_AUTH_DATA_DIR` fallback
 - `server/lib/utils/runtime_params.js` is the canonical parameter-resolution layer for startup env overrides, defaults, and frontend exposure
 - `server/server.js` owns the human-facing startup banner for direct serve launches and must print the shared Git-derived version without changing the separate listening-URL line that supervisor tooling parses
 - `server/runtime/request_mutations.js` is the canonical worker-side mutation capture and commit layer for clustered runtime writes

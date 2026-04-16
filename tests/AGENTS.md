@@ -37,6 +37,7 @@ This scope owns:
 
 - repo-level test harnesses under `tests/`
 - `customware_git_history_test.mjs`: focused server-side harness for optional writable-layer Git history, adaptive debounce rules, primary-owned scheduling, native per-repo queue serialization, repository discovery, pagination, nested filename filters with full file metadata, diff reads, operation previews, revert, ignore rules, and rollback or forward-travel preservation
+- `desktop_packaging_test.mjs`: focused packaging-runtime coverage for the packaged desktop host storage overrides so bundled desktop builds keep transient temp artifacts under a writable OS temp root and backend-only auth fallback data under the packaged app's user-data tree instead of the installed app tree
 - `extensions_load_request_shape_test.mjs`: focused frontend-loader request-shape coverage for top-level `maxLayer`, ordered grouped `patterns`, and grouped `extensions_load` responses without synthetic transport keys
 - `file_api_request_context_test.mjs`: live HTTP regression coverage for file endpoints that depend on router-supplied `headers` and `requestUrl` request-context fields
 - `file_write_operations_test.mjs`: focused server-side coverage for `file_write` append, prepend, line insert, pattern insert, and invalid insert-anchor behavior

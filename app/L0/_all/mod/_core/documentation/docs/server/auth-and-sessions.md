@@ -30,12 +30,13 @@ Backend-only auth keys are not stored in the logical app tree.
 
 They come from:
 
+- `SPACE_AUTH_DATA_DIR` as the override root for local fallback auth storage
 - `SPACE_AUTH_PASSWORD_SEAL_KEY`
 - `SPACE_AUTH_SESSION_HMAC_KEY`
 
-or the local fallback `server/data/auth_keys.json`.
+or the local fallback `server/data/auth_keys.json` when `SPACE_AUTH_DATA_DIR` is unset.
 
-Per-user `userCrypto` server shares are also backend-only and live under gitignored `server/data/user_crypto/<username>.json`.
+Per-user `userCrypto` server shares are also backend-only and live under gitignored `server/data/user_crypto/<username>.json`, or under `SPACE_AUTH_DATA_DIR/user_crypto/<username>.json` when that override is set.
 
 ## Session Contract
 
@@ -58,7 +59,7 @@ Important behavior:
 
 ## User Crypto Contract
 
-`user_crypto.json` stores a wrapped browser-owned master key record. The complementary backend-only server share may also be cached under `server/data/user_crypto/`, and the shared user record now carries a backend-sealed copy so any instance with the shared auth keys can recover it without exposing the plaintext share in user data.
+`user_crypto.json` stores a wrapped browser-owned master key record. The complementary backend-only server share may also be cached under `server/data/user_crypto/` or the `SPACE_AUTH_DATA_DIR/user_crypto/` override root, and the shared user record now carries a backend-sealed copy so any instance with the shared auth keys can recover it without exposing the plaintext share in user data.
 
 Important rules:
 

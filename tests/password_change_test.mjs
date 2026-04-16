@@ -6,6 +6,11 @@ import path from "node:path";
 import test from "node:test";
 
 import { startServer } from "../server/server.js";
+import {
+  createProvisionedUserCryptoRecord,
+  rewrapUserCryptoRecord,
+  unwrapUserCryptoMasterKey
+} from "../server/pages/res/user-crypto.js";
 
 function buildAuthMessage({ challengeToken, clientNonce, serverNonce, username }) {
   return ["space-login-v1", username, clientNonce, serverNonce, challengeToken].join(":");
@@ -32,6 +37,10 @@ function createClientProof({ challenge, clientNonce, password, username }) {
   return Buffer.from(clientKey.map((byte, index) => byte ^ clientSignature[index])).toString(
     "base64url"
   );
+}
+
+function decodeBase64Url(value) {
+  return Buffer.from(String(value || ""), "base64url");
 }
 
 async function requestJson(baseUrl, pathname, options = {}) {
@@ -102,6 +111,12 @@ test("password_change validates the current password, clears sessions, and accep
 
   assert.equal(initialChallengeResponse.status, 200);
   assert.ok(initialChallengeResponse.body?.challengeToken);
+  assert.equal(initialChallengeResponse.body?.userCrypto?.state, "missing");
+
+  const provisionedUserCrypto = await createProvisionedUserCryptoRecord({
+    password: originalPassword,
+    serverShare: decodeBase64Url(initialChallengeResponse.body.userCrypto.provisioningShare)
+  });
 
   const initialLoginResponse = await requestJson(runtime.browserUrl, "/api/login", {
     body: JSON.stringify({
@@ -111,7 +126,10 @@ test("password_change validates the current password, clears sessions, and accep
         clientNonce: initialNonce,
         password: originalPassword,
         username
-      })
+      }),
+      userCryptoProvisioning: {
+        record: provisionedUserCrypto.record
+      }
     }),
     headers: {
       "content-type": "application/json"
@@ -123,6 +141,19 @@ test("password_change validates the current password, clears sessions, and accep
   assert.equal(initialLoginResponse.status, 200);
   assert.equal(initialLoginResponse.body?.authenticated, true);
   assert.ok(sessionCookie.includes("space_session="));
+  assert.equal(initialLoginResponse.body?.userCrypto?.state, "ready");
+
+  const userCryptoMasterKey = await unwrapUserCryptoMasterKey({
+    password: originalPassword,
+    record: initialLoginResponse.body.userCrypto.record,
+    serverShare: decodeBase64Url(initialLoginResponse.body.userCrypto.serverShare)
+  });
+  const replacementUserCrypto = await rewrapUserCryptoRecord({
+    keyId: initialLoginResponse.body.userCrypto.keyId,
+    masterKey: userCryptoMasterKey,
+    password: replacementPassword,
+    serverShare: decodeBase64Url(initialLoginResponse.body.userCrypto.serverShare)
+  });
 
   const rejectedChangeResponse = await requestJson(runtime.browserUrl, "/api/password_change", {
     body: JSON.stringify({
@@ -142,7 +173,8 @@ test("password_change validates the current password, clears sessions, and accep
   const successfulChangeResponse = await requestJson(runtime.browserUrl, "/api/password_change", {
     body: JSON.stringify({
       currentPassword: originalPassword,
-      newPassword: replacementPassword
+      newPassword: replacementPassword,
+      userCryptoRecord: replacementUserCrypto.record
     }),
     headers: {
       "content-type": "application/json",

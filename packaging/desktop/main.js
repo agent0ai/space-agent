@@ -1,12 +1,17 @@
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { app, BrowserWindow, ipcMain, net } = require("electron");
+const {
+  resolveDesktopAuthDataDir,
+  resolveDesktopServerTmpDir
+} = require("./server_storage_paths");
 
 const PROJECT_ROOT = path.resolve(__dirname, "../..");
 const SERVER_APP_PATH = path.join(PROJECT_ROOT, "server", "app.js");
 const BASE_WINDOW_TITLE = "Space Agent";
 const DESKTOP_UPDATE_RENDERER_LOG_LIMIT = 48;
 const DESKTOP_UPDATE_FAILURE_STATUS_LIMIT = 120;
+const AUTH_DATA_DIR_ENV_NAME = "SPACE_AUTH_DATA_DIR";
 
 let serverRuntime;
 let mainWindow;
@@ -41,12 +46,34 @@ function createDesktopRuntimeParamOverrides() {
 }
 
 function createDesktopServerOptions(runtimeParamOverrides) {
-  return {
+  const serverOptions = {
     host: "127.0.0.1",
     port: 0,
     projectRoot: PROJECT_ROOT,
     runtimeParamOverrides
   };
+
+  const tmpDir = resolveDesktopServerTmpDir({
+    isPackaged: app.isPackaged,
+    tempPath: app.getPath("temp")
+  });
+
+  if (tmpDir) {
+    serverOptions.tmpDir = tmpDir;
+  }
+
+  return serverOptions;
+}
+
+function applyPackagedDesktopStorageOverrides() {
+  const authDataDir = resolveDesktopAuthDataDir({
+    isPackaged: app.isPackaged,
+    userDataPath: app.getPath("userData")
+  });
+
+  if (authDataDir && !process.env[AUTH_DATA_DIR_ENV_NAME]) {
+    process.env[AUTH_DATA_DIR_ENV_NAME] = authDataDir;
+  }
 }
 
 function resolveDesktopLaunchPath() {
@@ -659,6 +686,7 @@ function stopServerRuntime() {
 
 async function startDesktop() {
   await app.whenReady();
+  applyPackagedDesktopStorageOverrides();
   const runtimeParamOverrides = createDesktopRuntimeParamOverrides();
   const createAgentServer = await loadCreateAgentServer();
   serverRuntime = await createAgentServer(createDesktopServerOptions(runtimeParamOverrides));

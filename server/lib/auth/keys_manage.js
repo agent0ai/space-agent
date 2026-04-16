@@ -4,6 +4,7 @@ import path from "node:path";
 
 const AUTH_DATA_DIRNAME = "data";
 const AUTH_KEYS_FILENAME = "auth_keys.json";
+const AUTH_DATA_DIR_ENV_NAME = "SPACE_AUTH_DATA_DIR";
 const PASSWORD_SEAL_KEY_ENV_NAME = "SPACE_AUTH_PASSWORD_SEAL_KEY";
 const PASSWORD_SEAL_KEY_NAME = "password_seal_key";
 const SECRET_KEY_LENGTH = 32;
@@ -28,16 +29,17 @@ function setPermissionsIfPossible(targetPath, mode) {
   }
 }
 
-function buildAuthDataDir(projectRoot) {
-  return path.join(String(projectRoot || ""), "server", AUTH_DATA_DIRNAME);
+function resolveAuthDataDirOverride(env = process.env) {
+  const override = String(env?.[AUTH_DATA_DIR_ENV_NAME] || "").trim();
+  return override ? path.resolve(override) : "";
 }
 
-function buildAuthKeysFilePath(projectRoot) {
-  return path.join(buildAuthDataDir(projectRoot), AUTH_KEYS_FILENAME);
+function buildAuthDataDir(projectRoot, env = process.env) {
+  return resolveAuthDataDirOverride(env) || path.join(String(projectRoot || ""), "server", AUTH_DATA_DIRNAME);
 }
 
-function ensureAuthDataDir(projectRoot) {
-  const dataDir = buildAuthDataDir(projectRoot);
+function ensureAuthDataDir(projectRoot, env = process.env) {
+  const dataDir = buildAuthDataDir(projectRoot, env);
   fs.mkdirSync(dataDir, {
     mode: 0o700,
     recursive: true
@@ -131,14 +133,14 @@ function readExistingAuthKeys(filePath) {
   return parseAuthKeys(fs.readFileSync(filePath, "utf8"), filePath);
 }
 
-function loadAuthKeys(projectRoot) {
-  const injectedKeys = readInjectedAuthKeys();
+function loadAuthKeys(projectRoot, env = process.env) {
+  const injectedKeys = readInjectedAuthKeys(env);
 
   if (injectedKeys) {
     return injectedKeys;
   }
 
-  const dataDir = ensureAuthDataDir(projectRoot);
+  const dataDir = ensureAuthDataDir(projectRoot, env);
   const filePath = path.join(dataDir, AUTH_KEYS_FILENAME);
 
   try {
@@ -180,11 +182,11 @@ function loadAuthKeys(projectRoot) {
 }
 
 export {
+  AUTH_DATA_DIR_ENV_NAME,
   AUTH_KEYS_FILENAME,
   PASSWORD_SEAL_KEY_ENV_NAME,
   SESSION_HMAC_KEY_ENV_NAME,
   buildAuthDataDir,
-  buildAuthKeysFilePath,
   ensureAuthDataDir,
   loadAuthKeys
 };

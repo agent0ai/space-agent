@@ -13,7 +13,7 @@ Documentation is top priority for this subtree. After any change under `server/l
 Current files:
 
 - `service.js`: login challenge creation, login completion, self-service password change, session-cookie helpers, session revocation, and request-user resolution
-- `keys_manage.js`: backend-only auth-key loading from shared env injection or local `server/data/auth_keys.json`
+- `keys_manage.js`: backend-only auth-key loading from shared env injection or local fallback storage at `server/data/auth_keys.json` by default or `SPACE_AUTH_DATA_DIR/auth_keys.json` when that override is set
 - `passwords.js`: verifier and proof helpers
 - `user_crypto.js`: persistent wrapped user-key record helpers, backend-sealed server-share recovery, local backend-share cache storage, and invalidation
 - `user_files.js`: canonical `L2/<username>/user.yaml` and `meta/` read or write helpers
@@ -30,8 +30,8 @@ Current user storage layout:
 - wrapped browser-encryption record: logical `L2/<username>/meta/user_crypto.json`
 - user-owned modules: logical `L2/<username>/mod/`
 - on disk those files live under `CUSTOMWARE_PATH/L2/...` when `CUSTOMWARE_PATH` is configured, otherwise under repo `app/L2/...`
-- backend-only auth keys live outside the logical app tree and come from either shared process env injection via `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY`, or the gitignored local fallback `server/data/auth_keys.json`
-- backend-only per-user `userCrypto` server shares may be cached outside the logical app tree under gitignored `server/data/user_crypto/<username>.json`
+- backend-only auth keys live outside the logical app tree and come from either shared process env injection via `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY`, or the gitignored local fallback `server/data/auth_keys.json`, unless `SPACE_AUTH_DATA_DIR` relocates that fallback root
+- backend-only per-user `userCrypto` server shares may be cached outside the logical app tree under gitignored `server/data/user_crypto/<username>.json` or the matching `SPACE_AUTH_DATA_DIR/user_crypto/<username>.json` override path
 - `meta/user_crypto.json` also carries a backend-sealed copy of that share so any instance with the shared auth keys can recover it from the shared writable layer without exposing the plaintext share in user data
 
 `user_files.js` is the canonical helper layer for those files. Do not write them through ad hoc path logic elsewhere.

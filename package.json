@@ -75,6 +75,7 @@
     "linux": {
       "icon": "packaging/platforms/linux/icons",
       "category": "Development",
+      "maintainer": "Jan Tomasek <info@space-agent.ai>",
       "target": [
         "AppImage"
       ]
