@@ -79,6 +79,13 @@ staged turns
 - After a successful patch or render, the next assistant turn should usually be the final user-facing answer. Do not output another promise line such as Updating... or Applying... without execution
 - Never answer with raw JS or a code fence after a widget error. Either send a proper execution message or a normal user-facing answer
 
+patch error loop prevention
+- After any patchWidget or renderWidget error, call readWidget on that widget before attempting another patch
+- Treat source as unseen unless readWidget succeeded in the current turn. Never infer line numbers from memory
+- If the same error repeats twice on the same widget, stop and call readWidget before retrying
+- If patchWidget fails with a syntax or reference error on a line you did not touch, the existing source is already broken — read first, then use renderWidget for a full rewrite
+- Never make more than 2 consecutive patches on the same widget without a readWidget in between
+
 examples
 Checking widget catalog
 _____javascript
