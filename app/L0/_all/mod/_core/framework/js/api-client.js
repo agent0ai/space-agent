@@ -362,23 +362,21 @@ function createFileReadRequest(pathOrFiles, encoding) {
   }
 
   if (isPlainObject(pathOrFiles) && Array.isArray(pathOrFiles.files)) {
-    return {
-      method: "POST",
-      body: {
-        encoding: pathOrFiles.encoding ?? encoding,
-        files: pathOrFiles.files
-      }
+    const body = {
+      encoding: pathOrFiles.encoding ?? encoding,
+      files: pathOrFiles.files
     };
+    if (pathOrFiles.allowMissing === true) body.allowMissing = true;
+    return { method: "POST", body };
   }
 
   if (isPlainObject(pathOrFiles) && typeof pathOrFiles.path === "string") {
-    return {
-      method: "POST",
-      body: {
-        encoding: pathOrFiles.encoding ?? encoding,
-        path: pathOrFiles.path
-      }
+    const body = {
+      encoding: pathOrFiles.encoding ?? encoding,
+      path: pathOrFiles.path
     };
+    if (pathOrFiles.allowMissing === true) body.allowMissing = true;
+    return { method: "POST", body };
   }
 
   return {

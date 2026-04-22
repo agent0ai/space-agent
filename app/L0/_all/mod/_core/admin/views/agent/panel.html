@@ -179,43 +179,7 @@
                       <h2>Provider and model configuration</h2>
                     </div>
                   </header>
-                  <div class="dialog-segmented-control admin-agent-provider-switch" role="tablist" aria-label="LLM provider">
-                    <button
-                      type="button"
-                      class="secondary-button dialog-segmented-button"
-                      :class="{ 'is-active': $store.adminAgent.isSettingsDraftUsingApiProvider }"
-                      @click="$store.adminAgent.setSettingsProvider('api')"
-                    >
-                      <span>API</span>
-                    </button>
-                    <button
-                      type="button"
-                      class="secondary-button dialog-segmented-button"
-                      :class="{ 'is-active': $store.adminAgent.isSettingsDraftUsingLocalProvider }"
-                      @click="$store.adminAgent.setSettingsProvider('local')"
-                    >
-                      <span>Local</span>
-                    </button>
-                  </div>
-                  <div x-show="$store.adminAgent.isSettingsDraftUsingApiProvider" x-cloak>
-                    <label class="field">
-                      <span>Provider API Endpoint URL</span>
-                      <input type="url" x-model="$store.adminAgent.settingsDraft.apiEndpoint" />
-                    </label>
-                    <label class="field">
-                      <span>Model Name</span>
-                      <input type="text" x-model="$store.adminAgent.settingsDraft.model" />
-                    </label>
-                    <label class="field">
-                      <span>API Key</span>
-                      <input type="password" x-model="$store.adminAgent.settingsDraft.apiKey" />
-                    </label>
-                  </div>
-                  <div x-show="$store.adminAgent.isSettingsDraftUsingLocalProvider" x-cloak class="admin-agent-local-settings">
-                    <div class="admin-agent-local-provider-panel">
-                      <x-component path="/mod/_core/huggingface/config-sidebar.html" mode="admin"></x-component>
-                    </div>
-                  </div>
+                  <x-component path="/mod/_core/llm_settings/panel.html" mode="admin"></x-component>
                   <label class="field">
                     <span>Max Tokens</span>
                     <input type="number" min="1" step="1" inputmode="numeric" x-model="$store.adminAgent.settingsDraft.maxTokens" />
