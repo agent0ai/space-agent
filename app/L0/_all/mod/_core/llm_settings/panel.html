@@ -1,0 +1,157 @@
+<style>
+  .llm-settings-panel .field select {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding: 0.85rem 0.95rem;
+    box-sizing: border-box;
+    border: 1px solid var(--space-field-border);
+    border-radius: 1rem;
+    background: var(--space-field-bg);
+    color: var(--color-text);
+    font: inherit;
+    outline: none;
+  }
+  .llm-settings-panel .field select:focus {
+    border-color: var(--space-field-focus-border);
+    box-shadow: 0 0 0 3px var(--space-field-focus-ring);
+  }
+  .llm-settings-panel .field-note {
+    margin: 0.35rem 0 0;
+  }
+  .llm-settings-panel ul.field-note {
+    padding-left: 1.2em;
+  }
+</style>
+
+<div
+  class="llm-settings-panel"
+  x-data="{
+    mode: xAttrs($el).mode || 'onscreen',
+    get s() { return $store[this.mode === 'admin' ? 'adminAgent' : 'onscreenAgent']; },
+    get hfComponentMode() { return this.mode === 'admin' ? 'admin' : 'onscreen'; }
+  }"
+>
+  <div class="dialog-segmented-control" role="tablist" aria-label="LLM provider">
+    <button
+      type="button"
+      class="secondary-button dialog-segmented-button"
+      :class="{ 'is-active': s.isSettingsDraftUsingApiProvider }"
+      @click="s.setSettingsProvider('api')"
+    >
+      <span>API</span>
+    </button>
+    <button
+      type="button"
+      class="secondary-button dialog-segmented-button"
+      :class="{ 'is-active': s.isSettingsDraftUsingBedrockProvider }"
+      @click="s.setSettingsProvider('bedrock')"
+    >
+      <span>Bedrock</span>
+    </button>
+    <button
+      type="button"
+      class="secondary-button dialog-segmented-button"
+      :class="{ 'is-active': s.isSettingsDraftUsingLocalProvider }"
+      @click="s.setSettingsProvider('local')"
+    >
+      <span>Local</span>
+    </button>
+  </div>
+
+  <!-- API tab -->
+  <div x-show="s.isSettingsDraftUsingApiProvider" x-cloak>
+    <label class="field">
+      <span>Provider API Endpoint URL</span>
+      <input type="url" x-model="s.settingsDraft.apiEndpoint" />
+    </label>
+    <label class="field">
+      <span>Model Name</span>
+      <input type="text" x-model="s.settingsDraft.model" />
+    </label>
+    <label class="field">
+      <span>API Key</span>
+      <input type="password" x-model="s.settingsDraft.apiKey" />
+    </label>
+  </div>
+
+  <!-- Bedrock tab -->
+  <div x-show="s.isSettingsDraftUsingBedrockProvider" x-cloak>
+    <div class="field" x-show="s.bedrockServerConfig">
+      <span>Server credentials</span>
+      <template x-if="s.bedrockServerConfig && !s.bedrockServerConfig.error">
+        <ul class="field-note">
+          <li>Mode: <strong x-text="s.bedrockServerConfig.mode === 'sigv4' ? 'AWS profile (SigV4)' : 'Bedrock API key'"></strong></li>
+          <li x-show="s.bedrockServerConfig.mode === 'sigv4'">
+            Profile: <code x-text="s.bedrockServerConfig.profile || '(default)'"></code>
+          </li>
+          <li>Region: <code x-text="s.bedrockServerConfig.region"></code></li>
+          <li>Set via env: <code>AWS_PROFILE</code>, <code>SPACE_BEDROCK_*</code></li>
+        </ul>
+      </template>
+      <template x-if="s.bedrockServerConfig && s.bedrockServerConfig.error">
+        <p class="field-note">
+          <code>/api/bedrock/config</code> failed: <span x-text="s.bedrockServerConfig.error"></span>
+        </p>
+      </template>
+    </div>
+
+    <div class="field">
+      <span>Credential mode</span>
+      <div class="dialog-segmented-control" role="radiogroup" aria-label="Bedrock credential mode">
+        <button
+          type="button"
+          class="secondary-button dialog-segmented-button"
+          :class="{ 'is-active': !s.isSettingsDraftUsingBedrockClientKey }"
+          @click="s.setSettingsBedrockCredMode('server')"
+          role="radio"
+          :aria-checked="!s.isSettingsDraftUsingBedrockClientKey"
+        >
+          <span>Use server credentials</span>
+        </button>
+        <button
+          type="button"
+          class="secondary-button dialog-segmented-button"
+          :class="{ 'is-active': s.isSettingsDraftUsingBedrockClientKey }"
+          @click="s.setSettingsBedrockCredMode('client-key')"
+          role="radio"
+          :aria-checked="s.isSettingsDraftUsingBedrockClientKey"
+        >
+          <span>Paste a Bedrock API key</span>
+        </button>
+      </div>
+      <ul class="field-note">
+        <li><strong>Server</strong>: Node signs with AWS profile / Bedrock key from env. Works for all models.</li>
+        <li><strong>Pasted key</strong>: Bearer token. <code>openai.gpt-oss-*</code> only (Claude needs SigV4).</li>
+      </ul>
+    </div>
+
+    <label class="field" x-show="s.isSettingsDraftUsingBedrockClientKey">
+      <span>Bedrock API Key</span>
+      <input type="password" x-model="s.settingsDraft.bedrockApiKey" autocomplete="off" />
+    </label>
+
+    <label class="field">
+      <span>Model</span>
+      <select x-model="s.settingsDraft.bedrockModel">
+        <template x-for="preset in s.bedrockModelPresets" :key="preset.id">
+          <option :value="preset.id" x-text="`${preset.label} — ${preset.id}`"></option>
+        </template>
+      </select>
+      <p class="field-note">
+        Auto-routed: <code>openai.*</code> → <code>/openai/v1/chat/completions</code>; else → <code>/converse/v1/chat/completions</code>.
+      </p>
+    </label>
+  </div>
+
+  <!-- Local tab -->
+  <div x-show="s.isSettingsDraftUsingLocalProvider" x-cloak>
+    <template x-if="hfComponentMode === 'admin'">
+      <x-component path="/mod/_core/huggingface/config-sidebar.html" mode="admin"></x-component>
+    </template>
+    <template x-if="hfComponentMode === 'onscreen'">
+      <x-component path="/mod/_core/huggingface/config-sidebar.html" mode="onscreen"></x-component>
+    </template>
+  </div>
+</div>

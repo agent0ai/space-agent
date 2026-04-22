@@ -93,7 +93,10 @@ export async function loadDashboardPrefs() {
   const runtime = getRuntime();
 
   try {
-    const result = await runtime.api.fileRead(DASHBOARD_CONFIG_PATH);
+    const result = await runtime.api.fileRead({ path: DASHBOARD_CONFIG_PATH, allowMissing: true });
+    if (result && result.exists === false) {
+      return normalizeDashboardPrefs({});
+    }
     return normalizeDashboardPrefs(runtime.utils.yaml.parse(String(result?.content || "")));
   } catch (error) {
     if (isMissingFileError(error)) {

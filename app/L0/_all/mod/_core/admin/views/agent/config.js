@@ -5,8 +5,69 @@ export const ADMIN_CHAT_HISTORY_PATH = "~/hist/admin-chat.json";
 export const DEFAULT_ADMIN_CHAT_MAX_TOKENS = 120_000;
 export const ADMIN_CHAT_LLM_PROVIDER = {
   API: "api",
+  BEDROCK: "bedrock",
   LOCAL: "local"
 };
+
+export const ADMIN_CHAT_BEDROCK_CRED_MODE = {
+  SERVER: "server",
+  CLIENT_KEY: "client-key"
+};
+
+export const ADMIN_CHAT_BEDROCK_ROUTE = {
+  CONVERSE: "converse",
+  OPENAI: "openai"
+};
+
+export const BEDROCK_MODEL_PRESETS = [
+  {
+    id: "us.anthropic.claude-sonnet-4-6",
+    label: "Claude Sonnet 4.6 (fast, recommended)",
+    route: "converse"
+  },
+  {
+    id: "us.anthropic.claude-opus-4-7",
+    label: "Claude Opus 4.7 (smartest)",
+    route: "converse"
+  },
+  {
+    id: "us.anthropic.claude-opus-4-6-v1",
+    label: "Claude Opus 4.6",
+    route: "converse"
+  },
+  {
+    id: "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    label: "Claude Haiku 4.5 (cheap)",
+    route: "converse"
+  },
+  {
+    id: "openai.gpt-oss-20b-1:0",
+    label: "OpenAI gpt-oss 20B",
+    route: "openai"
+  },
+  {
+    id: "openai.gpt-oss-120b-1:0",
+    label: "OpenAI gpt-oss 120B",
+    route: "openai"
+  }
+];
+
+export function bedrockRouteForModel(modelId = "") {
+  const normalized = String(modelId || "").trim().toLowerCase();
+  if (!normalized) {
+    return ADMIN_CHAT_BEDROCK_ROUTE.CONVERSE;
+  }
+  if (normalized.startsWith("openai.")) {
+    return ADMIN_CHAT_BEDROCK_ROUTE.OPENAI;
+  }
+  return ADMIN_CHAT_BEDROCK_ROUTE.CONVERSE;
+}
+
+export function bedrockApiEndpointForRoute(route = ADMIN_CHAT_BEDROCK_ROUTE.CONVERSE) {
+  return route === ADMIN_CHAT_BEDROCK_ROUTE.OPENAI
+    ? "/api/bedrock/openai/v1/chat/completions"
+    : "/api/bedrock/converse/v1/chat/completions";
+}
 
 export const ADMIN_CHAT_LOCAL_PROVIDER = {
   HUGGINGFACE: "huggingface"
@@ -15,6 +76,9 @@ export const ADMIN_CHAT_LOCAL_PROVIDER = {
 export const DEFAULT_ADMIN_CHAT_SETTINGS = {
   apiEndpoint: "https://openrouter.ai/api/v1/chat/completions",
   apiKey: "",
+  bedrockApiKey: "",
+  bedrockCredMode: ADMIN_CHAT_BEDROCK_CRED_MODE.SERVER,
+  bedrockModel: BEDROCK_MODEL_PRESETS[0].id,
   huggingfaceDtype: "q4",
   huggingfaceModel: "",
   localProvider: ADMIN_CHAT_LOCAL_PROVIDER.HUGGINGFACE,
@@ -26,9 +90,19 @@ export const DEFAULT_ADMIN_CHAT_SETTINGS = {
 };
 
 export function normalizeAdminChatLlmProvider(value) {
-  return value === ADMIN_CHAT_LLM_PROVIDER.LOCAL
-    ? ADMIN_CHAT_LLM_PROVIDER.LOCAL
-    : ADMIN_CHAT_LLM_PROVIDER.API;
+  if (value === ADMIN_CHAT_LLM_PROVIDER.LOCAL) {
+    return ADMIN_CHAT_LLM_PROVIDER.LOCAL;
+  }
+  if (value === ADMIN_CHAT_LLM_PROVIDER.BEDROCK) {
+    return ADMIN_CHAT_LLM_PROVIDER.BEDROCK;
+  }
+  return ADMIN_CHAT_LLM_PROVIDER.API;
+}
+
+export function normalizeAdminChatBedrockCredMode(value) {
+  return value === ADMIN_CHAT_BEDROCK_CRED_MODE.CLIENT_KEY
+    ? ADMIN_CHAT_BEDROCK_CRED_MODE.CLIENT_KEY
+    : ADMIN_CHAT_BEDROCK_CRED_MODE.SERVER;
 }
 
 export function normalizeAdminChatLocalProvider(value) {

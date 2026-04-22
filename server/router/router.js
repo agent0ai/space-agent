@@ -8,6 +8,7 @@ import {
 } from "./request_context.js";
 import { handlePageRequest } from "./pages_handler.js";
 import { proxyExternalRequest } from "./proxy.js";
+import { handleBedrockRequest } from "../lib/bedrock/proxy.js";
 import { sendApiResult, sendJson } from "./responses.js";
 import { applyApiCorsHeaders, handleApiPreflight } from "./cors.js";
 import { handleModuleRequest } from "./mod_handler.js";
@@ -331,6 +332,15 @@ function createRequestHandler(options) {
         }
 
         await proxyExternalRequest(req, res, requestUrl);
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/bedrock" || requestUrl.pathname.startsWith("/api/bedrock/")) {
+        if (!ensureAuthenticatedOrRespond(res, requestContext, auth)) {
+          return;
+        }
+
+        await handleBedrockRequest(req, res, requestUrl);
         return;
       }
 

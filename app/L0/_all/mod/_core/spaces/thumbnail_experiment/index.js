@@ -280,7 +280,7 @@ async function deleteThumbnailPathIfExists(path) {
   const runtime = ensureThumbnailRuntime();
 
   try {
-    await runtime.api.fileDelete(path);
+    await runtime.api.fileDelete({ path, allowMissing: true });
   } catch (error) {
     if (isNotFoundError(error)) {
       return;

@@ -349,10 +349,14 @@ export async function loadOnscreenAgentConfig() {
   const runtime = getRuntime();
 
   try {
-    const result = await runtime.api.fileRead(config.ONSCREEN_AGENT_CONFIG_PATH);
+    const result = await runtime.api.fileRead({
+      path: config.ONSCREEN_AGENT_CONFIG_PATH,
+      allowMissing: true
+    });
+    const rawContent = result && result.exists === false ? "" : String(result?.content || "");
     const normalizedConfig = await normalizeStoredConfig(
       runtime,
-      runtime.utils.yaml.parse(String(result?.content || ""))
+      runtime.utils.yaml.parse(rawContent)
     );
     const storedUiState =
       loadUiStateFromStorageArea("sessionStorage") ||
@@ -404,7 +408,13 @@ export async function loadOnscreenAgentHistory() {
   const runtime = getRuntime();
 
   try {
-    const result = await runtime.api.fileRead(config.ONSCREEN_AGENT_HISTORY_PATH);
+    const result = await runtime.api.fileRead({
+      path: config.ONSCREEN_AGENT_HISTORY_PATH,
+      allowMissing: true
+    });
+    if (result && result.exists === false) {
+      return [];
+    }
     const parsed = JSON.parse(String(result?.content || "[]"));
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {

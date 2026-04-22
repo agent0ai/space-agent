@@ -480,6 +480,22 @@ const model = {
     return config.normalizeAdminChatLlmProvider(this.settingsDraft.provider) === config.ADMIN_CHAT_LLM_PROVIDER.API;
   },
 
+  get isSettingsDraftUsingBedrockProvider() {
+    return config.normalizeAdminChatLlmProvider(this.settingsDraft.provider) === config.ADMIN_CHAT_LLM_PROVIDER.BEDROCK;
+  },
+
+  get isSettingsDraftUsingBedrockClientKey() {
+    return config.normalizeAdminChatBedrockCredMode(this.settingsDraft.bedrockCredMode) === config.ADMIN_CHAT_BEDROCK_CRED_MODE.CLIENT_KEY;
+  },
+
+  get bedrockModelPresets() {
+    return config.BEDROCK_MODEL_PRESETS;
+  },
+
+  get bedrockServerConfig() {
+    return this.bedrockServerConfigState || null;
+  },
+
   get isSettingsDraftUsingLocalProvider() {
     return config.normalizeAdminChatLlmProvider(this.settingsDraft.provider) === config.ADMIN_CHAT_LLM_PROVIDER.LOCAL;
   },
@@ -1635,6 +1651,11 @@ const model = {
   openSettingsDialog() {
     this.settingsDraft = {
       ...this.settings,
+      bedrockApiKey: this.settings.bedrockApiKey || "",
+      bedrockCredMode:
+        this.settings.bedrockCredMode || config.DEFAULT_ADMIN_CHAT_SETTINGS.bedrockCredMode,
+      bedrockModel:
+        this.settings.bedrockModel || config.DEFAULT_ADMIN_CHAT_SETTINGS.bedrockModel,
       promptBudgetRatios: clonePromptBudgetRatios(this.settings.promptBudgetRatios)
     };
     this.syncHuggingFaceFromManager();
@@ -1648,7 +1669,50 @@ const model = {
       .catch((error) => {
         this.reportError("warming the local-provider settings draft", error);
       });
+
+    void this.loadBedrockServerConfig().catch((error) => {
+      this.reportError("loading Bedrock server config", error);
+    });
+
     openDialog(this.refs.settingsDialog);
+  },
+
+  async loadBedrockServerConfig() {
+    try {
+      const response = await fetch("/api/bedrock/config", {
+        credentials: "same-origin"
+      });
+      if (!response.ok) {
+        this.bedrockServerConfigState = { error: `HTTP ${response.status}` };
+        return;
+      }
+      const body = await response.json();
+      this.bedrockServerConfigState = {
+        error: null,
+        hasApiKey: Boolean(body.hasApiKey),
+        mode: body.mode || "unknown",
+        profile: body.profile || "",
+        region: body.region || ""
+      };
+    } catch (error) {
+      this.bedrockServerConfigState = {
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  },
+
+  setSettingsBedrockCredMode(mode) {
+    this.settingsDraft = {
+      ...this.settingsDraft,
+      bedrockCredMode: config.normalizeAdminChatBedrockCredMode(mode)
+    };
+  },
+
+  setSettingsBedrockModel(modelId) {
+    this.settingsDraft = {
+      ...this.settingsDraft,
+      bedrockModel: String(modelId || "").trim()
+    };
   },
 
   closeSettingsDialog() {
@@ -1856,6 +1920,12 @@ const model = {
     const localProvider = config.normalizeAdminChatLocalProvider(this.settingsDraft.localProvider);
     const paramsText = typeof this.settingsDraft.paramsText === "string" ? this.settingsDraft.paramsText.trim() : "";
     let maxTokens = config.DEFAULT_ADMIN_CHAT_SETTINGS.maxTokens;
+    let effectiveApiEndpoint = (this.settingsDraft.apiEndpoint || "").trim();
+    let effectiveApiKey = (this.settingsDraft.apiKey || "").trim();
+    let effectiveModel = (this.settingsDraft.model || "").trim();
+    const effectiveBedrockCredMode = config.normalizeAdminChatBedrockCredMode(this.settingsDraft.bedrockCredMode);
+    const effectiveBedrockApiKey = (this.settingsDraft.bedrockApiKey || "").trim();
+    const effectiveBedrockModel = (this.settingsDraft.bedrockModel || config.DEFAULT_ADMIN_CHAT_SETTINGS.bedrockModel || "").trim();
 
     try {
       maxTokens = config.parseAdminChatMaxTokens(this.settingsDraft.maxTokens);
@@ -1869,19 +1939,41 @@ const model = {
           throw new Error("Choose a Hugging Face model and dtype before saving.");
         }
       }
+
+      if (provider === config.ADMIN_CHAT_LLM_PROVIDER.BEDROCK) {
+        if (!effectiveBedrockModel) {
+          throw new Error("Pick a Bedrock model before saving.");
+        }
+        if (
+          effectiveBedrockCredMode === config.ADMIN_CHAT_BEDROCK_CRED_MODE.CLIENT_KEY &&
+          !effectiveBedrockApiKey
+        ) {
+          throw new Error("Paste a Bedrock API key, or switch to the server-side credential mode.");
+        }
+        const route = config.bedrockRouteForModel(effectiveBedrockModel);
+        effectiveApiEndpoint = config.bedrockApiEndpointForRoute(route);
+        effectiveApiKey =
+          effectiveBedrockCredMode === config.ADMIN_CHAT_BEDROCK_CRED_MODE.CLIENT_KEY
+            ? effectiveBedrockApiKey
+            : "local";
+        effectiveModel = effectiveBedrockModel;
+      }
     } catch (error) {
       this.reportError("validating admin chat settings", error);
       return;
     }
 
     this.settings = {
-      apiEndpoint: (this.settingsDraft.apiEndpoint || "").trim(),
-      apiKey: (this.settingsDraft.apiKey || "").trim(),
+      apiEndpoint: effectiveApiEndpoint,
+      apiKey: effectiveApiKey,
+      bedrockApiKey: effectiveBedrockApiKey,
+      bedrockCredMode: effectiveBedrockCredMode,
+      bedrockModel: effectiveBedrockModel,
       huggingfaceDtype: (this.settingsDraft.huggingfaceDtype || "").trim(),
       huggingfaceModel: normalizeHuggingFaceModelInput(this.settingsDraft.huggingfaceModel || ""),
       localProvider,
       maxTokens,
-      model: (this.settingsDraft.model || "").trim(),
+      model: effectiveModel,
       paramsText,
       promptBudgetRatios: clonePromptBudgetRatios(this.settingsDraft.promptBudgetRatios),
       provider,

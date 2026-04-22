@@ -199,7 +199,13 @@ export async function loadAdminChatConfig() {
   const runtime = getRuntime();
 
   try {
-    const result = await runtime.api.fileRead(config.ADMIN_CHAT_CONFIG_PATH);
+    const result = await runtime.api.fileRead({
+      path: config.ADMIN_CHAT_CONFIG_PATH,
+      allowMissing: true
+    });
+    if (result && result.exists === false) {
+      return createDefaultConfig();
+    }
     return normalizeStoredConfig(runtime, runtime.utils.yaml.parse(String(result?.content || "")));
   } catch (error) {
     if (isMissingFileError(error)) {
@@ -230,7 +236,13 @@ export async function loadAdminChatHistory() {
   const runtime = getRuntime();
 
   try {
-    const result = await runtime.api.fileRead(config.ADMIN_CHAT_HISTORY_PATH);
+    const result = await runtime.api.fileRead({
+      path: config.ADMIN_CHAT_HISTORY_PATH,
+      allowMissing: true
+    });
+    if (result && result.exists === false) {
+      return [];
+    }
     const parsed = JSON.parse(String(result?.content || "[]"));
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {

@@ -329,43 +329,7 @@
                     </div>
                   </header>
                   <div class="dialog-scroll-body">
-                    <div class="dialog-segmented-control onscreen-agent-provider-switch" role="tablist" aria-label="LLM provider">
-                      <button
-                        type="button"
-                        class="secondary-button dialog-segmented-button"
-                        :class="{ 'is-active': $store.onscreenAgent.isSettingsDraftUsingApiProvider }"
-                        @click="$store.onscreenAgent.setSettingsProvider('api')"
-                      >
-                        <span>API</span>
-                      </button>
-                      <button
-                        type="button"
-                        class="secondary-button dialog-segmented-button"
-                        :class="{ 'is-active': $store.onscreenAgent.isSettingsDraftUsingLocalProvider }"
-                        @click="$store.onscreenAgent.setSettingsProvider('local')"
-                      >
-                        <span>Local</span>
-                      </button>
-                    </div>
-                    <div x-show="$store.onscreenAgent.isSettingsDraftUsingApiProvider" x-cloak>
-                      <label class="field">
-                        <span>Provider API Endpoint URL</span>
-                        <input type="url" x-model="$store.onscreenAgent.settingsDraft.apiEndpoint" />
-                      </label>
-                      <label class="field">
-                        <span>Model Name</span>
-                        <input type="text" x-model="$store.onscreenAgent.settingsDraft.model" />
-                      </label>
-                      <label class="field">
-                        <span>API Key</span>
-                        <input type="password" x-model="$store.onscreenAgent.settingsDraft.apiKey" />
-                      </label>
-                    </div>
-                    <div x-show="$store.onscreenAgent.isSettingsDraftUsingLocalProvider" x-cloak class="onscreen-agent-local-settings">
-                      <div class="onscreen-agent-local-provider-panel">
-                        <x-component path="/mod/_core/huggingface/config-sidebar.html" mode="onscreen"></x-component>
-                      </div>
-                    </div>
+                    <x-component path="/mod/_core/llm_settings/panel.html" mode="onscreen"></x-component>
                     <label class="field">
                       <span>Max Tokens</span>
                       <input type="number" min="1" step="1" inputmode="numeric" x-model="$store.onscreenAgent.settingsDraft.maxTokens" />
