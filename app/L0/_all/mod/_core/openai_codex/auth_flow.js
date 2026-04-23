@@ -87,6 +87,7 @@ export async function runCodexDeviceAuthorizationFlow({
   });
 
   const startedAt = Date.now();
+  let firstIteration = true;
 
   while (true) {
     if (signal?.aborted) {
@@ -101,7 +102,15 @@ export async function runCodexDeviceAuthorizationFlow({
       throw error;
     }
 
-    await wait(pollIntervalSeconds * 1000, signal);
+    // Poll immediately on the first iteration so a user who enters the code
+    // before the browser renders the pending panel still sees the login
+    // complete near-instantly. Subsequent iterations wait for the server-
+    // advertised poll interval to avoid hammering the endpoint.
+    if (!firstIteration) {
+      await wait(pollIntervalSeconds * 1000, signal);
+    }
+
+    firstIteration = false;
 
     let pollResult;
     try {
