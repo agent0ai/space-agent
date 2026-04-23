@@ -1,5 +1,7 @@
 import * as config from "/mod/_core/onscreen_agent/config.js";
 import * as agentApi from "/mod/_core/onscreen_agent/api.js";
+import * as codexAuthFlow from "/mod/_core/openai_codex/auth_flow.js";
+import * as codexModels from "/mod/_core/openai_codex/models.js";
 import {
   installPromptItemAccess,
   rebalancePromptBudgetRatios
@@ -81,6 +83,40 @@ function normalizePromptBudgetSingleMessageRatio(
   }
 
   return Math.max(0, Math.min(100, Math.round(parsedValue)));
+}
+
+function parseCodexTokensDraft(value) {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === "object") {
+    return value;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function serializeCodexTokensDraft(tokens) {
+  return tokens ? JSON.stringify(tokens) : "";
+}
+
+function createCodexLoginState() {
+  return {
+    deviceAuthId: "",
+    error: "",
+    status: codexAuthFlow.CODEX_AUTH_FLOW_STATUS.IDLE,
+    userCode: "",
+    verificationUrl: ""
+  };
 }
 
 function clonePromptBudgetRatios(value = {}) {
@@ -1408,9 +1444,13 @@ const model = {
   uiBubbleText: "",
   uiStateOwner: "",
   uiStatePersistTimer: 0,
+  codexLoginAbortController: null,
+  codexLoginState: createCodexLoginState(),
   settings: {
     apiEndpoint: "",
     apiKey: "",
+    codexModel: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.codexModel,
+    codexTokens: "",
     huggingfaceDtype: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.huggingfaceDtype,
     huggingfaceModel: "",
     localProvider: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.localProvider,
@@ -1423,6 +1463,8 @@ const model = {
   settingsDraft: {
     apiEndpoint: "",
     apiKey: "",
+    codexModel: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.codexModel,
+    codexTokens: "",
     huggingfaceDtype: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.huggingfaceDtype,
     huggingfaceModel: "",
     localProvider: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.localProvider,
@@ -1622,6 +1664,41 @@ const model = {
 
   get isSettingsDraftUsingLocalProvider() {
     return config.normalizeOnscreenAgentLlmProvider(this.settingsDraft.provider) === config.ONSCREEN_AGENT_LLM_PROVIDER.LOCAL;
+  },
+
+  get isSettingsDraftUsingCodexProvider() {
+    return config.normalizeOnscreenAgentLlmProvider(this.settingsDraft.provider) === config.ONSCREEN_AGENT_LLM_PROVIDER.CODEX;
+  },
+
+  get codexModelCatalog() {
+    return codexModels.CODEX_MODEL_CATALOG;
+  },
+
+  get isCodexLoginActive() {
+    return this.codexLoginState.status === codexAuthFlow.CODEX_AUTH_FLOW_STATUS.STARTING ||
+      this.codexLoginState.status === codexAuthFlow.CODEX_AUTH_FLOW_STATUS.PENDING;
+  },
+
+  get hasCodexTokens() {
+    const parsed = parseCodexTokensDraft(this.settingsDraft?.codexTokens);
+    return Boolean(parsed?.accessToken);
+  },
+
+  get codexVerificationUrl() {
+    return this.codexLoginState.verificationUrl || "";
+  },
+
+  get codexUserCode() {
+    return this.codexLoginState.userCode || "";
+  },
+
+  get codexLoginError() {
+    return this.codexLoginState.error || "";
+  },
+
+  get codexAccountIdSummary() {
+    const parsed = parseCodexTokensDraft(this.settingsDraft?.codexTokens);
+    return parsed?.accountId || "";
   },
 
   get huggingfaceSavedModels() {
@@ -4433,6 +4510,76 @@ const model = {
         });
       });
     }
+
+    if (this.isSettingsDraftUsingCodexProvider && !this.settingsDraft.codexModel) {
+      this.settingsDraft = {
+        ...this.settingsDraft,
+        codexModel: codexModels.CODEX_DEFAULT_MODEL_ID
+      };
+    }
+  },
+
+  async startCodexLogin() {
+    if (this.isCodexLoginActive) {
+      return;
+    }
+
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    this.codexLoginAbortController = controller;
+    this.codexLoginState = {
+      ...createCodexLoginState(),
+      status: codexAuthFlow.CODEX_AUTH_FLOW_STATUS.STARTING
+    };
+
+    try {
+      const tokens = await codexAuthFlow.runCodexDeviceAuthorizationFlow({
+        onStatusChange: (event) => {
+          this.codexLoginState = {
+            deviceAuthId: event.deviceAuthId || this.codexLoginState.deviceAuthId || "",
+            error: event.error || "",
+            status: event.status,
+            userCode: event.userCode || this.codexLoginState.userCode || "",
+            verificationUrl: event.verificationUrl || this.codexLoginState.verificationUrl || ""
+          };
+        },
+        signal: controller?.signal
+      });
+
+      this.settingsDraft = {
+        ...this.settingsDraft,
+        codexTokens: serializeCodexTokensDraft(tokens)
+      };
+      this.codexLoginState = createCodexLoginState();
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        this.codexLoginState = {
+          ...createCodexLoginState(),
+          error: error?.message || String(error),
+          status: codexAuthFlow.CODEX_AUTH_FLOW_STATUS.FAILED
+        };
+      } else {
+        this.codexLoginState = createCodexLoginState();
+      }
+    } finally {
+      this.codexLoginAbortController = null;
+    }
+  },
+
+  cancelCodexLogin() {
+    if (this.codexLoginAbortController) {
+      this.codexLoginAbortController.abort();
+    }
+
+    this.codexLoginState = createCodexLoginState();
+    this.codexLoginAbortController = null;
+  },
+
+  clearCodexLogin() {
+    this.settingsDraft = {
+      ...this.settingsDraft,
+      codexTokens: ""
+    };
+    this.codexLoginState = createCodexLoginState();
   },
 
   setSettingsPromptBudgetRatio(key, value) {
