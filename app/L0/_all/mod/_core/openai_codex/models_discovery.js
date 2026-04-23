@@ -5,18 +5,26 @@ function normalizeText(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function resolveProxyUrl(url) {
-  const proxy = globalThis.space?.proxy;
+// Resolve the space-agent same-origin proxy URL for the Codex models endpoint.
+// `chatgpt.com` does not send permissive CORS headers, so a direct browser
+// fetch is always blocked. We therefore route the request through the
+// space-agent outbound proxy (`/api/proxy`) on every call; this is existing
+// infrastructure shared with other cross-origin reads and does not require a
+// new backend endpoint. When the runtime does not expose the proxy helper
+// (e.g. test environment without the framework namespace), discovery returns
+// an empty list so callers fall back to the static catalog.
+function resolveProxyUrl(targetUrl) {
+  const runtimeProxy = globalThis.space?.proxy;
 
-  if (proxy && typeof proxy.buildUrl === "function") {
-    try {
-      return proxy.buildUrl(url);
-    } catch {
-      return "";
-    }
+  if (!runtimeProxy || typeof runtimeProxy.buildUrl !== "function") {
+    return "";
   }
 
-  return "";
+  try {
+    return runtimeProxy.buildUrl(targetUrl);
+  } catch {
+    return "";
+  }
 }
 
 async function fetchModelsJson(url, headers, fetchImpl) {
@@ -35,11 +43,6 @@ async function fetchModelsJson(url, headers, fetchImpl) {
   return response.json();
 }
 
-// Discover the Codex catalog live. Tries a direct browser fetch first; if that
-// fails because of a network or CORS error, retries through the space-agent
-// outbound proxy at `/api/proxy` (existing infrastructure, not a new backend
-// endpoint). Any failure falls through with an empty array so callers fall
-// back to the static catalog shipped in `models.js`.
 export async function discoverCodexModels({
   accessToken,
   chatGPTAccountId,
@@ -57,6 +60,12 @@ export async function discoverCodexModels({
     return [];
   }
 
+  const proxyUrl = resolveProxyUrl(CODEX_MODELS_ENDPOINT);
+
+  if (!proxyUrl) {
+    return [];
+  }
+
   const withAuth = applyCodexHeaders(
     {},
     {
@@ -68,20 +77,6 @@ export async function discoverCodexModels({
     ...(withAuth?.headers || {}),
     Accept: "application/json"
   };
-
-  try {
-    const payload = await fetchModelsJson(CODEX_MODELS_ENDPOINT, headers, fetchFn);
-    return parseCodexModelsResponse(payload);
-  } catch {
-    // First attempt failed (network, CORS, 5xx, etc.). Fall through to the
-    // proxy-based retry when that infrastructure is available.
-  }
-
-  const proxyUrl = resolveProxyUrl(CODEX_MODELS_ENDPOINT);
-
-  if (!proxyUrl) {
-    return [];
-  }
 
   try {
     const payload = await fetchModelsJson(proxyUrl, headers, fetchFn);

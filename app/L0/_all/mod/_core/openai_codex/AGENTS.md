@@ -21,7 +21,7 @@ This module owns:
 - `auth_flow.js`: stateful controller that drives the end-to-end device-code login UX from the settings dialog, emitting `STARTING` / `PENDING` / `COMPLETE` / `FAILED` status events and polling the backend at the interval the OAuth server returns
 - `models.js`: shipped static Codex model catalog used as a fallback by the settings UI, with `CODEX_DEFAULT_MODEL_ID` pointing at the cheapest and fastest option suitable for a ChatGPT Plus subscription
 - `models_parser.js`: pure `parseCodexModelsResponse(payload)` that converts the Codex `/backend-api/codex/models` response into `{ id, description }` entries, filters out unsupported or hidden variants, and sorts by `(priority, slug)` to match the reference Codex client ordering
-- `models_discovery.js`: browser-side `discoverCodexModels({ accessToken, chatGPTAccountId })` helper that fetches the live catalog with `applyCodexHeaders()`, first directly from `chatgpt.com/backend-api/codex/models` and then through the space-agent `/api/proxy` if the direct request fails; any failure returns an empty array so callers can fall back to the static catalog
+- `models_discovery.js`: browser-side `discoverCodexModels({ accessToken, chatGPTAccountId })` helper that fetches the live catalog with `applyCodexHeaders()` through the space-agent outbound proxy (`space.proxy.buildUrl(...)` -> `/api/proxy`). A direct browser fetch against `chatgpt.com/backend-api/codex/models` is always blocked because the endpoint sends no `Access-Control-Allow-Origin` header, so we route through the existing proxy infrastructure on every call rather than attempting a doomed direct request first. Any failure returns an empty array so callers can fall back to the static catalog.
 
 ## Local Contracts
 
