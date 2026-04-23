@@ -13,10 +13,13 @@ import * as agentView from "/mod/_core/admin/views/agent/view.js";
 import {
   mapManagerStateToAdminState
 } from "/mod/_core/admin/views/agent/huggingface.js";
+import { prependAssistantEvaluationLogs } from "/mod/_core/agent-chat/assistant-message-evaluation.js";
 import {
-  normalizeAssistantEvaluationLogEntry,
-  prependAssistantEvaluationLogs
-} from "/mod/_core/agent-chat/assistant-message-evaluation.js";
+  applyConversationMessage,
+  createProcessedConversationMessage,
+  normalizeAssistantEvaluation,
+  resolveProcessedConversationMessage
+} from "/mod/_core/agent-chat/runtime-hygiene.js";
 import { DEFAULT_MODEL_INPUT, DTYPE_OPTIONS, normalizeHuggingFaceModelInput } from "/mod/_core/huggingface/helpers.js";
 import { getHuggingFaceManager } from "/mod/_core/huggingface/manager.js";
 import { closeDialog, openDialog } from "/mod/_core/visual/forms/dialog.js";
@@ -29,6 +32,13 @@ import {
 } from "/mod/_core/admin/views/agent/attachments.js";
 
 const huggingfaceManager = getHuggingFaceManager();
+
+const processAdminAgentMessage = globalThis.space.extend(
+  import.meta,
+  async function processAdminAgentMessage(context = {}) {
+    return context;
+  }
+);
 
 function normalizePromptBudgetSingleMessageRatio(
   value,
@@ -210,15 +220,7 @@ const MAX_COMPACT_TRIM_ATTEMPTS = 4;
 const evaluateAdminAssistantMessage = globalThis.space.extend(
   import.meta,
   async function evaluateAdminAssistantMessage(context = {}) {
-    return {
-      assistantContent: typeof context?.assistantContent === "string" ? context.assistantContent : "",
-      history: Array.isArray(context?.history) ? context.history : [],
-      logs: Array.isArray(context?.logs)
-        ? context.logs.map((entry) => normalizeAssistantEvaluationLogEntry(entry)).filter(Boolean)
-        : [],
-      messageId: typeof context?.messageId === "string" ? context.messageId : "",
-      store: context?.store || null
-    };
+    return normalizeAssistantEvaluation(context);
   }
 );
 
@@ -1415,15 +1417,27 @@ const model = {
     return true;
   },
 
-  consumeNextQueuedSubmissionMessage() {
+  async consumeNextQueuedSubmissionMessage() {
     if (!this.queuedSubmissions.length) {
       return null;
     }
 
     const [snapshot, ...rest] = this.queuedSubmissions;
     this.queuedSubmissions = rest;
-    return createMessage("user", snapshot.content, {
-      attachments: Array.isArray(snapshot.attachments) ? snapshot.attachments.slice() : []
+    return createProcessedConversationMessage({
+      content: snapshot.content,
+      context: {
+        draftSubmission: snapshot,
+        history: this.history,
+        phase: "submit",
+        store: this
+      },
+      createMessage,
+      options: {
+        attachments: Array.isArray(snapshot.attachments) ? snapshot.attachments.slice() : []
+      },
+      processMessage: processAdminAgentMessage,
+      role: "user"
     });
   },
 
@@ -2013,9 +2027,21 @@ const model = {
       }
 
       if (isAbortError(error) && this.stopRequested) {
-        const hasContent = Boolean(assistantMessage.content.trim());
+        let hasContent = Boolean(assistantMessage.content.trim());
 
         if (hasContent) {
+          applyConversationMessage(
+            assistantMessage,
+            await resolveProcessedConversationMessage({
+              history: requestMessages,
+              message: assistantMessage,
+              phase: "assistant-response",
+              responseMeta,
+              processMessage: processAdminAgentMessage,
+              store: this
+            })
+          );
+          hasContent = Boolean(assistantMessage.content.trim());
           await this.refreshPromptInputFromHistory(this.history);
           await this.persistHistory({
             immediate: true
@@ -2040,6 +2066,17 @@ const model = {
       this.activeRequestController = null;
     }
 
+    applyConversationMessage(
+      assistantMessage,
+      await resolveProcessedConversationMessage({
+        history: requestMessages,
+        message: assistantMessage,
+        phase: "assistant-response",
+        responseMeta,
+        processMessage: processAdminAgentMessage,
+        store: this
+      })
+    );
     await this.refreshPromptInputFromHistory(this.history);
     await this.persistHistory({
       immediate: true
@@ -2138,8 +2175,20 @@ const model = {
             throw new Error("History compaction returned no content.");
           }
 
-          const compactedMessage = createMessage("user", normalizedCompactedHistory, {
-            kind: "history-compact"
+          const compactedMessage = await createProcessedConversationMessage({
+            content: normalizedCompactedHistory,
+            context: {
+              history: this.history,
+              mode,
+              phase: "history-compact",
+              store: this
+            },
+            createMessage,
+            options: {
+              kind: "history-compact"
+            },
+            processMessage: processAdminAgentMessage,
+            role: "user"
           });
           this.executionOutputOverrides = Object.create(null);
           this.rerunningMessageId = "";
@@ -2319,8 +2368,20 @@ const model = {
               continue;
             }
 
-            nextUserMessage = createMessage("user", buildEmptyAssistantRetryMessage(), {
-              kind: "execution-retry"
+            nextUserMessage = await createProcessedConversationMessage({
+              content: buildEmptyAssistantRetryMessage(),
+              context: {
+                history: requestMessages,
+                phase: "protocol-retry",
+                responseMeta: streamResult.responseMeta,
+                store: this
+              },
+              createMessage,
+              options: {
+                kind: "execution-retry"
+              },
+              processMessage: processAdminAgentMessage,
+              role: "user"
             });
             this.status = hasVerifiedEmptyAssistantResponse(streamResult)
               ? "Retrying: assistant response was empty after execution..."
@@ -2360,8 +2421,20 @@ const model = {
         return "complete";
       }
 
-      const executionOutputMessage = createMessage("user", execution.formatExecutionResultsMessage(executionResults), {
-        kind: "execution-output"
+      const executionOutputMessage = await createProcessedConversationMessage({
+        content: execution.formatExecutionResultsMessage(executionResults),
+        context: {
+          executionResults,
+          history: this.history,
+          phase: "execution-output",
+          store: this
+        },
+        createMessage,
+        options: {
+          kind: "execution-output"
+        },
+        processMessage: processAdminAgentMessage,
+        role: "user"
       });
       await this.replaceHistory([...this.history, executionOutputMessage]);
       await this.persistHistory({
@@ -2395,7 +2468,7 @@ const model = {
         finalOutcome = outcome;
 
         if (outcome === "queued") {
-          nextUserMessage = this.consumeNextQueuedSubmissionMessage();
+          nextUserMessage = await this.consumeNextQueuedSubmissionMessage();
 
           if (nextUserMessage) {
             this.stopRequested = false;
@@ -2412,7 +2485,7 @@ const model = {
           break;
         }
 
-        const queuedMessage = this.consumeNextQueuedSubmissionMessage();
+        const queuedMessage = await this.consumeNextQueuedSubmissionMessage();
 
         if (queuedMessage) {
           nextUserMessage = queuedMessage;
@@ -2474,8 +2547,20 @@ const model = {
       }
     }
 
-    const userMessage = createMessage("user", draftSubmission.content, {
-      attachments: draftSubmission.attachments
+    const userMessage = await createProcessedConversationMessage({
+      content: draftSubmission.content,
+      context: {
+        draftSubmission,
+        history: this.history,
+        phase: "submit",
+        store: this
+      },
+      createMessage,
+      options: {
+        attachments: draftSubmission.attachments
+      },
+      processMessage: processAdminAgentMessage,
+      role: "user"
     });
     this.clearComposerDraft();
     await this.runSubmissionSeries(userMessage);

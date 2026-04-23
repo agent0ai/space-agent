@@ -13,6 +13,7 @@ Documentation is top priority for this module. After any change under `_core/age
 This module owns:
 
 - `assistant-message-evaluation.js`: shared assistant-message normalization, exact-repeat detection, severity-based loop warning construction, and safe prepending of synthetic transcript logs ahead of real execution console output
+- `runtime-hygiene.js`: shared conversation-message cloning, safe in-place message application, assistant-evaluation context normalization, and processed-message helper flow reused by the admin and overlay agent stores
 - `ext/js/_core/onscreen_agent/store.js/evaluateOnscreenAssistantMessage/end/*.js`: hook implementations for overlay assistant-message evaluation
 - `ext/js/_core/admin/views/agent/store.js/evaluateAdminAssistantMessage/end/*.js`: hook implementations for admin assistant-message evaluation
 
@@ -25,7 +26,11 @@ Current shared helper contract:
 - severity must escalate as `info` on the 2nd exact send, `warn` on the 3rd exact send, and `error` on the 4th exact send onward
 - the warning text should stay short, direct, and framed as loop pressure visible through the normal execution transcript channel
 - prepending synthetic transcript logs must not rewrite or trim the real execution console entries that already exist on the execution result
-- this module owns the first-party repeated-message loop policy for both overlay and admin chat; the consuming stores own only the evaluation seams and transcript insertion point
+- `runtime-hygiene.js` should clone conversation messages before passing them into message-processing hooks, so hook mutations cannot leak back into the source history snapshots by aliasing
+- `runtime-hygiene.js` should expose `applyConversationMessage(...)` for the stores that need to merge processed assistant-message updates back into existing history objects without sharing attachment-array references
+- `normalizeAssistantEvaluation(...)` should sanitize assistant-evaluation inputs into the shared `{ assistantContent, history, logs, messageId, store }` shape for both chat surfaces
+- `resolveProcessedConversationMessage(...)` and `createProcessedConversationMessage(...)` should be the shared way to route `submit`, `assistant-response`, `history-compact`, `protocol-retry`, and `execution-output` messages through surface-owned processing seams
+- this module owns the first-party repeated-message loop policy for both overlay and admin chat, plus the shared runtime-hygiene helper flow; the consuming stores own only the evaluation seams, transcript insertion point, and surface-local message-processing policy
 
 ## Development Guidance
 
