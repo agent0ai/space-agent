@@ -1,5 +1,7 @@
 import * as config from "/mod/_core/admin/views/agent/config.js";
 import * as agentApi from "/mod/_core/admin/views/agent/api.js";
+import * as codexAuthFlow from "/mod/_core/openai_codex/auth_flow.js";
+import * as codexModels from "/mod/_core/openai_codex/models.js";
 import {
   installPromptItemAccess,
   rebalancePromptBudgetRatios
@@ -46,6 +48,40 @@ function normalizePromptBudgetSingleMessageRatio(
 function clonePromptBudgetRatios(value = {}) {
   return {
     ...config.normalizeAdminChatPromptBudgetRatios(value)
+  };
+}
+
+function parseAdminCodexTokensDraft(value) {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === "object") {
+    return value;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function serializeAdminCodexTokensDraft(tokens) {
+  return tokens ? JSON.stringify(tokens) : "";
+}
+
+function createAdminCodexLoginState() {
+  return {
+    deviceAuthId: "",
+    error: "",
+    status: codexAuthFlow.CODEX_AUTH_FLOW_STATUS.IDLE,
+    userCode: "",
+    verificationUrl: ""
   };
 }
 
@@ -371,9 +407,13 @@ const model = {
   },
   rerunningMessageId: "",
   runtime: null,
+  codexLoginAbortController: null,
+  codexLoginState: createAdminCodexLoginState(),
   settings: {
     apiEndpoint: "",
     apiKey: "",
+    codexModel: config.DEFAULT_ADMIN_CHAT_SETTINGS.codexModel,
+    codexTokens: "",
     huggingfaceDtype: config.DEFAULT_ADMIN_CHAT_SETTINGS.huggingfaceDtype,
     huggingfaceModel: "",
     localProvider: config.DEFAULT_ADMIN_CHAT_SETTINGS.localProvider,
@@ -386,6 +426,8 @@ const model = {
   settingsDraft: {
     apiEndpoint: "",
     apiKey: "",
+    codexModel: config.DEFAULT_ADMIN_CHAT_SETTINGS.codexModel,
+    codexTokens: "",
     huggingfaceDtype: config.DEFAULT_ADMIN_CHAT_SETTINGS.huggingfaceDtype,
     huggingfaceModel: "",
     localProvider: config.DEFAULT_ADMIN_CHAT_SETTINGS.localProvider,
@@ -482,6 +524,41 @@ const model = {
 
   get isSettingsDraftUsingLocalProvider() {
     return config.normalizeAdminChatLlmProvider(this.settingsDraft.provider) === config.ADMIN_CHAT_LLM_PROVIDER.LOCAL;
+  },
+
+  get isSettingsDraftUsingCodexProvider() {
+    return config.normalizeAdminChatLlmProvider(this.settingsDraft.provider) === config.ADMIN_CHAT_LLM_PROVIDER.CODEX;
+  },
+
+  get codexModelCatalog() {
+    return codexModels.CODEX_MODEL_CATALOG;
+  },
+
+  get isCodexLoginActive() {
+    return this.codexLoginState.status === codexAuthFlow.CODEX_AUTH_FLOW_STATUS.STARTING ||
+      this.codexLoginState.status === codexAuthFlow.CODEX_AUTH_FLOW_STATUS.PENDING;
+  },
+
+  get hasCodexTokens() {
+    const parsed = parseAdminCodexTokensDraft(this.settingsDraft?.codexTokens);
+    return Boolean(parsed?.accessToken);
+  },
+
+  get codexVerificationUrl() {
+    return this.codexLoginState.verificationUrl || "";
+  },
+
+  get codexUserCode() {
+    return this.codexLoginState.userCode || "";
+  },
+
+  get codexLoginError() {
+    return this.codexLoginState.error || "";
+  },
+
+  get codexAccountIdSummary() {
+    const parsed = parseAdminCodexTokensDraft(this.settingsDraft?.codexTokens);
+    return parsed?.accountId || "";
   },
 
   get huggingfaceSavedModels() {
@@ -1667,6 +1744,76 @@ const model = {
         this.reportError("warming the local-provider settings draft", error);
       });
     }
+
+    if (this.isSettingsDraftUsingCodexProvider && !this.settingsDraft.codexModel) {
+      this.settingsDraft = {
+        ...this.settingsDraft,
+        codexModel: codexModels.CODEX_DEFAULT_MODEL_ID
+      };
+    }
+  },
+
+  async startCodexLogin() {
+    if (this.isCodexLoginActive) {
+      return;
+    }
+
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    this.codexLoginAbortController = controller;
+    this.codexLoginState = {
+      ...createAdminCodexLoginState(),
+      status: codexAuthFlow.CODEX_AUTH_FLOW_STATUS.STARTING
+    };
+
+    try {
+      const tokens = await codexAuthFlow.runCodexDeviceAuthorizationFlow({
+        onStatusChange: (event) => {
+          this.codexLoginState = {
+            deviceAuthId: event.deviceAuthId || this.codexLoginState.deviceAuthId || "",
+            error: event.error || "",
+            status: event.status,
+            userCode: event.userCode || this.codexLoginState.userCode || "",
+            verificationUrl: event.verificationUrl || this.codexLoginState.verificationUrl || ""
+          };
+        },
+        signal: controller?.signal
+      });
+
+      this.settingsDraft = {
+        ...this.settingsDraft,
+        codexTokens: serializeAdminCodexTokensDraft(tokens)
+      };
+      this.codexLoginState = createAdminCodexLoginState();
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        this.codexLoginState = {
+          ...createAdminCodexLoginState(),
+          error: error?.message || String(error),
+          status: codexAuthFlow.CODEX_AUTH_FLOW_STATUS.FAILED
+        };
+      } else {
+        this.codexLoginState = createAdminCodexLoginState();
+      }
+    } finally {
+      this.codexLoginAbortController = null;
+    }
+  },
+
+  cancelCodexLogin() {
+    if (this.codexLoginAbortController) {
+      this.codexLoginAbortController.abort();
+    }
+
+    this.codexLoginState = createAdminCodexLoginState();
+    this.codexLoginAbortController = null;
+  },
+
+  clearCodexLogin() {
+    this.settingsDraft = {
+      ...this.settingsDraft,
+      codexTokens: ""
+    };
+    this.codexLoginState = createAdminCodexLoginState();
   },
 
   setSettingsPromptBudgetRatio(key, value) {
