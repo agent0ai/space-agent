@@ -28,8 +28,14 @@ function resolveProxyUrl(targetUrl) {
 }
 
 async function fetchModelsJson(url, headers, fetchImpl) {
+  // `credentials: "same-origin"` is required because the URL here is always
+  // the space-agent `/api/proxy` endpoint (the runtime's `space.proxy.buildUrl`
+  // returns a same-origin URL). `/api/proxy` itself is an authenticated
+  // endpoint that needs the browser's `space_session` cookie. The proxy
+  // strips the `cookie` header before forwarding upstream, so this does not
+  // leak space-agent session state to chatgpt.com.
   const response = await fetchImpl(url, {
-    credentials: "omit",
+    credentials: "same-origin",
     headers,
     method: "GET"
   });
