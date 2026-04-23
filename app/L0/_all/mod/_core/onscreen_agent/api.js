@@ -446,7 +446,13 @@ export class OnscreenAgentApiLlmClient extends OnscreenAgentLlmClient {
 
 export class OnscreenAgentCodexLlmClient extends OnscreenAgentLlmClient {
   validateSettings(settings = this.settings) {
-    if (!settings?.model?.trim()) {
+    // The Codex-provider path selects the model from `settings.codexModel`;
+    // `settings.model` is the API-tab field and may still hold the unrelated
+    // OpenRouter default (`anthropic/claude-sonnet-4.6`). The hook only falls
+    // back to `settings.model` if `codexModel` is empty, so require
+    // `codexModel` here and keep `settings.model` as a last-resort fallback
+    // that mirrors the admin-side validation.
+    if (!settings?.codexModel?.trim() && !settings?.model?.trim()) {
       throw new Error("Choose a Codex model before sending a message.");
     }
 
