@@ -2,6 +2,7 @@ import * as config from "/mod/_core/onscreen_agent/config.js";
 import * as agentApi from "/mod/_core/onscreen_agent/api.js";
 import * as codexAuthFlow from "/mod/_core/openai_codex/auth_flow.js";
 import * as codexModels from "/mod/_core/openai_codex/models.js";
+import { discoverCodexModels } from "/mod/_core/openai_codex/models_discovery.js";
 import {
   installPromptItemAccess,
   rebalancePromptBudgetRatios
@@ -34,6 +35,7 @@ import {
 } from "/mod/_core/onscreen_agent/attachments.js";
 
 const UI_STATE_PERSIST_DELAY_MS = 180;
+const CODEX_CATALOG_TTL_MS = 10 * 60 * 1000;
 const STARTUP_HINT_DELAY_MS = 2000;
 const STARTUP_HINT_VISIBLE_MS = 3000;
 const COMPACT_MODE_TOP_EDGE_THRESHOLD_EM = 10;
@@ -117,6 +119,52 @@ function createCodexLoginState() {
     userCode: "",
     verificationUrl: ""
   };
+}
+
+// Merge the live Codex catalog (discovered from the Codex models endpoint)
+// with the static fallback shipped in `models.js`. The runtime catalog wins
+// when both have the same id so live descriptions and the live ordering are
+// preserved, and any static-only entries trail the runtime ones so a user
+// with a broken or empty discovery response still has something to pick.
+function mergeCodexModelCatalogs(runtimeCatalog, staticCatalog) {
+  const runtime = Array.isArray(runtimeCatalog) ? runtimeCatalog : [];
+  const staticList = Array.isArray(staticCatalog) ? staticCatalog : [];
+  const seen = new Set();
+  const merged = [];
+
+  for (const entry of runtime) {
+    if (!entry || typeof entry.id !== "string" || !entry.id) {
+      continue;
+    }
+
+    if (seen.has(entry.id)) {
+      continue;
+    }
+
+    seen.add(entry.id);
+    merged.push({
+      description: typeof entry.description === "string" ? entry.description : "",
+      id: entry.id
+    });
+  }
+
+  for (const entry of staticList) {
+    if (!entry || typeof entry.id !== "string" || !entry.id) {
+      continue;
+    }
+
+    if (seen.has(entry.id)) {
+      continue;
+    }
+
+    seen.add(entry.id);
+    merged.push({
+      description: typeof entry.description === "string" ? entry.description : "",
+      id: entry.id
+    });
+  }
+
+  return merged;
 }
 
 function clonePromptBudgetRatios(value = {}) {
@@ -1444,8 +1492,11 @@ const model = {
   uiBubbleText: "",
   uiStateOwner: "",
   uiStatePersistTimer: 0,
+  codexCatalogFetchedAt: 0,
+  codexCatalogPromise: null,
   codexLoginAbortController: null,
   codexLoginState: createCodexLoginState(),
+  codexRuntimeCatalog: [],
   settings: {
     apiEndpoint: "",
     apiKey: "",
@@ -1675,7 +1726,19 @@ const model = {
   },
 
   get codexModelCatalog() {
-    return codexModels.CODEX_MODEL_CATALOG;
+    return mergeCodexModelCatalogs(this.codexRuntimeCatalog, codexModels.CODEX_MODEL_CATALOG);
+  },
+
+  get isCodexSelectedModelInCatalog() {
+    const selected = typeof this.settingsDraft?.codexModel === "string"
+      ? this.settingsDraft.codexModel.trim()
+      : "";
+
+    if (!selected) {
+      return true;
+    }
+
+    return this.codexModelCatalog.some((entry) => entry.id === selected);
   },
 
   get isCodexLoginActive() {
@@ -4493,6 +4556,16 @@ const model = {
         preserveStatus: true
       });
     });
+
+    // Kick off live Codex catalog discovery so a signed-in user sees the
+    // models actually available to their account. Failures fall back to the
+    // shipped static catalog so the dropdown always has entries.
+    void this.refreshCodexModelCatalog().catch((error) => {
+      this.reportError("refreshing the Codex model catalog", error, {
+        preserveStatus: true
+      });
+    });
+
     openDialog(resolveDialogRef(this.refs, "settingsDialog", SETTINGS_DIALOG_ELEMENT_ID));
   },
 
@@ -4554,6 +4627,11 @@ const model = {
         codexTokens: serializeCodexTokensDraft(tokens)
       };
       this.codexLoginState = createCodexLoginState();
+
+      // The signed-in user's catalog depends on the ChatGPT subscription
+      // attached to the newly issued access token. Force a re-discovery now
+      // so the model dropdown reflects the live list before the user picks.
+      void this.refreshCodexModelCatalog({ force: true }).catch(() => {});
     } catch (error) {
       if (error?.name !== "AbortError") {
         this.codexLoginState = {
@@ -4584,6 +4662,52 @@ const model = {
       codexTokens: ""
     };
     this.codexLoginState = createCodexLoginState();
+  },
+
+  // Discover the live Codex model catalog. The runtime catalog is cached
+  // in-memory with a 10-minute TTL so opening the settings dialog repeatedly
+  // does not spam the Codex models endpoint. Concurrent callers coalesce
+  // through the shared in-flight promise. A failed discovery (network, CORS,
+  // missing tokens) resolves with an empty runtime catalog so the static
+  // fallback in `models.js` remains selectable.
+  async refreshCodexModelCatalog({ force = false } = {}) {
+    if (!force && this.codexCatalogPromise) {
+      return this.codexCatalogPromise;
+    }
+
+    if (!force && this.codexCatalogFetchedAt && (Date.now() - this.codexCatalogFetchedAt) < CODEX_CATALOG_TTL_MS) {
+      return this.codexRuntimeCatalog;
+    }
+
+    const tokens = parseCodexTokensDraft(this.settings?.codexTokens);
+    const accessToken = typeof tokens?.accessToken === "string" ? tokens.accessToken.trim() : "";
+
+    if (!accessToken) {
+      this.codexRuntimeCatalog = [];
+      this.codexCatalogFetchedAt = Date.now();
+      return this.codexRuntimeCatalog;
+    }
+
+    const accountId = typeof tokens?.accountId === "string" ? tokens.accountId.trim() : "";
+    const pending = (async () => {
+      try {
+        const catalog = await discoverCodexModels({
+          accessToken,
+          chatGPTAccountId: accountId
+        });
+        this.codexRuntimeCatalog = Array.isArray(catalog) ? catalog : [];
+      } catch {
+        this.codexRuntimeCatalog = [];
+      } finally {
+        this.codexCatalogFetchedAt = Date.now();
+        this.codexCatalogPromise = null;
+      }
+
+      return this.codexRuntimeCatalog;
+    })();
+
+    this.codexCatalogPromise = pending;
+    return pending;
   },
 
   // Called by the `prepareOnscreenAgentApiRequest` Codex hook after a server-

@@ -2,6 +2,7 @@ import * as config from "/mod/_core/admin/views/agent/config.js";
 import * as agentApi from "/mod/_core/admin/views/agent/api.js";
 import * as codexAuthFlow from "/mod/_core/openai_codex/auth_flow.js";
 import * as codexModels from "/mod/_core/openai_codex/models.js";
+import { discoverCodexModels } from "/mod/_core/openai_codex/models_discovery.js";
 import {
   installPromptItemAccess,
   rebalancePromptBudgetRatios
@@ -83,6 +84,52 @@ function createAdminCodexLoginState() {
     userCode: "",
     verificationUrl: ""
   };
+}
+
+// Merge the live Codex catalog with the static fallback shipped in
+// `models.js`. The runtime catalog wins when both have the same id so live
+// descriptions and ordering are preserved; static-only entries trail the
+// runtime ones so a user with a broken or empty discovery response still has
+// something to pick.
+function mergeAdminCodexModelCatalogs(runtimeCatalog, staticCatalog) {
+  const runtime = Array.isArray(runtimeCatalog) ? runtimeCatalog : [];
+  const staticList = Array.isArray(staticCatalog) ? staticCatalog : [];
+  const seen = new Set();
+  const merged = [];
+
+  for (const entry of runtime) {
+    if (!entry || typeof entry.id !== "string" || !entry.id) {
+      continue;
+    }
+
+    if (seen.has(entry.id)) {
+      continue;
+    }
+
+    seen.add(entry.id);
+    merged.push({
+      description: typeof entry.description === "string" ? entry.description : "",
+      id: entry.id
+    });
+  }
+
+  for (const entry of staticList) {
+    if (!entry || typeof entry.id !== "string" || !entry.id) {
+      continue;
+    }
+
+    if (seen.has(entry.id)) {
+      continue;
+    }
+
+    seen.add(entry.id);
+    merged.push({
+      description: typeof entry.description === "string" ? entry.description : "",
+      id: entry.id
+    });
+  }
+
+  return merged;
 }
 
 function createPromptBudgetSegments(ratios = {}) {
@@ -242,6 +289,7 @@ function logAdminAgentError(context, error) {
 
 const MAX_PROTOCOL_RETRY_COUNT = 2;
 const MAX_COMPACT_TRIM_ATTEMPTS = 4;
+const CODEX_CATALOG_TTL_MS = 10 * 60 * 1000;
 
 const evaluateAdminAssistantMessage = globalThis.space.extend(
   import.meta,
@@ -407,8 +455,11 @@ const model = {
   },
   rerunningMessageId: "",
   runtime: null,
+  codexCatalogFetchedAt: 0,
+  codexCatalogPromise: null,
   codexLoginAbortController: null,
   codexLoginState: createAdminCodexLoginState(),
+  codexRuntimeCatalog: [],
   settings: {
     apiEndpoint: "",
     apiKey: "",
@@ -535,7 +586,19 @@ const model = {
   },
 
   get codexModelCatalog() {
-    return codexModels.CODEX_MODEL_CATALOG;
+    return mergeAdminCodexModelCatalogs(this.codexRuntimeCatalog, codexModels.CODEX_MODEL_CATALOG);
+  },
+
+  get isCodexSelectedModelInCatalog() {
+    const selected = typeof this.settingsDraft?.codexModel === "string"
+      ? this.settingsDraft.codexModel.trim()
+      : "";
+
+    if (!selected) {
+      return true;
+    }
+
+    return this.codexModelCatalog.some((entry) => entry.id === selected);
   },
 
   get isCodexLoginActive() {
@@ -1729,6 +1792,14 @@ const model = {
       .catch((error) => {
         this.reportError("warming the local-provider settings draft", error);
       });
+
+    // Kick off live Codex catalog discovery so a signed-in user sees the
+    // models actually available to their account. Failures fall back to the
+    // shipped static catalog so the dropdown always has entries.
+    void this.refreshCodexModelCatalog().catch((error) => {
+      this.reportError("refreshing the Codex model catalog", error);
+    });
+
     openDialog(this.refs.settingsDialog);
   },
 
@@ -1788,6 +1859,11 @@ const model = {
         codexTokens: serializeAdminCodexTokensDraft(tokens)
       };
       this.codexLoginState = createAdminCodexLoginState();
+
+      // The signed-in user's catalog depends on the ChatGPT subscription
+      // attached to the newly issued access token. Force a re-discovery now
+      // so the model dropdown reflects the live list before the user picks.
+      void this.refreshCodexModelCatalog({ force: true }).catch(() => {});
     } catch (error) {
       if (error?.name !== "AbortError") {
         this.codexLoginState = {
@@ -1818,6 +1894,52 @@ const model = {
       codexTokens: ""
     };
     this.codexLoginState = createAdminCodexLoginState();
+  },
+
+  // Discover the live Codex model catalog. The runtime catalog is cached
+  // in-memory with a 10-minute TTL so opening the settings dialog repeatedly
+  // does not spam the Codex models endpoint. Concurrent callers coalesce
+  // through the shared in-flight promise. A failed discovery (network, CORS,
+  // missing tokens) resolves with an empty runtime catalog so the static
+  // fallback in `models.js` remains selectable.
+  async refreshCodexModelCatalog({ force = false } = {}) {
+    if (!force && this.codexCatalogPromise) {
+      return this.codexCatalogPromise;
+    }
+
+    if (!force && this.codexCatalogFetchedAt && (Date.now() - this.codexCatalogFetchedAt) < CODEX_CATALOG_TTL_MS) {
+      return this.codexRuntimeCatalog;
+    }
+
+    const tokens = parseAdminCodexTokensDraft(this.settings?.codexTokens);
+    const accessToken = typeof tokens?.accessToken === "string" ? tokens.accessToken.trim() : "";
+
+    if (!accessToken) {
+      this.codexRuntimeCatalog = [];
+      this.codexCatalogFetchedAt = Date.now();
+      return this.codexRuntimeCatalog;
+    }
+
+    const accountId = typeof tokens?.accountId === "string" ? tokens.accountId.trim() : "";
+    const pending = (async () => {
+      try {
+        const catalog = await discoverCodexModels({
+          accessToken,
+          chatGPTAccountId: accountId
+        });
+        this.codexRuntimeCatalog = Array.isArray(catalog) ? catalog : [];
+      } catch {
+        this.codexRuntimeCatalog = [];
+      } finally {
+        this.codexCatalogFetchedAt = Date.now();
+        this.codexCatalogPromise = null;
+      }
+
+      return this.codexRuntimeCatalog;
+    })();
+
+    this.codexCatalogPromise = pending;
+    return pending;
   },
 
   // Called by the `prepareAdminAgentApiRequest` Codex hook after a server-side

@@ -407,7 +407,13 @@
                               <template x-for="entry in $store.onscreenAgent.codexModelCatalog" :key="entry.id">
                                 <option :value="entry.id" x-text="`${entry.id} — ${entry.description}`"></option>
                               </template>
+                              <template x-if="!$store.onscreenAgent.isCodexSelectedModelInCatalog">
+                                <option :value="$store.onscreenAgent.settingsDraft.codexModel" x-text="$store.onscreenAgent.settingsDraft.codexModel"></option>
+                              </template>
                             </select>
+                            <p class="field-note" x-show="!$store.onscreenAgent.isCodexSelectedModelInCatalog">
+                              ⚠ Not currently listed for your account. Pick another model if chats fail.
+                            </p>
                           </label>
                           <button type="button" class="secondary-button" @click="$store.onscreenAgent.clearCodexLogin()">
                             Sign out
