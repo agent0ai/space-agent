@@ -17,6 +17,9 @@ This module owns:
 - `ext/js/_core/admin/views/agent/api.js/prepareAdminAgentApiRequest/end/openai-codex.js`: admin-chat API request customization (body shape + headers)
 - `request_shape.js`: pure stateless converters between OpenAI Chat-Completions request bodies and Codex Responses-API request bodies
 - `sse_adapter.js`: pure stateless mapper from Codex Responses-API SSE events into the existing Chat-Completions-shaped delta frames that `_core/onscreen_agent/api.js` and `_core/admin/views/agent/api.js` already parse
+- `token_manager.js`: browser-side helper that wraps the three OAuth backend endpoints (`/api/openai_codex_auth_start`, `/api/openai_codex_auth_poll`, `/api/openai_codex_token_refresh`) and enforces always-fresh-read refresh semantics with a single-flight coalescer per refresh token
+- `auth_flow.js`: stateful controller that drives the end-to-end device-code login UX from the settings dialog, emitting `STARTING` / `PENDING` / `COMPLETE` / `FAILED` status events and polling the backend at the interval the OAuth server returns
+- `models.js`: shipped Codex model catalog used by the settings UI, with `CODEX_DEFAULT_MODEL_ID` pointing at the cheapest and fastest option suitable for a ChatGPT Plus subscription
 
 ## Local Contracts
 
