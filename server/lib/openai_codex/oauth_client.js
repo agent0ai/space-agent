@@ -64,10 +64,18 @@ export async function startDeviceAuthorization() {
     );
   }
 
+  // The OpenAI device-code endpoint returns `interval` as a string (e.g. "5"),
+  // and encodes expiry as `expires_at` (ISO-8601 string) rather than `expires_in`.
+  // Parse both defensively so the frontend always receives numbers.
+  const parsedInterval = Number.parseInt(payload.interval, 10);
+  const expiresAtMs = Date.parse(String(payload.expires_at || ""));
+  const expiresInFromAt = Number.isFinite(expiresAtMs) ? Math.max(1, Math.floor((expiresAtMs - Date.now()) / 1000)) : 0;
+  const parsedExpiresIn = Number.isFinite(payload.expires_in) ? Number(payload.expires_in) : expiresInFromAt;
+
   return {
     deviceAuthId: String(payload.device_auth_id || "").trim(),
-    expiresIn: Number.isFinite(payload.expires_in) ? payload.expires_in : 900,
-    interval: Number.isFinite(payload.interval) && payload.interval >= 3 ? payload.interval : 3,
+    expiresIn: parsedExpiresIn > 0 ? parsedExpiresIn : 900,
+    interval: Number.isFinite(parsedInterval) && parsedInterval >= 3 ? parsedInterval : 5,
     userCode: String(payload.user_code || "").trim(),
     verificationUrl: CODEX_OAUTH_VERIFICATION_URL
   };
@@ -107,7 +115,7 @@ export async function pollDeviceAuthorization({ deviceAuthId, userCode }) {
   });
 
   if (pollResponse.status === 403 || pollResponse.status === 404) {
-    return { status: "pending" };
+    return { state: "pending" };
   }
 
   const pollPayload = await readJsonBody(pollResponse);
@@ -123,7 +131,7 @@ export async function pollDeviceAuthorization({ deviceAuthId, userCode }) {
   const codeVerifier = String(pollPayload.code_verifier || "").trim();
 
   if (!authorizationCode || !codeVerifier) {
-    return { status: "pending" };
+    return { state: "pending" };
   }
 
   const formBody = new URLSearchParams({
@@ -150,7 +158,7 @@ export async function pollDeviceAuthorization({ deviceAuthId, userCode }) {
   }
 
   return {
-    status: "complete",
+    state: "complete",
     tokens: buildTokenPayload(
       tokenPayload.access_token,
       tokenPayload.refresh_token,

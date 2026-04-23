@@ -118,7 +118,7 @@ export async function runCodexDeviceAuthorizationFlow({
       throw error;
     }
 
-    if (pollResult?.status === "complete" && pollResult.tokens) {
+    if (pollResult?.state === "complete" && pollResult.tokens) {
       const tokens = normalizeCodexTokens(pollResult.tokens);
 
       if (!tokens) {
