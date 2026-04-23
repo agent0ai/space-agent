@@ -118,6 +118,23 @@ When the current session is unlocked, the value stored at `openai_codex` is a `u
 
 The server OAuth endpoints own extraction of `account_id` and return it alongside the tokens; the frontend never re-parses the JWT during normal requests.
 
+## Testing This Locally
+
+This module cannot be fully exercised without an active ChatGPT Plus subscription, since the OAuth device-code flow, the streaming `/responses` endpoint, and the `/models` discovery all require a live OpenAI account with Codex access.
+
+What reviewers can verify without a subscription:
+
+- **Pure-function tests**: `tests/openai_codex_*_test.mjs` covers request-shape conversion, SSE event mapping, the token manager's always-fresh-read and single-flight semantics, the shipped static model catalog, and the live-response parser. Run with `node --test tests/openai_codex_*_test.mjs` — 51 tests, no network access or credentials required.
+- **Server endpoint registration**: `node space serve` starts cleanly and `curl -X POST http://127.0.0.1:3000/api/openai_codex_auth_start` returns HTTP 401 with `{"error":"Authentication required"}` (auth gate works, endpoint is registered).
+- **Module hierarchy**: check that `/mod/_core/openai_codex/*` modules import cleanly from both chat surfaces (no module resolution errors in the browser console on app boot).
+
+What requires a ChatGPT Plus subscription to verify:
+
+- **Full OAuth device-code flow** (`_auth_start` → browser authorize → `_auth_poll` → tokens returned)
+- **First live chat turn** against `gpt-5.4-mini` or another Codex model
+- **Silent refresh** after access-token expiry (~1 hour)
+- **Live model-catalog discovery** (dropdown reflects the account's entitled models, not just the static fallback)
+
 ## Development Guidance
 
 - keep provider detection small and explicit
