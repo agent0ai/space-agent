@@ -18,12 +18,17 @@ function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function convertContentParts(content) {
+// Codex's Responses API distinguishes the text-content type by source role:
+// user-authored content uses `input_text`, assistant-authored content uses
+// `output_text`. Posting `input_text` under a role:"assistant" entry yields
+// an `invalid_value` 400 from the API, so the text-type must be passed in by
+// the caller rather than hard-coded here.
+function convertContentParts(content, textType) {
   if (typeof content === "string") {
     return [
       {
         text: content,
-        type: "input_text"
+        type: textType
       }
     ];
   }
@@ -37,7 +42,7 @@ function convertContentParts(content) {
       if (typeof part === "string") {
         return {
           text: part,
-          type: "input_text"
+          type: textType
         };
       }
 
@@ -45,10 +50,10 @@ function convertContentParts(content) {
         return null;
       }
 
-      if (part.type === "text" || part.type === "input_text") {
+      if (part.type === "text" || part.type === "input_text" || part.type === "output_text") {
         return {
           text: typeof part.text === "string" ? part.text : "",
-          type: "input_text"
+          type: textType
         };
       }
 
@@ -82,6 +87,10 @@ function convertContentParts(content) {
     .filter(Boolean);
 }
 
+function textTypeForRole(role) {
+  return role === "assistant" ? "output_text" : "input_text";
+}
+
 function extractInstructionsAndInput(messages) {
   if (!Array.isArray(messages)) {
     return {
@@ -105,7 +114,7 @@ function extractInstructionsAndInput(messages) {
       if (!systemConsumed) {
         instructions = typeof message.content === "string"
           ? message.content
-          : convertContentParts(message.content)
+          : convertContentParts(message.content, "input_text")
               .map((part) => part.text || "")
               .join("");
         systemConsumed = true;
@@ -118,9 +127,11 @@ function extractInstructionsAndInput(messages) {
       continue;
     }
 
-    const contentParts = convertContentParts(message.content);
+    const textType = textTypeForRole(role);
+    const contentParts = convertContentParts(message.content, textType);
     const hasMeaningfulPart = contentParts.some(
-      (part) => part.type !== "input_text" || (typeof part.text === "string" && part.text.length > 0)
+      (part) => (part.type !== "input_text" && part.type !== "output_text") ||
+        (typeof part.text === "string" && part.text.length > 0)
     );
 
     if (!hasMeaningfulPart) {

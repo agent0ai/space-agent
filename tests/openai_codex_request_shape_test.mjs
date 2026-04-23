@@ -23,7 +23,10 @@ test("chatToResponsesRequest lifts the first system message into instructions", 
   assert.equal(body.store, false);
 });
 
-test("chatToResponsesRequest wraps string content into input_text parts", () => {
+test("chatToResponsesRequest wraps user strings as input_text and assistant strings as output_text", () => {
+  // The Codex Responses API rejects `input_text` entries that sit under a
+  // `role: "assistant"` message with HTTP 400 `invalid_value`; assistant
+  // text must use `output_text`. This test guards that mapping.
   const body = chatToResponsesRequest({
     messages: [
       { role: "user", content: "Hi" },
@@ -39,7 +42,7 @@ test("chatToResponsesRequest wraps string content into input_text parts", () => 
       role: "user"
     },
     {
-      content: [{ text: "Hey", type: "input_text" }],
+      content: [{ text: "Hey", type: "output_text" }],
       role: "assistant"
     },
     {
@@ -189,6 +192,33 @@ test("chatToResponsesRequest omits instructions when no system message exists", 
   });
 
   assert.ok(!("instructions" in body));
+});
+
+test("chatToResponsesRequest never emits input_text under an assistant entry", () => {
+  // Regression guard: Codex rejected this with HTTP 400 `invalid_value` on
+  // `input[1].content[0]` because assistant turns must use `output_text`.
+  const body = chatToResponsesRequest({
+    messages: [
+      { role: "system", content: "Sys" },
+      { role: "user", content: "u1" },
+      { role: "assistant", content: [{ type: "text", text: "a1" }] },
+      { role: "user", content: "u2" },
+      { role: "assistant", content: "a2" }
+    ],
+    model: "gpt-5.4"
+  });
+
+  for (const entry of body.input) {
+    for (const part of entry.content) {
+      if (entry.role === "assistant" && part.type && part.type !== "output_text" && part.type !== "input_image") {
+        throw new Error(`assistant entry emitted unexpected content type ${part.type}`);
+      }
+
+      if (entry.role === "user" && part.type === "output_text") {
+        throw new Error("user entry must not emit output_text");
+      }
+    }
+  }
 });
 
 test("chatToResponsesRequest handles malformed body gracefully", () => {
