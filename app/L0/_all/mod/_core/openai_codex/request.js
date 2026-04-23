@@ -1,6 +1,10 @@
 export const CODEX_BASE_URL = "https://chatgpt.com/backend-api/codex";
 export const CODEX_RESPONSES_ENDPOINT = `${CODEX_BASE_URL}/responses`;
-export const CODEX_MODELS_ENDPOINT = `${CODEX_BASE_URL}/models`;
+// `client_version` is a required query parameter on the Codex models endpoint;
+// omitting it yields HTTP 400 `invalid_request_error` with
+// `loc: ('query', 'client_version'), msg: 'Field required'`. The value is not
+// account-scoped and only needs to identify the caller surface.
+export const CODEX_MODELS_ENDPOINT = `${CODEX_BASE_URL}/models?client_version=0.0.0`;
 export const CODEX_OAUTH_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
 export const CODEX_OAUTH_AUTHORIZE_URL = "https://auth.openai.com/codex/device";
 export const CODEX_OAUTH_DEVICE_CODE_URL = "https://auth.openai.com/api/accounts/deviceauth/usercode";
