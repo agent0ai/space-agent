@@ -17,8 +17,26 @@ function hasBatchDelete(payload) {
   return Boolean(payload) && typeof payload === "object" && Array.isArray(payload.paths);
 }
 
+function readAllowMissing(context) {
+  const payload = readPayload(context);
+  const raw =
+    payload.allowMissing ??
+    payload.allow_missing ??
+    context.params.allowMissing ??
+    context.params.allow_missing;
+  return raw === true || raw === "true" || raw === "1" || raw === 1;
+}
+
+function isMissingPathError(error) {
+  const status = Number(error?.statusCode);
+  if (status === 404) return true;
+  const code = typeof error?.code === "string" ? error.code.toUpperCase() : "";
+  return code === "ENOENT" || /path not found|not found/iu.test(String(error?.message || ""));
+}
+
 async function handleDelete(context) {
   const payload = readPayload(context);
+  const allowMissing = readAllowMissing(context);
   const maxLayer = resolveRequestMaxLayer({
     body: payload,
     headers: context.headers,
@@ -37,7 +55,14 @@ async function handleDelete(context) {
         watchdog: context.watchdog
       };
 
-      return hasBatchDelete(payload) ? deleteAppPaths(options) : deleteAppPath(options);
+      try {
+        return hasBatchDelete(payload) ? deleteAppPaths(options) : deleteAppPath(options);
+      } catch (error) {
+        if (allowMissing && isMissingPathError(error)) {
+          return { deleted: false, exists: false, path: options.path || "" };
+        }
+        throw error;
+      }
     });
   } catch (error) {
     throw createHttpError(error.message || "File delete failed.", Number(error.statusCode) || 500);

@@ -17,12 +17,39 @@ function readEncoding(context) {
   return String(payload.encoding || context.params.encoding || "utf8");
 }
 
+function readAllowMissing(context) {
+  const payload = readPayload(context);
+  const raw =
+    payload.allowMissing ??
+    payload.allow_missing ??
+    context.params.allowMissing ??
+    context.params.allow_missing;
+  return raw === true || raw === "true" || raw === "1" || raw === 1;
+}
+
+function isMissingPathError(error) {
+  const status = Number(error?.statusCode);
+  if (status === 404) return true;
+  const code = typeof error?.code === "string" ? error.code.toUpperCase() : "";
+  return code === "ENOENT" || /path not found|not found/iu.test(String(error?.message || ""));
+}
+
 function hasBatchRead(payload) {
   return Boolean(payload) && typeof payload === "object" && Array.isArray(payload.files);
 }
 
+function buildMissingFileResult(path, encoding) {
+  return {
+    content: encoding === "base64" ? "" : "",
+    encoding,
+    exists: false,
+    path: String(path || "")
+  };
+}
+
 function handleRead(context) {
   const payload = readPayload(context);
+  const allowMissing = readAllowMissing(context);
   const maxLayer = resolveRequestMaxLayer({
     body: payload,
     headers: context.headers,
@@ -41,13 +68,33 @@ function handleRead(context) {
     };
 
     if (hasBatchRead(payload)) {
+      if (allowMissing) {
+        const files = payload.files.map((entry) => {
+          try {
+            return readAppFile({ ...options, path: entry.path, encoding: entry.encoding || options.encoding });
+          } catch (error) {
+            if (isMissingPathError(error)) {
+              return buildMissingFileResult(entry.path, entry.encoding || options.encoding);
+            }
+            throw error;
+          }
+        });
+        return { files };
+      }
       return readAppFiles({
         ...options,
         files: payload.files
       });
     }
 
-    return readAppFile(options);
+    try {
+      return readAppFile(options);
+    } catch (error) {
+      if (allowMissing && isMissingPathError(error)) {
+        return buildMissingFileResult(options.path, options.encoding);
+      }
+      throw error;
+    }
   } catch (error) {
     throw createHttpError(error.message || "File read failed.", Number(error.statusCode) || 500);
   }

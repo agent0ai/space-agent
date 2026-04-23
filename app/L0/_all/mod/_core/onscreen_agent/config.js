@@ -6,8 +6,42 @@ export const ONSCREEN_AGENT_UI_STATE_STORAGE_KEY = "space.onscreenAgent.uiState"
 export const DEFAULT_ONSCREEN_AGENT_MAX_TOKENS = 120_000;
 export const ONSCREEN_AGENT_LLM_PROVIDER = Object.freeze({
   API: "api",
+  BEDROCK: "bedrock",
   LOCAL: "local"
 });
+
+export const ONSCREEN_AGENT_BEDROCK_CRED_MODE = Object.freeze({
+  SERVER: "server",
+  CLIENT_KEY: "client-key"
+});
+
+export const ONSCREEN_AGENT_BEDROCK_ROUTE = Object.freeze({
+  CONVERSE: "converse",
+  OPENAI: "openai"
+});
+
+export const ONSCREEN_BEDROCK_MODEL_PRESETS = Object.freeze([
+  { id: "us.anthropic.claude-sonnet-4-6", label: "Claude Sonnet 4.6 (fast, recommended)", route: "converse" },
+  { id: "us.anthropic.claude-opus-4-7", label: "Claude Opus 4.7 (smartest)", route: "converse" },
+  { id: "us.anthropic.claude-opus-4-6-v1", label: "Claude Opus 4.6", route: "converse" },
+  { id: "us.anthropic.claude-haiku-4-5-20251001-v1:0", label: "Claude Haiku 4.5 (cheap)", route: "converse" },
+  { id: "openai.gpt-oss-20b-1:0", label: "OpenAI gpt-oss 20B", route: "openai" },
+  { id: "openai.gpt-oss-120b-1:0", label: "OpenAI gpt-oss 120B", route: "openai" }
+]);
+
+export function bedrockRouteForOnscreenModel(modelId = "") {
+  const normalized = String(modelId || "").trim().toLowerCase();
+  if (!normalized) return ONSCREEN_AGENT_BEDROCK_ROUTE.CONVERSE;
+  return normalized.startsWith("openai.")
+    ? ONSCREEN_AGENT_BEDROCK_ROUTE.OPENAI
+    : ONSCREEN_AGENT_BEDROCK_ROUTE.CONVERSE;
+}
+
+export function bedrockApiEndpointForOnscreenRoute(route = ONSCREEN_AGENT_BEDROCK_ROUTE.CONVERSE) {
+  return route === ONSCREEN_AGENT_BEDROCK_ROUTE.OPENAI
+    ? "/api/bedrock/openai/v1/chat/completions"
+    : "/api/bedrock/converse/v1/chat/completions";
+}
 export const ONSCREEN_AGENT_LOCAL_PROVIDER = Object.freeze({
   HUGGINGFACE: "huggingface"
 });
@@ -21,6 +55,9 @@ export const ONSCREEN_AGENT_HIDDEN_EDGE = Object.freeze({
 export const DEFAULT_ONSCREEN_AGENT_SETTINGS = {
   apiEndpoint: "https://openrouter.ai/api/v1/chat/completions",
   apiKey: "",
+  bedrockApiKey: "",
+  bedrockCredMode: ONSCREEN_AGENT_BEDROCK_CRED_MODE.SERVER,
+  bedrockModel: ONSCREEN_BEDROCK_MODEL_PRESETS[0].id,
   huggingfaceDtype: "q4",
   huggingfaceModel: "",
   localProvider: ONSCREEN_AGENT_LOCAL_PROVIDER.HUGGINGFACE,
@@ -36,9 +73,15 @@ function normalizeOnscreenAgentSettingText(value) {
 }
 
 export function normalizeOnscreenAgentLlmProvider(value) {
-  return value === ONSCREEN_AGENT_LLM_PROVIDER.LOCAL
-    ? ONSCREEN_AGENT_LLM_PROVIDER.LOCAL
-    : ONSCREEN_AGENT_LLM_PROVIDER.API;
+  if (value === ONSCREEN_AGENT_LLM_PROVIDER.LOCAL) return ONSCREEN_AGENT_LLM_PROVIDER.LOCAL;
+  if (value === ONSCREEN_AGENT_LLM_PROVIDER.BEDROCK) return ONSCREEN_AGENT_LLM_PROVIDER.BEDROCK;
+  return ONSCREEN_AGENT_LLM_PROVIDER.API;
+}
+
+export function normalizeOnscreenAgentBedrockCredMode(value) {
+  return value === ONSCREEN_AGENT_BEDROCK_CRED_MODE.CLIENT_KEY
+    ? ONSCREEN_AGENT_BEDROCK_CRED_MODE.CLIENT_KEY
+    : ONSCREEN_AGENT_BEDROCK_CRED_MODE.SERVER;
 }
 
 export function normalizeOnscreenAgentLocalProvider(value) {

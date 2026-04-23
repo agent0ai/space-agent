@@ -362,23 +362,21 @@ function createFileReadRequest(pathOrFiles, encoding) {
   }
 
   if (isPlainObject(pathOrFiles) && Array.isArray(pathOrFiles.files)) {
-    return {
-      method: "POST",
-      body: {
-        encoding: pathOrFiles.encoding ?? encoding,
-        files: pathOrFiles.files
-      }
+    const body = {
+      encoding: pathOrFiles.encoding ?? encoding,
+      files: pathOrFiles.files
     };
+    if (pathOrFiles.allowMissing === true) body.allowMissing = true;
+    return { method: "POST", body };
   }
 
   if (isPlainObject(pathOrFiles) && typeof pathOrFiles.path === "string") {
-    return {
-      method: "POST",
-      body: {
-        encoding: pathOrFiles.encoding ?? encoding,
-        path: pathOrFiles.path
-      }
+    const body = {
+      encoding: pathOrFiles.encoding ?? encoding,
+      path: pathOrFiles.path
     };
+    if (pathOrFiles.allowMissing === true) body.allowMissing = true;
+    return { method: "POST", body };
   }
 
   return {
@@ -451,21 +449,15 @@ function createFileDeleteRequest(pathOrPaths) {
   }
 
   if (isPlainObject(pathOrPaths) && Array.isArray(pathOrPaths.paths)) {
-    return {
-      method: "POST",
-      body: {
-        paths: pathOrPaths.paths
-      }
-    };
+    const body = { paths: pathOrPaths.paths };
+    if (pathOrPaths.allowMissing === true) body.allowMissing = true;
+    return { method: "POST", body };
   }
 
   if (isPlainObject(pathOrPaths) && typeof pathOrPaths.path === "string") {
-    return {
-      method: "POST",
-      body: {
-        path: pathOrPaths.path
-      }
-    };
+    const body = { path: pathOrPaths.path };
+    if (pathOrPaths.allowMissing === true) body.allowMissing = true;
+    return { method: "POST", body };
   }
 
   return {
@@ -911,6 +903,13 @@ export function createApiClient(options = {}) {
   }
 
   function queueFileRead(pathOrFiles, encoding = "utf8") {
+    // Bypass the coalescing batcher when allowMissing is set. The batch flush
+    // path builds its own request without threading per-entry allowMissing;
+    // routing through the direct call keeps the flag intact server-side.
+    if (isPlainObject(pathOrFiles) && pathOrFiles.allowMissing === true) {
+      return call("file_read", createFileReadRequest(pathOrFiles, encoding));
+    }
+
     const normalizedEntries = normalizeFileReadBatchEntries(pathOrFiles, encoding);
 
     if (!normalizedEntries.length) {

@@ -1621,6 +1621,22 @@ const model = {
     return config.normalizeOnscreenAgentLlmProvider(this.settingsDraft.provider) === config.ONSCREEN_AGENT_LLM_PROVIDER.LOCAL;
   },
 
+  get isSettingsDraftUsingBedrockProvider() {
+    return config.normalizeOnscreenAgentLlmProvider(this.settingsDraft.provider) === config.ONSCREEN_AGENT_LLM_PROVIDER.BEDROCK;
+  },
+
+  get isSettingsDraftUsingBedrockClientKey() {
+    return config.normalizeOnscreenAgentBedrockCredMode(this.settingsDraft.bedrockCredMode) === config.ONSCREEN_AGENT_BEDROCK_CRED_MODE.CLIENT_KEY;
+  },
+
+  get bedrockModelPresets() {
+    return config.ONSCREEN_BEDROCK_MODEL_PRESETS;
+  },
+
+  get bedrockServerConfig() {
+    return this.bedrockServerConfigState || null;
+  },
+
   get huggingfaceSavedModels() {
     return Array.isArray(this.huggingface.savedModels) ? this.huggingface.savedModels : [];
   },
@@ -4393,6 +4409,11 @@ const model = {
   openSettingsDialog() {
     this.settingsDraft = {
       ...this.settings,
+      bedrockApiKey: this.settings.bedrockApiKey || "",
+      bedrockCredMode:
+        this.settings.bedrockCredMode || config.DEFAULT_ONSCREEN_AGENT_SETTINGS.bedrockCredMode,
+      bedrockModel:
+        this.settings.bedrockModel || config.DEFAULT_ONSCREEN_AGENT_SETTINGS.bedrockModel,
       promptBudgetRatios: clonePromptBudgetRatios(this.settings.promptBudgetRatios)
     };
     this.syncHuggingFaceFromManager();
@@ -4409,7 +4430,48 @@ const model = {
         preserveStatus: true
       });
     });
+
+    void this.loadBedrockServerConfig().catch((error) => {
+      this.reportError("loading Bedrock server config", error, { preserveStatus: true });
+    });
+
     openDialog(resolveDialogRef(this.refs, "settingsDialog", SETTINGS_DIALOG_ELEMENT_ID));
+  },
+
+  async loadBedrockServerConfig() {
+    try {
+      const response = await fetch("/api/bedrock/config", { credentials: "same-origin" });
+      if (!response.ok) {
+        this.bedrockServerConfigState = { error: `HTTP ${response.status}` };
+        return;
+      }
+      const body = await response.json();
+      this.bedrockServerConfigState = {
+        error: null,
+        hasApiKey: Boolean(body.hasApiKey),
+        mode: body.mode || "unknown",
+        profile: body.profile || "",
+        region: body.region || ""
+      };
+    } catch (error) {
+      this.bedrockServerConfigState = {
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  },
+
+  setSettingsBedrockCredMode(mode) {
+    this.settingsDraft = {
+      ...this.settingsDraft,
+      bedrockCredMode: config.normalizeOnscreenAgentBedrockCredMode(mode)
+    };
+  },
+
+  setSettingsBedrockModel(modelId) {
+    this.settingsDraft = {
+      ...this.settingsDraft,
+      bedrockModel: String(modelId || "").trim()
+    };
   },
 
   closeSettingsDialog() {
@@ -4578,6 +4640,12 @@ const model = {
     const paramsText = typeof this.settingsDraft.paramsText === "string" ? this.settingsDraft.paramsText.trim() : "";
     const draftPrompt = typeof this.systemPromptDraft === "string" ? this.systemPromptDraft.trim() : "";
     let maxTokens = config.DEFAULT_ONSCREEN_AGENT_SETTINGS.maxTokens;
+    let effectiveApiEndpoint = (this.settingsDraft.apiEndpoint || "").trim();
+    let effectiveApiKey = (this.settingsDraft.apiKey || "").trim();
+    let effectiveModel = (this.settingsDraft.model || "").trim();
+    const effectiveBedrockCredMode = config.normalizeOnscreenAgentBedrockCredMode(this.settingsDraft.bedrockCredMode);
+    const effectiveBedrockApiKey = (this.settingsDraft.bedrockApiKey || "").trim();
+    const effectiveBedrockModel = (this.settingsDraft.bedrockModel || config.DEFAULT_ONSCREEN_AGENT_SETTINGS.bedrockModel || "").trim();
 
     try {
       maxTokens = config.parseOnscreenAgentMaxTokens(this.settingsDraft.maxTokens);
@@ -4591,6 +4659,25 @@ const model = {
           throw new Error("Choose a Hugging Face model and dtype before saving.");
         }
       }
+
+      if (provider === config.ONSCREEN_AGENT_LLM_PROVIDER.BEDROCK) {
+        if (!effectiveBedrockModel) {
+          throw new Error("Pick a Bedrock model before saving.");
+        }
+        if (
+          effectiveBedrockCredMode === config.ONSCREEN_AGENT_BEDROCK_CRED_MODE.CLIENT_KEY &&
+          !effectiveBedrockApiKey
+        ) {
+          throw new Error("Paste a Bedrock API key, or switch to the server-side credential mode.");
+        }
+        const route = config.bedrockRouteForOnscreenModel(effectiveBedrockModel);
+        effectiveApiEndpoint = config.bedrockApiEndpointForOnscreenRoute(route);
+        effectiveApiKey =
+          effectiveBedrockCredMode === config.ONSCREEN_AGENT_BEDROCK_CRED_MODE.CLIENT_KEY
+            ? effectiveBedrockApiKey
+            : "local";
+        effectiveModel = effectiveBedrockModel;
+      }
     } catch (error) {
       this.reportError("validating chat settings", error, {
         preserveStatus: true
@@ -4599,13 +4686,16 @@ const model = {
     }
 
     this.settings = {
-      apiEndpoint: (this.settingsDraft.apiEndpoint || "").trim(),
-      apiKey: (this.settingsDraft.apiKey || "").trim(),
+      apiEndpoint: effectiveApiEndpoint,
+      apiKey: effectiveApiKey,
+      bedrockApiKey: effectiveBedrockApiKey,
+      bedrockCredMode: effectiveBedrockCredMode,
+      bedrockModel: effectiveBedrockModel,
       huggingfaceDtype: (this.settingsDraft.huggingfaceDtype || "").trim(),
       huggingfaceModel: normalizeHuggingFaceModelInput(this.settingsDraft.huggingfaceModel || ""),
       localProvider,
       maxTokens,
-      model: (this.settingsDraft.model || "").trim(),
+      model: effectiveModel,
       paramsText,
       promptBudgetRatios: clonePromptBudgetRatios(this.settingsDraft.promptBudgetRatios),
       provider,
