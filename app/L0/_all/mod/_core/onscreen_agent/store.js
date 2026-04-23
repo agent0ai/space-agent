@@ -4940,9 +4940,13 @@ const model = {
         await this.refreshRuntimeSystemPrompt();
       }
       await this.persistConfig();
-      this.status = provider === config.ONSCREEN_AGENT_LLM_PROVIDER.LOCAL
-        ? `Local ${getConfiguredLocalProviderLabel(this.settings)} settings updated. Preparing the selected model in the background.`
-        : "API chat settings updated.";
+      if (provider === config.ONSCREEN_AGENT_LLM_PROVIDER.LOCAL) {
+        this.status = `Local ${getConfiguredLocalProviderLabel(this.settings)} settings updated. Preparing the selected model in the background.`;
+      } else if (provider === config.ONSCREEN_AGENT_LLM_PROVIDER.CODEX) {
+        this.status = "ChatGPT settings updated.";
+      } else {
+        this.status = "API chat settings updated.";
+      }
       this.closeSettingsDialog();
 
       if (provider === config.ONSCREEN_AGENT_LLM_PROVIDER.LOCAL) {

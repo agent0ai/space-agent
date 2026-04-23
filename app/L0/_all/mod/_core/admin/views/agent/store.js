@@ -2201,9 +2201,13 @@ const model = {
 
     try {
       await this.persistConfig();
-      this.status = provider === config.ADMIN_CHAT_LLM_PROVIDER.LOCAL
-        ? `Local ${getConfiguredLocalProviderLabel(this.settings)} settings updated. Preparing the selected model in the background.`
-        : "API LLM settings updated.";
+      if (provider === config.ADMIN_CHAT_LLM_PROVIDER.LOCAL) {
+        this.status = `Local ${getConfiguredLocalProviderLabel(this.settings)} settings updated. Preparing the selected model in the background.`;
+      } else if (provider === config.ADMIN_CHAT_LLM_PROVIDER.CODEX) {
+        this.status = "ChatGPT settings updated.";
+      } else {
+        this.status = "API LLM settings updated.";
+      }
       this.closeSettingsDialog();
 
       if (provider === config.ADMIN_CHAT_LLM_PROVIDER.LOCAL) {
