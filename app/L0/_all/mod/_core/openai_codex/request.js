@@ -15,16 +15,6 @@ export const CODEX_OAUTH_REDIRECT_URI = "https://auth.openai.com/deviceauth/call
 const CODEX_ORIGINATOR = "codex_cli_rs";
 const CODEX_USER_AGENT = `${CODEX_ORIGINATOR}/0.0.0 (space-agent)`;
 
-export function isCodexEndpoint(endpoint = "") {
-  const normalizedEndpoint = String(endpoint || "").trim();
-
-  if (!normalizedEndpoint) {
-    return false;
-  }
-
-  return normalizedEndpoint.startsWith(CODEX_BASE_URL);
-}
-
 export function extractChatGPTAccountId(accessToken = "") {
   const token = String(accessToken || "").trim();
 

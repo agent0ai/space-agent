@@ -4,7 +4,7 @@
 
 `_core/openai_codex/` owns OpenAI-Codex-specific frontend request customization for the ChatGPT Plus subscription transport.
 
-It is a headless helper module. It does not own chat UI or prompt assembly. It owns reusable Codex endpoint detection, Cloudflare-compatible header application, OAuth token helpers, Chat-Completions-to-Responses request-shape conversion, and Responses-API SSE event mapping for the first-party chat surfaces.
+It is a headless helper module. It does not own chat UI or prompt assembly. It owns reusable Codex endpoint URL constants, Cloudflare-compatible header application, OAuth token helpers, Chat-Completions-to-Responses request-shape conversion, and Responses-API SSE event mapping for the first-party chat surfaces.
 
 Documentation is top priority for this module. After any change under this subtree, update this file and any affected parent or consumer docs in the same session.
 
@@ -12,12 +12,12 @@ Documentation is top priority for this module. After any change under this subtr
 
 This module owns:
 
-- `request.js`: shared Codex endpoint detection, Cloudflare-compatible request-header application, JWT account-id extraction, and OAuth device-flow URL constants
+- `request.js`: shared Codex endpoint URL constants, Cloudflare-compatible request-header application, JWT account-id extraction, and OAuth device-flow URL constants
 - `ext/js/_core/onscreen_agent/api.js/prepareOnscreenAgentApiRequest/end/openai-codex.js`: overlay-chat API request customization (body shape + headers)
 - `ext/js/_core/admin/views/agent/api.js/prepareAdminAgentApiRequest/end/openai-codex.js`: admin-chat API request customization (body shape + headers)
 - `request_shape.js`: pure stateless converters between OpenAI Chat-Completions request bodies and Codex Responses-API request bodies
 - `sse_adapter.js`: pure stateless mapper from Codex Responses-API SSE events into the existing Chat-Completions-shaped delta frames that `_core/onscreen_agent/api.js` and `_core/admin/views/agent/api.js` already parse
-- `token_manager.js`: browser-side helper that wraps the three OAuth backend endpoints (`/api/openai_codex_auth_start`, `/api/openai_codex_auth_poll`, `/api/openai_codex_token_refresh`) and enforces always-fresh-read refresh semantics with a single-flight coalescer per refresh token
+- `token_manager.js`: browser-side helper that wraps the three OAuth backend endpoints (`/api/openai_codex_auth_start`, `/api/openai_codex_auth_poll`, `/api/openai_codex_token_refresh`) and enforces always-fresh-read refresh semantics with a single-flight coalescer per refresh token. The coalescer is per-tab only: two browser tabs against the same account still issue two parallel refresh requests, and cross-tab serialization relies on the server-side mutex in `server/lib/openai_codex/refresh_lock.js` (which itself is per-worker; see the known-limitations note in `/server/lib/openai_codex/AGENTS.md`).
 - `auth_flow.js`: stateful controller that drives the end-to-end device-code login UX from the settings dialog, emitting `STARTING` / `PENDING` / `COMPLETE` / `FAILED` status events and polling the backend at the interval the OAuth server returns
 - `models.js`: shipped static Codex model catalog used as a fallback by the settings UI, with `CODEX_DEFAULT_MODEL_ID` pointing at the cheapest and fastest option suitable for a ChatGPT Plus subscription
 - `models_parser.js`: pure `parseCodexModelsResponse(payload)` that converts the Codex `/backend-api/codex/models` response into `{ id, description }` entries, filters out unsupported or hidden variants, and sorts by `(priority, slug)` to match the reference Codex client ordering
@@ -26,9 +26,8 @@ This module owns:
 ## Local Contracts
 
 - this module contributes behavior only through JS extension hooks, shared helpers, and the dedicated LLM-client subclass; it must not fork or duplicate the admin or onscreen chat runtimes
-- Codex endpoint detection uses a prefix match against `CODEX_BASE_URL` (`https://chatgpt.com/backend-api/codex`) so `/responses`, `/models`, and any future sub-endpoints share the same matcher
-- detection uses the configured upstream API endpoint, not the proxied fetch URL, because frontend fetches may be rerouted through `/api/proxy`
-- the two shipped extension hooks may mutate the prepared API request object, including headers, body, URL, method, or extra fetch-init fields, but they must leave non-Codex requests untouched
+- the two shipped extension hooks gate on `settings.provider === "openai-codex"` so they only rewrite requests for the Codex provider and leave OpenRouter or other OpenAI-compatible provider requests untouched
+- the shipped URL constants (`CODEX_BASE_URL`, `CODEX_RESPONSES_ENDPOINT`, `CODEX_MODELS_ENDPOINT`) are consumed directly; there is no endpoint-detection helper because the provider-setting gate removes the need for it
 - provider-specific HTTP policy belongs here or in similar headless provider modules, not hard-coded into `_core/onscreen_agent/llm.js` or `_core/admin/views/agent/api.js`
 - the Codex `/responses` endpoint rejects `max_output_tokens` and `temperature` with HTTP 400; `request_shape.js` strips both before producing the outbound body
 - the Codex `/responses` endpoint streams its own SSE event family, not the Chat-Completions `data: {choices:[...]}` stream; the SSE adapter here is the single source of truth for translating between the two formats
