@@ -134,6 +134,39 @@ node space supervise HOST=0.0.0.0 PORT=3000 # zero downtime auto-update
 
 Run `node space help` to see the full command surface and built-in help for each from [`commands/params.yaml`](./commands/params.yaml).
 
+## Sign in with ChatGPT (Codex OAuth)
+
+The overlay and admin chat surfaces ship a `ChatGPT` provider tab that uses the official OpenAI Codex OAuth device-code flow. If you already pay for ChatGPT Plus, the agent can send its chats through that subscription via `https://chatgpt.com/backend-api/codex/responses` without requiring a separate OpenAI platform API key.
+
+**Requirements**
+
+- An active **ChatGPT Plus** subscription. Free accounts cannot authorize the Codex device flow. Team and Enterprise plans have not been verified yet; they may work if they expose the same `/backend-api/codex` surface to the account.
+- The space-agent server process must be reachable from the browser you sign in from; the OAuth device-flow calls run through authenticated server endpoints to serialize refresh-token rotation safely.
+
+**Setup**
+
+1. In the overlay or admin settings dialog, open the `ChatGPT` tab and press **Sign in with ChatGPT**.
+2. A verification URL plus a short code appear. Open the URL in a signed-in ChatGPT browser tab and paste the code.
+3. Once you approve the device, the agent receives access and refresh tokens, stores them encrypted in your user config through `userCrypto`, and unlocks the model dropdown.
+4. Pick a model (default `gpt-5.4-mini`) and close the dialog. The next message is routed through Codex.
+
+The overlay config stores its tokens in `~/conf/onscreen-agent.yaml`, the admin chat in `~/conf/admin-chat.yaml`. The two surfaces do not share tokens, so signing in on one does not sign in on the other.
+
+**Why does this need a server-side OAuth endpoint?**
+
+Space Agent normally prefers frontend implementations. Codex refresh tokens use single-use rotation: if two browser tabs refresh at the same moment, one call succeeds and the other fails with `invalid_grant`, discarding the only valid refresh token and forcing a full re-login. The OAuth device-code flow and token refresh therefore run through server endpoints in `server/api/openai_codex_*.js` with a single-writer mutex. This is covered under the `shared-data integrity` rule in [`/server/AGENTS.md`](./server/AGENTS.md).
+
+**Troubleshooting**
+
+- **HTTP 403 with `cf-mitigated: challenge`**: Cloudflare blocked the request because the required originator headers were missing. The client ships those headers automatically; if you see this in logs after modifying `app/L0/_all/mod/_core/openai_codex/request.js`, check that `User-Agent`, `originator`, and `ChatGPT-Account-ID` are still set on every outbound Codex request.
+- **HTTP 401 "Refresh token is no longer valid. Please log in again."**: Your refresh token has already been consumed by another Codex client, often the `codex` CLI or the Codex VS Code extension signed into the same account. Sign in again in the settings dialog.
+- **`response.completed.response.output` is empty**: the Codex endpoint sometimes returns an empty final output array even when the streamed deltas arrived correctly. The adapter accumulates text live from `response.output_text.delta` for exactly this reason; do not read the final reply from the completion payload.
+- **HTTP 400 after local changes to the request body**: the Codex `/responses` endpoint rejects `max_output_tokens`, `temperature`, `tools`, and several other Chat-Completions fields. The shape converter in `app/L0/_all/mod/_core/openai_codex/request_shape.js` strips them; if you add a new field, check the drop-list there first.
+
+**Disclaimer**
+
+This provider uses your ChatGPT Plus subscription via the official OpenAI Codex OAuth flow, the same flow the Codex CLI and VS Code extension use. OpenAI's terms of service apply; use at your own risk and avoid non-interactive volume patterns that might look automated.
+
 ## AI-driven development and documentation
 
 Space Agent is developed by AI agents, including its documentation.
