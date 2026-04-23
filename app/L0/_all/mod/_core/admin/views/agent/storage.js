@@ -209,8 +209,14 @@ async function buildStoredConfigPayload(runtime, { settings, systemPrompt }) {
     supports_vision: config.normalizeAdminChatSupportsVision(settings?.supportsVision)
   };
 
+  // When the user signs out `encodedCodexTokens` is an empty string; make the
+  // absence explicit in the YAML payload so sign-out deterministically clears
+  // the stored entry on disk instead of relying on the full-rewrite behaviour
+  // of `fileWrite` alone.
   if (encodedCodexTokens) {
     payload.codex_tokens = encodedCodexTokens;
+  } else {
+    delete payload.codex_tokens;
   }
 
   if (normalizedSystemPrompt) {
