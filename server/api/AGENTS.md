@@ -149,6 +149,23 @@ Important notes:
 - `user_self_info` returns the authenticated user's derived identity plus browser-bootstrap crypto metadata: `{ username, fullName, groups, managedGroups, sessionId, userCryptoKeyId, userCryptoState }`
 - `password_generate` is an authenticated utility endpoint that returns the backend-sealed `password.json` payload and should stay narrow
 
+OpenAI Codex OAuth endpoints:
+
+- `openai_codex_auth_start`
+- `openai_codex_auth_poll`
+- `openai_codex_token_refresh`
+
+Current rules:
+
+- these endpoints back the ChatGPT Plus subscription transport for the first-party chat surfaces and authenticate through the normal `space_session` cookie; anonymous access is not allowed
+- they are backend-owned because OpenAI refresh tokens use single-use rotation, which frontend-only code cannot serialize safely between concurrent browser tabs without losing the token and forcing a full re-login; this is a shared-data integrity concern under the rule in `/server/AGENTS.md`
+- they delegate all OAuth traffic to `server/lib/openai_codex/oauth_client.js` and use the in-process mutex in `server/lib/openai_codex/refresh_lock.js` to coalesce concurrent refresh calls that share the same refresh token
+- `openai_codex_auth_start` accepts `POST` with no body; it returns `{ deviceAuthId, userCode, verificationUrl, interval, expiresIn }` so the frontend can show the user the code and poll
+- `openai_codex_auth_poll` accepts `POST` with `{ deviceAuthId, userCode }`; it returns `{ status: "pending" }` until the user authorizes, then `{ status: "complete", tokens: { accessToken, refreshToken, idToken, expiresAt, obtainedAt, accountId } }`
+- `openai_codex_token_refresh` accepts `POST` with `{ refreshToken }`; it returns a fresh token payload in the same shape, or HTTP 401 when the refresh token has already been consumed (e.g. by a parallel Codex client)
+- token storage stays on the frontend as `userCrypto:`-prefixed ciphertext in `~/conf/onscreen-agent.yaml` and `~/conf/admin-chat.yaml`; these endpoints never read or persist tokens themselves
+- there is no revoke endpoint; logout clears the encrypted config entry on the frontend because access tokens expire within about an hour and OpenAI's device-flow issues only one refresh token per device
+
 ### Handler Contract
 
 Handlers receive the request context assembled by `server/router/router.js`, including:

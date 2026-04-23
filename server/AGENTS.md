@@ -69,6 +69,7 @@ Current server layout:
 - `server/lib/share/`: backend-owned hosted-share archive storage, ZIP validation, authenticated import, and anonymous guest-clone helpers
 - `server/lib/tmp/`: `server/tmp/` lifecycle, stale-entry cleanup, and low-RAM ZIP archive creation for attachment-style downloads
 - `server/lib/git/`: Git backend abstraction used by update flows and Git-backed module installs
+- `server/lib/openai_codex/`: backend helpers for the OpenAI Codex (ChatGPT Plus) OAuth device-code flow and single-writer refresh-token rotation used by the `openai_codex_auth_*` and `openai_codex_token_refresh` endpoints
 - `server/tmp/`: transient disk-backed artifacts such as folder-download ZIP files
 
 ### Request Flow And Runtime Contracts
