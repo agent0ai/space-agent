@@ -904,6 +904,10 @@ function summarizeOnscreenAgentLlmSelection(settings, huggingfaceState) {
     return configuredModelId || activeModelId || "No model";
   }
 
+  if (provider === config.ONSCREEN_AGENT_LLM_PROVIDER.CODEX) {
+    return codexModels.normalizeCodexModelId(settings?.codexModel);
+  }
+
   return agentView.summarizeLlmConfig(settings?.apiEndpoint || "", settings?.model || "");
 }
 

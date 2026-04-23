@@ -391,6 +391,10 @@ function summarizeAdminAgentLlmSelection(settings, huggingfaceState) {
     return configuredModelId || activeModelId || "No model";
   }
 
+  if (provider === config.ADMIN_CHAT_LLM_PROVIDER.CODEX) {
+    return codexModels.normalizeCodexModelId(settings?.codexModel);
+  }
+
   return agentView.summarizeLlmConfig(settings?.apiEndpoint || "", settings?.model || "");
 }
 
