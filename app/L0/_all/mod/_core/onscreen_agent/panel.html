@@ -376,6 +376,9 @@
                             Uses your existing ChatGPT Plus subscription via the official OpenAI Codex OAuth flow.
                             Nothing is billed to the OpenAI platform API on top of your subscription.
                           </p>
+                          <p class="field-note">
+                            This sign-in is local to the overlay chat. Sign in separately in the admin chat settings to enable Codex there too.
+                          </p>
                           <button type="button" class="primary-button" @click="$store.onscreenAgent.startCodexLogin()">
                             Sign in with ChatGPT
                           </button>
