@@ -19,7 +19,9 @@ This module owns:
 - `sse_adapter.js`: pure stateless mapper from Codex Responses-API SSE events into the existing Chat-Completions-shaped delta frames that `_core/onscreen_agent/api.js` and `_core/admin/views/agent/api.js` already parse
 - `token_manager.js`: browser-side helper that wraps the three OAuth backend endpoints (`/api/openai_codex_auth_start`, `/api/openai_codex_auth_poll`, `/api/openai_codex_token_refresh`) and enforces always-fresh-read refresh semantics with a single-flight coalescer per refresh token
 - `auth_flow.js`: stateful controller that drives the end-to-end device-code login UX from the settings dialog, emitting `STARTING` / `PENDING` / `COMPLETE` / `FAILED` status events and polling the backend at the interval the OAuth server returns
-- `models.js`: shipped Codex model catalog used by the settings UI, with `CODEX_DEFAULT_MODEL_ID` pointing at the cheapest and fastest option suitable for a ChatGPT Plus subscription
+- `models.js`: shipped static Codex model catalog used as a fallback by the settings UI, with `CODEX_DEFAULT_MODEL_ID` pointing at the cheapest and fastest option suitable for a ChatGPT Plus subscription
+- `models_parser.js`: pure `parseCodexModelsResponse(payload)` that converts the Codex `/backend-api/codex/models` response into `{ id, description }` entries, filters out unsupported or hidden variants, and sorts by `(priority, slug)` to match the reference Codex client ordering
+- `models_discovery.js`: browser-side `discoverCodexModels({ accessToken, chatGPTAccountId })` helper that fetches the live catalog with `applyCodexHeaders()`, first directly from `chatgpt.com/backend-api/codex/models` and then through the space-agent `/api/proxy` if the direct request fails; any failure returns an empty array so callers can fall back to the static catalog
 
 ## Local Contracts
 
