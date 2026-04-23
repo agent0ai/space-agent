@@ -8,7 +8,11 @@ function isSingleUserAppRuntime(runtime) {
   return Boolean(runtime?.params?.SINGLE_USER_APP);
 }
 
-function serializeTokens(tokens) {
+// Serialize an in-memory Codex tokens object into the JSON string used as the
+// plaintext envelope payload and as the shape stored in Alpine store state.
+// Returns "" for falsy or non-object inputs so callers can pass the return
+// value directly into `settings.codexTokens` without branching.
+export function serializeCodexTokens(tokens) {
   if (!tokens || typeof tokens !== "object") {
     return "";
   }
@@ -20,7 +24,15 @@ function serializeTokens(tokens) {
   }
 }
 
-function parsePlainTokens(plain) {
+// Parse a persisted plaintext token payload (the output of
+// `serializeCodexTokens` after decryption, or the JSON string the Alpine
+// store keeps at `settings.codexTokens`). Returns `null` for malformed or
+// non-object payloads so callers can use a truthy guard on the result.
+export function parseCodexTokens(plain) {
+  if (plain && typeof plain === "object" && !Array.isArray(plain)) {
+    return plain;
+  }
+
   const normalized = typeof plain === "string" ? plain.trim() : "";
 
   if (!normalized) {
@@ -29,7 +41,7 @@ function parsePlainTokens(plain) {
 
   try {
     const value = JSON.parse(normalized);
-    return value && typeof value === "object" ? value : null;
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
   } catch {
     return null;
   }
@@ -134,6 +146,3 @@ export async function encodeStoredCodexTokens(runtime, settings = {}) {
   return encryptedValue;
 }
 
-// Convenience wrappers: the persisted string is JSON; callers who want the
-// parsed object can use these without rebuilding the serialize/parse logic.
-export { parsePlainTokens as parseCodexTokensPlain, serializeTokens as serializeCodexTokens };

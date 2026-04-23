@@ -4,6 +4,10 @@ import * as codexAuthFlow from "/mod/_core/openai_codex/auth_flow.js";
 import * as codexModels from "/mod/_core/openai_codex/models.js";
 import { discoverCodexModels } from "/mod/_core/openai_codex/models_discovery.js";
 import {
+  parseCodexTokens as parseAdminCodexTokensDraft,
+  serializeCodexTokens as serializeAdminCodexTokensDraft
+} from "/mod/_core/openai_codex/token_envelope.js";
+import {
   installPromptItemAccess,
   rebalancePromptBudgetRatios
 } from "/mod/_core/agent_prompt/prompt-items.js";
@@ -50,30 +54,6 @@ function clonePromptBudgetRatios(value = {}) {
   return {
     ...config.normalizeAdminChatPromptBudgetRatios(value)
   };
-}
-
-function parseAdminCodexTokensDraft(value) {
-  if (!value) {
-    return null;
-  }
-
-  if (typeof value === "object") {
-    return value;
-  }
-
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
-function serializeAdminCodexTokensDraft(tokens) {
-  return tokens ? JSON.stringify(tokens) : "";
 }
 
 function createAdminCodexLoginState() {
