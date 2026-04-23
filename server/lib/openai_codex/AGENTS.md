@@ -22,7 +22,7 @@ This subsystem owns:
 ## Contracts
 
 - `startDeviceAuthorization()` returns `{ deviceAuthId, expiresIn, interval, userCode, verificationUrl }` on success or throws an error with a `statusCode` property
-- `pollDeviceAuthorization({ deviceAuthId, userCode })` returns `{ status: "pending" }` while the user has not yet entered the code, or `{ status: "complete", tokens }` once the token exchange succeeds
+- `pollDeviceAuthorization({ deviceAuthId, userCode })` returns `{ state: "pending" }` while the user has not yet entered the code, or `{ state: "complete", tokens }` once the token exchange succeeds. The field is named `state` rather than `status` because the shared router response serializer treats a top-level `status` property as an HTTP status code.
 - `refreshAccessToken({ refreshToken })` returns the full token payload described below; it throws a `401` error with `invalid_grant` mapped to a human-readable message when the refresh token has already been consumed, and `502` for other upstream failures
 - the returned `tokens` payload shape is:
   ```
