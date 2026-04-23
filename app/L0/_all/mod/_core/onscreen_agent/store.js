@@ -1458,7 +1458,9 @@ const model = {
     model: "",
     paramsText: "",
     promptBudgetRatios: { ...config.DEFAULT_ONSCREEN_AGENT_SETTINGS.promptBudgetRatios },
-    provider: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.provider
+    provider: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.provider,
+    storedCodexTokensLocked: false,
+    storedCodexTokensValue: ""
   },
   settingsDraft: {
     apiEndpoint: "",
@@ -1472,7 +1474,9 @@ const model = {
     model: "",
     paramsText: "",
     promptBudgetRatios: { ...config.DEFAULT_ONSCREEN_AGENT_SETTINGS.promptBudgetRatios },
-    provider: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.provider
+    provider: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.provider,
+    storedCodexTokensLocked: false,
+    storedCodexTokensValue: ""
   },
   status: "Loading onscreen agent...",
   stopRequested: false,
@@ -4582,6 +4586,38 @@ const model = {
     this.codexLoginState = createCodexLoginState();
   },
 
+  // Called by the `prepareOnscreenAgentApiRequest` Codex hook after a server-
+  // side refresh rotated the stored refresh token. The hook delegates here
+  // instead of writing the config file directly so that encoding, lock-state
+  // bookkeeping, and persistence stay owned by `storage.js`.
+  async applyRefreshedCodexTokens(tokens) {
+    const serialized = serializeCodexTokensDraft(tokens);
+
+    if (!serialized) {
+      return;
+    }
+
+    this.settings = {
+      ...this.settings,
+      codexTokens: serialized
+    };
+
+    // If the settings dialog is currently mounted we also keep the draft in
+    // sync so a user reopening the dialog mid-session still sees the signed-
+    // in state backed by the freshly rotated refresh token.
+    const dialogElement = this.refs?.settingsDialog;
+    const isDialogOpen = Boolean(dialogElement && typeof dialogElement.hasAttribute === "function" && dialogElement.hasAttribute("open"));
+
+    if (isDialogOpen) {
+      this.settingsDraft = {
+        ...this.settingsDraft,
+        codexTokens: serialized
+      };
+    }
+
+    await this.persistConfig();
+  },
+
   setSettingsPromptBudgetRatio(key, value) {
     const normalizedRatios = rebalancePromptBudgetRatios(
       this.settingsDraft.promptBudgetRatios,
@@ -4751,6 +4787,8 @@ const model = {
     this.settings = {
       apiEndpoint: (this.settingsDraft.apiEndpoint || "").trim(),
       apiKey: (this.settingsDraft.apiKey || "").trim(),
+      codexModel: codexModels.normalizeCodexModelId(this.settingsDraft.codexModel),
+      codexTokens: typeof this.settingsDraft.codexTokens === "string" ? this.settingsDraft.codexTokens.trim() : "",
       huggingfaceDtype: (this.settingsDraft.huggingfaceDtype || "").trim(),
       huggingfaceModel: normalizeHuggingFaceModelInput(this.settingsDraft.huggingfaceModel || ""),
       localProvider,
@@ -4760,7 +4798,9 @@ const model = {
       promptBudgetRatios: clonePromptBudgetRatios(this.settingsDraft.promptBudgetRatios),
       provider,
       storedApiKeyLocked: this.settings.storedApiKeyLocked === true,
-      storedApiKeyValue: String(this.settings.storedApiKeyValue || "")
+      storedApiKeyValue: String(this.settings.storedApiKeyValue || ""),
+      storedCodexTokensLocked: this.settings.storedCodexTokensLocked === true,
+      storedCodexTokensValue: String(this.settings.storedCodexTokensValue || "")
     };
     this.systemPrompt = draftPrompt;
     this.systemPromptDraft = draftPrompt;

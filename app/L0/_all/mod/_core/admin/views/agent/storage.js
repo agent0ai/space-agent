@@ -1,4 +1,9 @@
 import * as config from "/mod/_core/admin/views/agent/config.js";
+import {
+  decodeStoredCodexTokens,
+  encodeStoredCodexTokens
+} from "/mod/_core/openai_codex/token_envelope.js";
+import { CODEX_DEFAULT_MODEL_ID, normalizeCodexModelId } from "/mod/_core/openai_codex/models.js";
 
 function createDefaultConfig() {
   return {
@@ -138,11 +143,17 @@ async function normalizeStoredConfig(runtime, parsedConfig) {
     runtime,
     storedConfig.api_key || storedConfig.apiKey || config.DEFAULT_ADMIN_CHAT_SETTINGS.apiKey || ""
   );
+  const storedCodexTokens = await decodeStoredCodexTokens(
+    runtime,
+    storedConfig.codex_tokens || storedConfig.codexTokens || ""
+  );
 
   return {
     settings: {
       apiEndpoint: String(storedConfig.api_endpoint || storedConfig.apiEndpoint || config.DEFAULT_ADMIN_CHAT_SETTINGS.apiEndpoint || "").trim(),
       apiKey: storedApiKey.value,
+      codexModel: normalizeCodexModelId(storedConfig.codex_model || storedConfig.codexModel || CODEX_DEFAULT_MODEL_ID),
+      codexTokens: storedCodexTokens.value,
       huggingfaceDtype: String(
         storedConfig.huggingface_dtype || storedConfig.huggingfaceDtype || config.DEFAULT_ADMIN_CHAT_SETTINGS.huggingfaceDtype || ""
       ).trim(),
@@ -161,7 +172,9 @@ async function normalizeStoredConfig(runtime, parsedConfig) {
           config.DEFAULT_ADMIN_CHAT_SETTINGS.supportsVision
       ),
       storedApiKeyLocked: storedApiKey.locked,
-      storedApiKeyValue: storedApiKey.storedValue
+      storedApiKeyValue: storedApiKey.storedValue,
+      storedCodexTokensLocked: storedCodexTokens.locked,
+      storedCodexTokensValue: storedCodexTokens.storedValue
     },
     systemPrompt: String(
       storedConfig.custom_system_prompt ||
@@ -175,9 +188,11 @@ async function normalizeStoredConfig(runtime, parsedConfig) {
 
 async function buildStoredConfigPayload(runtime, { settings, systemPrompt }) {
   const normalizedSystemPrompt = typeof systemPrompt === "string" ? systemPrompt.trim() : "";
+  const encodedCodexTokens = await encodeStoredCodexTokens(runtime, settings);
   const payload = {
     api_endpoint: String(settings?.apiEndpoint || config.DEFAULT_ADMIN_CHAT_SETTINGS.apiEndpoint || "").trim(),
     api_key: await encodeStoredApiKey(runtime, settings),
+    codex_model: normalizeCodexModelId(settings?.codexModel || CODEX_DEFAULT_MODEL_ID),
     huggingface_dtype: String(settings?.huggingfaceDtype || config.DEFAULT_ADMIN_CHAT_SETTINGS.huggingfaceDtype || "").trim(),
     huggingface_model: String(settings?.huggingfaceModel || config.DEFAULT_ADMIN_CHAT_SETTINGS.huggingfaceModel || "").trim(),
     local_provider: config.normalizeAdminChatLocalProvider(settings?.localProvider),
@@ -193,6 +208,10 @@ async function buildStoredConfigPayload(runtime, { settings, systemPrompt }) {
     },
     supports_vision: config.normalizeAdminChatSupportsVision(settings?.supportsVision)
   };
+
+  if (encodedCodexTokens) {
+    payload.codex_tokens = encodedCodexTokens;
+  }
 
   if (normalizedSystemPrompt) {
     payload.custom_system_prompt = normalizedSystemPrompt;
@@ -226,6 +245,8 @@ export async function saveAdminChatConfig(nextConfig) {
     if (nextConfig?.settings && typeof nextConfig.settings === "object") {
       nextConfig.settings.storedApiKeyLocked = false;
       nextConfig.settings.storedApiKeyValue = String(payload.api_key || "").trim();
+      nextConfig.settings.storedCodexTokensLocked = false;
+      nextConfig.settings.storedCodexTokensValue = String(payload.codex_tokens || "").trim();
     }
   } catch (error) {
     throw new Error(`Unable to save admin chat config: ${error.message}`);

@@ -3,9 +3,14 @@ import {
   applyCodexHeaders
 } from "/mod/_core/openai_codex/request.js";
 import { chatToResponsesRequest } from "/mod/_core/openai_codex/request_shape.js";
-import { ensureFreshCodexAccessToken } from "/mod/_core/openai_codex/token_manager.js";
+import {
+  ensureFreshCodexAccessToken,
+  normalizeCodexTokens
+} from "/mod/_core/openai_codex/token_manager.js";
 
-const ONSCREEN_AGENT_CONFIG_PATH = "~/conf/onscreen-agent.yaml";
+function isObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
 
 function parseCodexTokensFromSettings(settings) {
   const raw = settings?.codexTokens;
@@ -14,8 +19,8 @@ function parseCodexTokensFromSettings(settings) {
     return null;
   }
 
-  if (typeof raw === "object") {
-    return raw;
+  if (isObject(raw)) {
+    return normalizeCodexTokens(raw);
   }
 
   if (typeof raw !== "string") {
@@ -23,7 +28,7 @@ function parseCodexTokensFromSettings(settings) {
   }
 
   try {
-    return JSON.parse(raw);
+    return normalizeCodexTokens(JSON.parse(raw));
   } catch {
     return null;
   }
@@ -33,68 +38,20 @@ function serializeTokens(tokens) {
   return tokens ? JSON.stringify(tokens) : "";
 }
 
-async function loadTokensFromOnscreenConfig(initialSettings) {
-  const fileApi = globalThis.space?.api;
+// Token persistence lives on the store/storage side. When a refresh rotates
+// the refresh token the hook must hand the new payload back to the store so
+// that encoding, userCrypto, and YAML writing stay owned by `storage.js`.
+// This indirection through the Alpine store is the documented communication
+// channel between module-owned JS helpers and surface stores.
+async function deliverRefreshedTokensToStore(tokens) {
+  const alpine = globalThis.Alpine;
+  const store = typeof alpine?.store === "function" ? alpine.store("onscreenAgent") : null;
 
-  if (!fileApi || typeof fileApi.fileRead !== "function") {
-    return parseCodexTokensFromSettings(initialSettings);
+  if (!store || typeof store.applyRefreshedCodexTokens !== "function") {
+    throw new Error("Onscreen agent store is not available to persist refreshed Codex tokens.");
   }
 
-  try {
-    const raw = await fileApi.fileRead(ONSCREEN_AGENT_CONFIG_PATH);
-    const yamlParse = globalThis.space?.utils?.yaml?.parse;
-
-    if (typeof yamlParse !== "function") {
-      return parseCodexTokensFromSettings(initialSettings);
-    }
-
-    const parsedConfig = yamlParse(raw);
-    const cipher = parsedConfig?.codex_tokens;
-
-    if (typeof cipher !== "string" || !cipher) {
-      return null;
-    }
-
-    const decryptText = globalThis.space?.utils?.userCrypto?.decryptText;
-
-    if (typeof decryptText !== "function") {
-      return null;
-    }
-
-    const plain = await decryptText(cipher);
-
-    if (!plain) {
-      return null;
-    }
-
-    try {
-      return JSON.parse(plain);
-    } catch {
-      return null;
-    }
-  } catch {
-    return parseCodexTokensFromSettings(initialSettings);
-  }
-}
-
-async function saveTokensToOnscreenConfig(tokens) {
-  const fileApi = globalThis.space?.api;
-  const userCrypto = globalThis.space?.utils?.userCrypto;
-  const yamlUtils = globalThis.space?.utils?.yaml;
-
-  if (!fileApi?.fileRead || !fileApi?.fileWrite || !userCrypto?.encryptText || !yamlUtils?.parse || !yamlUtils?.stringify) {
-    throw new Error("User crypto or file API is not available.");
-  }
-
-  const raw = await fileApi.fileRead(ONSCREEN_AGENT_CONFIG_PATH);
-  const parsed = yamlUtils.parse(raw) || {};
-  const plain = JSON.stringify(tokens);
-  const cipher = await userCrypto.encryptText(plain);
-
-  parsed.codex_tokens = cipher;
-
-  const nextRaw = yamlUtils.stringify(parsed);
-  await fileApi.fileWrite(ONSCREEN_AGENT_CONFIG_PATH, nextRaw);
+  await store.applyRefreshedCodexTokens(tokens);
 }
 
 export default async function openAiCodexOnscreenRequestHook(hookContext) {
@@ -105,19 +62,17 @@ export default async function openAiCodexOnscreenRequestHook(hookContext) {
   }
 
   const settings = apiRequest.settings;
-  const provider =
-    settings?.provider === "openai-codex" ? "openai-codex" : null;
 
-  if (!provider) {
+  if (settings?.provider !== "openai-codex") {
     return;
   }
 
   const freshTokens = await ensureFreshCodexAccessToken({
-    loadTokens: () => loadTokensFromOnscreenConfig(settings),
-    saveTokens: saveTokensToOnscreenConfig
+    loadTokens: () => parseCodexTokensFromSettings(settings),
+    saveTokens: deliverRefreshedTokensToStore
   });
 
-  const chatBody = apiRequest.requestBody && typeof apiRequest.requestBody === "object" ? apiRequest.requestBody : {};
+  const chatBody = isObject(apiRequest.requestBody) ? apiRequest.requestBody : {};
   const model =
     typeof settings?.codexModel === "string" && settings.codexModel.trim()
       ? settings.codexModel.trim()
