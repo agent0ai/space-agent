@@ -203,6 +203,7 @@ Current stable seams:
 - `execution.js` exposes `_core/onscreen_agent/execution.js/validateOnscreenAgentExecutionBlockPlan`; this seam owns block-level execution-plan validation, should stay generic to the overlay execution protocol, and feature modules should attach their own task-specific validators from `ext/js/` instead of adding those checks directly to `execution.js`
 - `api.js` exposes `_core/onscreen_agent/api.js/streamOnscreenAgentCompletion` as the transport seam and `_core/onscreen_agent/api.js/prepareOnscreenAgentApiRequest` as the prepared-request mutation seam for API-mode fetches
 - `store.js` exposes `_core/onscreen_agent/store.js/processOnscreenAgentMessage`; it runs before overlay messages are committed or reused after key lifecycle steps and receives a context object with `phase`, `message`, `history`, and `store`
+- `_core/agent-chat/runtime-hygiene.js` now owns the shared clone/apply/normalize/resolve/create helper flow that `store.js` uses to route overlay `submit`, `assistant-response`, `history-compact`, `protocol-retry`, and `execution-output` messages through that seam without leaking hook mutations back into source history objects
 
 Current runtime namespace:
 

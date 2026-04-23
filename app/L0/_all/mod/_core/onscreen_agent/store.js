@@ -11,10 +11,13 @@ import * as skills from "/mod/_core/onscreen_agent/skills.js";
 import * as storage from "/mod/_core/onscreen_agent/storage.js";
 import * as agentView from "/mod/_core/onscreen_agent/view.js";
 import { renderMarkdown } from "/mod/_core/framework/js/markdown-frontmatter.js";
+import { prependAssistantEvaluationLogs } from "/mod/_core/agent-chat/assistant-message-evaluation.js";
 import {
-  normalizeAssistantEvaluationLogEntry,
-  prependAssistantEvaluationLogs
-} from "/mod/_core/agent-chat/assistant-message-evaluation.js";
+  applyConversationMessage,
+  createProcessedConversationMessage,
+  normalizeAssistantEvaluation,
+  resolveProcessedConversationMessage
+} from "/mod/_core/agent-chat/runtime-hygiene.js";
 import { DEFAULT_MODEL_INPUT, DTYPE_OPTIONS, normalizeHuggingFaceModelInput } from "/mod/_core/huggingface/helpers.js";
 import { getHuggingFaceManager } from "/mod/_core/huggingface/manager.js";
 import { positionPopover } from "/mod/_core/visual/chrome/popover.js";
@@ -454,27 +457,6 @@ function logOnscreenAgentError(context, error) {
   console.error(`[onscreen-agent] ${context}`, error);
 }
 
-function cloneConversationMessage(message) {
-  if (!message || typeof message !== "object") {
-    return null;
-  }
-
-  return {
-    ...message,
-    attachments: Array.isArray(message.attachments) ? [...message.attachments] : []
-  };
-}
-
-function applyConversationMessage(targetMessage, nextMessage) {
-  if (!targetMessage || !nextMessage || targetMessage === nextMessage) {
-    return targetMessage;
-  }
-
-  Object.assign(targetMessage, nextMessage);
-  targetMessage.attachments = Array.isArray(nextMessage.attachments) ? [...nextMessage.attachments] : [];
-  return targetMessage;
-}
-
 const processOnscreenAgentMessage = globalThis.space.extend(
   import.meta,
   async function processOnscreenAgentMessage(context = {}) {
@@ -485,37 +467,18 @@ const processOnscreenAgentMessage = globalThis.space.extend(
 const evaluateOnscreenAssistantMessage = globalThis.space.extend(
   import.meta,
   async function evaluateOnscreenAssistantMessage(context = {}) {
-    return {
-      assistantContent: typeof context?.assistantContent === "string" ? context.assistantContent : "",
-      history: Array.isArray(context?.history) ? context.history : [],
-      logs: Array.isArray(context?.logs)
-        ? context.logs.map((entry) => normalizeAssistantEvaluationLogEntry(entry)).filter(Boolean)
-        : [],
-      messageId: typeof context?.messageId === "string" ? context.messageId : "",
-      store: context?.store || null
-    };
+    return normalizeAssistantEvaluation(context);
   }
 );
 
-async function resolveProcessedOnscreenAgentMessage(context = {}) {
-  const fallbackMessage = cloneConversationMessage(context.message);
-  const processedContext = await processOnscreenAgentMessage({
-    ...context,
-    history: Array.isArray(context.history)
-      ? context.history.map((message) => cloneConversationMessage(message)).filter(Boolean)
-      : [],
-    message: fallbackMessage
-  });
-  const processedMessage =
-    processedContext && typeof processedContext === "object" ? processedContext.message : fallbackMessage;
-
-  return cloneConversationMessage(processedMessage) || fallbackMessage;
-}
-
-async function createProcessedMessage(role, content, options = {}, context = {}) {
-  return resolveProcessedOnscreenAgentMessage({
-    ...context,
-    message: createMessage(role, content, options)
+function createProcessedMessage(role, content, options = {}, context = {}) {
+  return createProcessedConversationMessage({
+    content,
+    context,
+    createMessage,
+    options,
+    processMessage: processOnscreenAgentMessage,
+    role
   });
 }
 
@@ -4120,15 +4083,27 @@ const model = {
     return true;
   },
 
-  consumeNextQueuedSubmissionMessage() {
+  async consumeNextQueuedSubmissionMessage() {
     if (!this.queuedSubmissions.length) {
       return null;
     }
 
     const [snapshot, ...rest] = this.queuedSubmissions;
     this.queuedSubmissions = rest;
-    return createMessage("user", snapshot.content, {
-      attachments: Array.isArray(snapshot.attachments) ? snapshot.attachments.slice() : []
+    return createProcessedConversationMessage({
+      content: snapshot.content,
+      context: {
+        draftSubmission: snapshot,
+        history: this.history,
+        phase: "submit",
+        store: this
+      },
+      createMessage,
+      options: {
+        attachments: Array.isArray(snapshot.attachments) ? snapshot.attachments.slice() : []
+      },
+      processMessage: processOnscreenAgentMessage,
+      role: "user"
     });
   },
 
@@ -4966,11 +4941,12 @@ const model = {
         if (hasContent) {
           applyConversationMessage(
             assistantMessage,
-            await resolveProcessedOnscreenAgentMessage({
+            await resolveProcessedConversationMessage({
               history: requestMessages,
               message: assistantMessage,
               phase: "assistant-response",
               responseMeta,
+              processMessage: processOnscreenAgentMessage,
               store: this
             })
           );
@@ -5002,11 +4978,12 @@ const model = {
 
     applyConversationMessage(
       assistantMessage,
-      await resolveProcessedOnscreenAgentMessage({
+      await resolveProcessedConversationMessage({
         history: requestMessages,
         message: assistantMessage,
         phase: "assistant-response",
         responseMeta,
+        processMessage: processOnscreenAgentMessage,
         store: this
       })
     );
@@ -5402,7 +5379,7 @@ const model = {
         finalOutcome = outcome;
 
         if (outcome === "queued") {
-          nextUserMessage = this.consumeNextQueuedSubmissionMessage();
+          nextUserMessage = await this.consumeNextQueuedSubmissionMessage();
 
           if (nextUserMessage) {
             this.stopRequested = false;
@@ -5423,7 +5400,7 @@ const model = {
           break;
         }
 
-        const queuedMessage = this.consumeNextQueuedSubmissionMessage();
+        const queuedMessage = await this.consumeNextQueuedSubmissionMessage();
 
         if (queuedMessage) {
           nextUserMessage = queuedMessage;
