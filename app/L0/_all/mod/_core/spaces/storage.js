@@ -618,33 +618,60 @@ function isWidgetPatchTextLike(value) {
   return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
 }
 
+// Field names accepted as replacement-text aliases on a widget patch edit.
+// `content` is canonical; `text`, `replace`, `value`, `replaceWith`,
+// `replacement`, and `newText` are tolerated because LLM patch outputs
+// frequently default to those names from VS Code, OpenAI tool-call,
+// jsondiffpatch, and similar conventions. Listing them explicitly here
+// also lets the validator surface a precise error message when none of the
+// aliases is set on a `replace`-style line edit.
+const WIDGET_PATCH_CONTENT_FIELD_ALIASES = Object.freeze([
+  "content",
+  "text",
+  "replace",
+  "value",
+  "replaceWith",
+  "replacement",
+  "newText"
+]);
+
+// All field names the widget patch validator recognizes on an edit object.
+// Anything outside this set is unknown and almost certainly a typo'd content
+// alias from an LLM (`with`, `replaceText`, `body`, `newContent`, ...). The
+// validator surfaces unknown fields as an explicit error so the agent does
+// not silently delete renderer lines when its replacement text is rejected
+// by name mismatch.
+const WIDGET_PATCH_KNOWN_EDIT_FIELDS = Object.freeze([
+  ...WIDGET_PATCH_CONTENT_FIELD_ALIASES,
+  "find",
+  "search",
+  "from",
+  "to",
+  "line",
+  "startLine",
+  "endLine",
+  "range",
+  "mode",
+  "kind"
+]);
+
+function listUnknownWidgetPatchEditFields(edit = {}) {
+  if (!edit || typeof edit !== "object" || Array.isArray(edit)) {
+    return [];
+  }
+
+  const knownFieldSet = new Set(WIDGET_PATCH_KNOWN_EDIT_FIELDS);
+  return Object.keys(edit).filter((key) => !knownFieldSet.has(key));
+}
+
 function readWidgetPatchContentField(edit = {}) {
-  if (hasOwnWidgetPatchField(edit, "content")) {
-    return {
-      key: "content",
-      value: edit.content
-    };
-  }
-
-  if (hasOwnWidgetPatchField(edit, "text")) {
-    return {
-      key: "text",
-      value: edit.text
-    };
-  }
-
-  if (hasOwnWidgetPatchField(edit, "replace")) {
-    return {
-      key: "replace",
-      value: edit.replace
-    };
-  }
-
-  if (hasOwnWidgetPatchField(edit, "value")) {
-    return {
-      key: "value",
-      value: edit.value
-    };
+  for (const aliasKey of WIDGET_PATCH_CONTENT_FIELD_ALIASES) {
+    if (hasOwnWidgetPatchField(edit, aliasKey)) {
+      return {
+        key: aliasKey,
+        value: edit[aliasKey]
+      };
+    }
   }
 
   return null;
@@ -732,6 +759,16 @@ function normalizeWidgetTextPatchEdit(edit, sourceText) {
 function normalizeWidgetPatchEdit(edit, lineCount, sourceText) {
   const normalizedEdit = edit && typeof edit === "object" ? edit : {};
 
+  const unknownFields = listUnknownWidgetPatchEditFields(normalizedEdit);
+  if (unknownFields.length > 0) {
+    throw new Error(
+      `Widget patch edit has unknown field${unknownFields.length === 1 ? "" : "s"} ${unknownFields.map((name) => `\`${name}\``).join(", ")}. ` +
+        `Valid replacement-text fields are ${WIDGET_PATCH_CONTENT_FIELD_ALIASES.map((name) => `\`${name}\``).join(", ")}; ` +
+        `valid coordinates are \`from\`/\`to\` (canonical) or \`line\`/\`startLine\`/\`endLine\`/\`range\` aliases; ` +
+        `exact-snippet edits use \`find\` (or \`search\`) plus a replacement field.`
+    );
+  }
+
   if (hasOwnWidgetPatchField(normalizedEdit, "find") || hasOwnWidgetPatchField(normalizedEdit, "search")) {
     return normalizeWidgetTextPatchEdit(normalizedEdit, sourceText);
   }
@@ -765,7 +802,9 @@ function normalizeWidgetPatchEdit(edit, lineCount, sourceText) {
   }
 
   if (!hasTo && !hasContent) {
-    throw new Error("Insert edits must include replacement text in `content`.");
+    throw new Error(
+      `Insert edits must include replacement text. Use \`content\` (canonical) or one of: ${WIDGET_PATCH_CONTENT_FIELD_ALIASES.slice(1).map((name) => `\`${name}\``).join(", ")}.`
+    );
   }
 
   if (!hasTo) {
