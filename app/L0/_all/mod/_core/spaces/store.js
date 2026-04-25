@@ -1017,21 +1017,57 @@ function getWidgetOperationStatusVerb(operationLabel) {
   }
 }
 
+// Render the change magnitude for a widget write. The line counts come from
+// `buildWidgetWriteResult` in spaces/storage.js, which uses the same
+// dedent + LF-normalize + split path that emits the numbered renderer
+// readback the agent sees in `widgetText`. So the count printed here always
+// matches the highest line index the agent counts in the readback.
+function formatWidgetOperationChangeMagnitude({ priorLineCount, nextLineCount } = {}) {
+  const hasPrior = Number.isFinite(priorLineCount);
+  const hasNext = Number.isFinite(nextLineCount);
+
+  if (!hasPrior && !hasNext) {
+    return "";
+  }
+
+  const before = hasPrior ? Math.max(0, priorLineCount) : 0;
+  const after = hasNext ? Math.max(0, nextLineCount) : 0;
+
+  if (!hasPrior) {
+    return `${after} renderer line${after === 1 ? "" : "s"}`;
+  }
+
+  if (!hasNext || !after) {
+    return `0 renderer lines (was ${before})`;
+  }
+
+  const delta = after - before;
+
+  if (delta === 0) {
+    return `${after} renderer lines`;
+  }
+
+  const sign = delta > 0 ? "+" : "-";
+  return `${after} renderer lines (was ${before}, ${sign}${Math.abs(delta)})`;
+}
+
 function formatWidgetOperationStatusText(widgetId, operationLabel, widgetRender, options = {}) {
   const check = cloneWidgetRenderCheck(widgetRender, widgetId);
   const verb = getWidgetOperationStatusVerb(operationLabel);
   const targetLabel = widgetId ? `Widget "${widgetId}"` : "Widget";
   const suffix = options.transientUpdated ? "loaded to TRANSIENT." : "done.";
+  const magnitude = formatWidgetOperationChangeMagnitude(options);
+  const magnitudeFragment = magnitude ? `, ${magnitude}` : "";
 
   if (check.status === "error") {
-    return `${targetLabel} ${verb}, render failed, ${suffix}`;
+    return `${targetLabel} ${verb}${magnitudeFragment}, render failed, ${suffix}`;
   }
 
   if (check.status === "ok") {
-    return `${targetLabel} ${verb}, rendered ok, ${suffix}`;
+    return `${targetLabel} ${verb}${magnitudeFragment}, rendered ok, ${suffix}`;
   }
 
-  return `${targetLabel} ${verb}, not live-tested, ${suffix}`;
+  return `${targetLabel} ${verb}${magnitudeFragment}, not live-tested, ${suffix}`;
 }
 
 function extractWidgetIdFromWidgetText(widgetText) {
@@ -1271,7 +1307,13 @@ async function buildWidgetToolResult(
         widgetText
       })
     : false;
+  const priorRendererLineCount =
+    Number.isFinite(nextResult.priorRendererLineCount) ? nextResult.priorRendererLineCount : null;
+  const nextRendererLineCount =
+    Number.isFinite(nextResult.nextRendererLineCount) ? nextResult.nextRendererLineCount : null;
   const widgetStatusText = formatWidgetOperationStatusText(normalizedWidgetId, operationLabel, widgetRender, {
+    nextLineCount: nextRendererLineCount,
+    priorLineCount: priorRendererLineCount,
     transientUpdated
   });
 

@@ -596,9 +596,21 @@ function buildWidgetMetadataLines(widgetRecord) {
 
 function getWidgetRendererReadLines(widgetRecord) {
   const normalizedWidget = normalizeWidgetRecord(widgetRecord, widgetRecord);
-  return dedentMultilineText(normalizedWidget.rendererSource)
+  return getRendererSourceReadLines(normalizedWidget.rendererSource);
+}
+
+function getRendererSourceReadLines(rendererSource) {
+  return dedentMultilineText(typeof rendererSource === "string" ? rendererSource : "")
     .replace(/\r\n?/gu, "\n")
     .split("\n");
+}
+
+function countRendererSourceReadLines(rendererSource) {
+  if (typeof rendererSource !== "string" || !rendererSource.length) {
+    return 0;
+  }
+
+  return getRendererSourceReadLines(rendererSource).length;
 }
 
 function formatWidgetRecordForRead(widgetRecord) {
@@ -956,15 +968,29 @@ function applyPatchedWidgetAttributes(widgetRecord, options = {}) {
   );
 }
 
-function buildWidgetWriteResult(spaceRecord, widgetId) {
+function buildWidgetWriteResult(spaceRecord, widgetId, priorRendererSource = null) {
   const widgetRecord = spaceRecord?.widgets?.[widgetId];
-
-  return {
+  const result = {
     space: spaceRecord,
     widgetId,
     widgetPath: buildSpaceWidgetFilePath(spaceRecord.id, widgetId),
     widgetText: widgetRecord ? formatWidgetRecordForRead(widgetRecord) : ""
   };
+
+  // Expose line counts (not full source strings) so consumers can report
+  // change magnitude in tool result status without parsing renderer text.
+  // Both counts use the same dedent + LF-normalize + split path that
+  // formatWidgetRecordForRead emits, so the numbers always match what the
+  // agent counts in the numbered renderer readback.
+  if (typeof priorRendererSource === "string") {
+    result.priorRendererLineCount = countRendererSourceReadLines(priorRendererSource);
+  }
+
+  if (typeof widgetRecord?.rendererSource === "string") {
+    result.nextRendererLineCount = countRendererSourceReadLines(widgetRecord.rendererSource);
+  }
+
+  return result;
 }
 
 function buildWidgetWriteResults(spaceRecord, widgetIds = []) {
@@ -2056,6 +2082,7 @@ export async function upsertWidget(options = {}) {
   const currentSpace = cloneSpaceRecord(await readSpace(spaceId));
   const widgetFallbackId = normalizeWidgetId(options.widgetId || options.id || options.name || options.title || "widget");
   const existingWidget = currentSpace.widgets[widgetFallbackId] || null;
+  const priorRendererSource = typeof existingWidget?.rendererSource === "string" ? existingWidget.rendererSource : null;
   const widgetRecord = validateWidgetRendererSourceForWrite(
     previewWidgetRecord(options, {
       ...existingWidget,
@@ -2103,7 +2130,7 @@ export async function upsertWidget(options = {}) {
   await runtime.api.fileWrite({ files });
   clearRecentListedSpaceRecords();
 
-  return buildWidgetWriteResult(nextSpace, widgetId);
+  return buildWidgetWriteResult(nextSpace, widgetId, priorRendererSource);
 }
 
 export async function upsertWidgets(options = {}) {
@@ -2219,6 +2246,7 @@ export async function patchWidget(options = {}) {
     throw new Error(`Cannot patch widget "${widgetId}": widget not found in space "${spaceId}".`);
   }
 
+  const priorRendererSource = typeof currentWidget.rendererSource === "string" ? currentWidget.rendererSource : null;
   const patchedRendererSource = applyWidgetPatchEdits(currentWidget, options.edits ?? options.lineEdits);
   const nextWidget = validateWidgetRendererSourceForWrite(
     applyPatchedWidgetAttributes(
@@ -2251,7 +2279,7 @@ export async function patchWidget(options = {}) {
   await runtime.api.fileWrite({ files });
   clearRecentListedSpaceRecords();
 
-  return buildWidgetWriteResult(nextSpace, widgetId);
+  return buildWidgetWriteResult(nextSpace, widgetId, priorRendererSource);
 }
 
 export async function removeWidget(options = {}) {
