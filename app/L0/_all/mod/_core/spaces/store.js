@@ -574,12 +574,22 @@ function ensureSpacesRuntimeNamespace() {
         throw new Error("A target spaceId is required to render a widget.");
       }
 
-      const result = await upsertWidget({
-        ...(await applyAutoWidgetPlacementToRequest(request, targetSpaceId)),
-        name: request.name ?? request.title,
-        spaceId: targetSpaceId,
-        widgetId: request.widgetId ?? request.id
-      });
+      let result;
+
+      try {
+        result = await upsertWidget({
+          ...(await applyAutoWidgetPlacementToRequest(request, targetSpaceId)),
+          name: request.name ?? request.title,
+          spaceId: targetSpaceId,
+          widgetId: request.widgetId ?? request.id
+        });
+      } catch (error) {
+        await refreshCurrentWidgetTransientFromStorage({
+          spaceId: targetSpaceId,
+          widgetId: request.widgetId ?? request.id
+        });
+        throw error;
+      }
 
       if (activeSpacesStore) {
         await activeSpacesStore.handleExternalMutation(targetSpaceId, {
@@ -769,10 +779,20 @@ function ensureSpacesRuntimeNamespace() {
         throw new Error("A target spaceId is required to patch a widget.");
       }
 
-      const result = await patchWidgetFromStorage({
-        ...options,
-        spaceId: targetSpaceId
-      });
+      let result;
+
+      try {
+        result = await patchWidgetFromStorage({
+          ...options,
+          spaceId: targetSpaceId
+        });
+      } catch (error) {
+        await refreshCurrentWidgetTransientFromStorage({
+          spaceId: targetSpaceId,
+          widgetId: options.widgetId
+        });
+        throw error;
+      }
 
       if (activeSpacesStore) {
         await activeSpacesStore.handleExternalMutation(targetSpaceId, {
@@ -838,10 +858,20 @@ function ensureSpacesRuntimeNamespace() {
         throw new Error("A target spaceId is required to save a widget.");
       }
 
-      const result = await upsertWidget({
-        ...(await applyAutoWidgetPlacementToRequest(options, targetSpaceId)),
-        spaceId: targetSpaceId
-      });
+      let result;
+
+      try {
+        result = await upsertWidget({
+          ...(await applyAutoWidgetPlacementToRequest(options, targetSpaceId)),
+          spaceId: targetSpaceId
+        });
+      } catch (error) {
+        await refreshCurrentWidgetTransientFromStorage({
+          spaceId: targetSpaceId,
+          widgetId: options.widgetId ?? options.id
+        });
+        throw error;
+      }
 
       if (activeSpacesStore && options.refresh !== false) {
         await activeSpacesStore.handleExternalMutation(targetSpaceId, {
@@ -1123,11 +1153,22 @@ function updateCurrentWidgetTransientSection({
     return false;
   }
 
+  // Mark this section as not trim-eligible. The Current Widget envelope is
+  // the authoritative source the agent uses to build exact-snippet patches;
+  // mid-content replacement by `trimPromptLongMessage(...)` would inject the
+  // placeholder string into the visible widget source. The agent then either
+  // copies that placeholder into a `find` snippet (patch fails because the
+  // text does not exist in storage) or pastes it into a `renderWidget(...)`
+  // body (the placeholder reads as a JavaScript syntax error and the
+  // renderer crashes on first execution with `Unexpected identifier
+  // 'characters'`). Trimming this source therefore breaks the only contract
+  // that lets the agent patch a widget at all.
   transient.set(CURRENT_WIDGET_TRANSIENT_KEY, {
     content,
     heading: "Current Widget",
     key: CURRENT_WIDGET_TRANSIENT_KEY,
-    order: 300
+    order: 300,
+    trimAllowed: false
   });
   return true;
 }
@@ -1181,6 +1222,50 @@ function emitWidgetReadToolResult(widgetText = "", widgetId = "") {
 
   console.log(`[spaces] ${statusText}`);
   return typeof widgetText === "string" ? widgetText : "";
+}
+
+async function refreshCurrentWidgetTransientFromStorage({ spaceId = "", widgetId = "" } = {}) {
+  const normalizedSpaceId = normalizeOptionalSpaceId(spaceId);
+  const normalizedWidgetId = normalizeOptionalWidgetId(widgetId);
+
+  if (!normalizedSpaceId || !normalizedWidgetId) {
+    return false;
+  }
+
+  let widgetText = "";
+
+  try {
+    widgetText = await readWidgetFromStorage({
+      spaceId: normalizedSpaceId,
+      widgetName: normalizedWidgetId
+    });
+  } catch {
+    return false;
+  }
+
+  if (typeof widgetText !== "string" || !widgetText.trim()) {
+    return false;
+  }
+
+  const widgetRender = getWidgetRenderCheckForSpace(normalizedSpaceId, normalizedWidgetId);
+  const widgetView = readMountedWidgetHtmlEnvelope({
+    full: false,
+    spaceId: normalizedSpaceId,
+    widgetId: normalizedWidgetId,
+    widgetRender
+  });
+  const widgetPath = buildSpaceWidgetFilePath(normalizedSpaceId, normalizedWidgetId);
+
+  return updateCurrentWidgetTransientSection({
+    spaceId: normalizedSpaceId,
+    widgetId: normalizedWidgetId,
+    widgetPath,
+    widgetStatusText: "",
+    widgetHtml: widgetView.html,
+    widgetHtmlAvailable: widgetView.available,
+    widgetHtmlUnavailableReason: widgetView.unavailableReason,
+    widgetText
+  });
 }
 
 function emitWidgetSeeToolResult(widgetHtml = "", widgetId = "", full = false) {
@@ -1665,6 +1750,14 @@ function createCurrentSpaceRuntime(namespace) {
           widgetName
         });
         const widgetId = extractWidgetIdFromWidgetText(widgetText) || normalizeOptionalWidgetId(widgetName);
+
+        if (spaceId && widgetId) {
+          await refreshCurrentWidgetTransientFromStorage({
+            spaceId,
+            widgetId
+          });
+        }
+
         return emitWidgetReadToolResult(widgetText, widgetId);
       })();
     },
