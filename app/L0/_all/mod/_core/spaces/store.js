@@ -1017,21 +1017,68 @@ function getWidgetOperationStatusVerb(operationLabel) {
   }
 }
 
+// Aggregate per-edit application detail into a short status fragment so the
+// agent can read at-a-glance which kinds of edits were just applied (and
+// roughly where) without parsing the full appliedEdits array on the result.
+function formatWidgetAppliedEditsFragment(appliedEdits) {
+  if (!Array.isArray(appliedEdits) || !appliedEdits.length) {
+    return "";
+  }
+
+  const counts = { findReplace: 0, insert: 0, replace: 0, other: 0 };
+  appliedEdits.forEach((entry) => {
+    const kind = entry?.kind;
+    if (kind === "find/replace") {
+      counts.findReplace += 1;
+    } else if (kind === "insert") {
+      counts.insert += 1;
+    } else if (kind === "replace") {
+      counts.replace += 1;
+    } else {
+      counts.other += 1;
+    }
+  });
+
+  const parts = [];
+  if (counts.findReplace > 0) {
+    parts.push(`${counts.findReplace} find/replace`);
+  }
+  if (counts.replace > 0) {
+    parts.push(`${counts.replace} line replace`);
+  }
+  if (counts.insert > 0) {
+    parts.push(`${counts.insert} line insert`);
+  }
+  if (counts.other > 0) {
+    parts.push(`${counts.other} other`);
+  }
+
+  if (!parts.length) {
+    return "";
+  }
+
+  const total = appliedEdits.length;
+  const totalLabel = `${total} edit${total === 1 ? "" : "s"} applied`;
+  return `${totalLabel} (${parts.join(", ")})`;
+}
+
 function formatWidgetOperationStatusText(widgetId, operationLabel, widgetRender, options = {}) {
   const check = cloneWidgetRenderCheck(widgetRender, widgetId);
   const verb = getWidgetOperationStatusVerb(operationLabel);
   const targetLabel = widgetId ? `Widget "${widgetId}"` : "Widget";
   const suffix = options.transientUpdated ? "loaded to TRANSIENT." : "done.";
+  const appliedFragment = formatWidgetAppliedEditsFragment(options.appliedEdits);
+  const appliedSuffix = appliedFragment ? `, ${appliedFragment}` : "";
 
   if (check.status === "error") {
-    return `${targetLabel} ${verb}, render failed, ${suffix}`;
+    return `${targetLabel} ${verb}${appliedSuffix}, render failed, ${suffix}`;
   }
 
   if (check.status === "ok") {
-    return `${targetLabel} ${verb}, rendered ok, ${suffix}`;
+    return `${targetLabel} ${verb}${appliedSuffix}, rendered ok, ${suffix}`;
   }
 
-  return `${targetLabel} ${verb}, not live-tested, ${suffix}`;
+  return `${targetLabel} ${verb}${appliedSuffix}, not live-tested, ${suffix}`;
 }
 
 function extractWidgetIdFromWidgetText(widgetText) {
@@ -1272,6 +1319,7 @@ async function buildWidgetToolResult(
       })
     : false;
   const widgetStatusText = formatWidgetOperationStatusText(normalizedWidgetId, operationLabel, widgetRender, {
+    appliedEdits: Array.isArray(nextResult.appliedEdits) ? nextResult.appliedEdits : null,
     transientUpdated
   });
 

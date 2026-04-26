@@ -695,7 +695,37 @@ function findAllWidgetPatchOccurrences(sourceText, snippet) {
   return indexes;
 }
 
-function normalizeWidgetTextPatchEdit(edit, sourceText) {
+function describeWidgetPatchEdit(edit) {
+  if (!edit || typeof edit !== "object") {
+    return "edit";
+  }
+
+  if (hasOwnWidgetPatchField(edit, "find") || hasOwnWidgetPatchField(edit, "search")) {
+    const snippet = String(edit.find ?? edit.search ?? "");
+    const preview = snippet.replace(/\s+/gu, " ").trim().slice(0, 40);
+    return preview ? `find "${preview}${snippet.length > 40 ? "…" : ""}"` : "find/replace edit";
+  }
+
+  const fromValue = edit.from ?? edit.line ?? edit.startLine ?? edit.range?.[0];
+  const toValue = edit.to ?? edit.endLine ?? edit.range?.[1];
+
+  if (Number.isFinite(Number(fromValue))) {
+    return Number.isFinite(Number(toValue)) ? `line ${fromValue}-${toValue}` : `line ${fromValue}`;
+  }
+
+  return "edit";
+}
+
+function buildWidgetPatchEditErrorPrefix(editIndex, edit) {
+  if (!Number.isInteger(editIndex) || editIndex < 0) {
+    return "";
+  }
+
+  return `Edit ${editIndex + 1} (${describeWidgetPatchEdit(edit)}): `;
+}
+
+function normalizeWidgetTextPatchEdit(edit, sourceText, editIndex = -1) {
+  const errorPrefix = buildWidgetPatchEditErrorPrefix(editIndex, edit);
   const rawFind = hasOwnWidgetPatchField(edit, "find")
     ? edit.find
     : hasOwnWidgetPatchField(edit, "search")
@@ -703,17 +733,17 @@ function normalizeWidgetTextPatchEdit(edit, sourceText) {
       : undefined;
 
   if (typeof rawFind !== "string" || !rawFind) {
-    throw new Error("Exact widget snippet edits require a non-empty string `find` copied from the readable renderer.");
+    throw new Error(`${errorPrefix}exact widget snippet edits require a non-empty string \`find\` copied from the readable renderer.`);
   }
 
   const matchIndexes = findAllWidgetPatchOccurrences(sourceText, rawFind);
 
   if (!matchIndexes.length) {
-    throw new Error("Exact widget snippet edit `find` text was not found in the readable renderer.");
+    throw new Error(`${errorPrefix}exact widget snippet edit \`find\` text was not found in the readable renderer.`);
   }
 
   if (matchIndexes.length > 1) {
-    throw new Error("Exact widget snippet edit `find` text is ambiguous. Use a longer unique snippet or switch to line-based edits.");
+    throw new Error(`${errorPrefix}exact widget snippet edit \`find\` text matches ${matchIndexes.length} renderer locations and is ambiguous. Use a longer unique snippet or switch to line-based edits.`);
   }
 
   return {
@@ -729,11 +759,12 @@ function normalizeWidgetTextPatchEdit(edit, sourceText) {
   };
 }
 
-function normalizeWidgetPatchEdit(edit, lineCount, sourceText) {
+function normalizeWidgetPatchEdit(edit, lineCount, sourceText, editIndex = -1) {
   const normalizedEdit = edit && typeof edit === "object" ? edit : {};
+  const errorPrefix = buildWidgetPatchEditErrorPrefix(editIndex, normalizedEdit);
 
   if (hasOwnWidgetPatchField(normalizedEdit, "find") || hasOwnWidgetPatchField(normalizedEdit, "search")) {
-    return normalizeWidgetTextPatchEdit(normalizedEdit, sourceText);
+    return normalizeWidgetTextPatchEdit(normalizedEdit, sourceText, editIndex);
   }
 
   const rawRange =
@@ -761,17 +792,17 @@ function normalizeWidgetPatchEdit(edit, lineCount, sourceText) {
   const hasContent = Boolean(contentField);
 
   if (!Number.isInteger(from) || from < 0) {
-    throw new Error("Widget patch edits require an integer zero-based renderer `from` line number of 0 or greater.");
+    throw new Error(`${errorPrefix}widget patch edits require an integer zero-based renderer \`from\` line number of 0 or greater.`);
   }
 
   if (!hasTo && !hasContent) {
-    throw new Error("Insert edits must include replacement text in `content`.");
+    throw new Error(`${errorPrefix}insert edits must include replacement text in \`content\`.`);
   }
 
   if (!hasTo) {
     if (from > lineCount) {
       throw new Error(
-        `Insert edit line ${from} is outside the readable renderer range 0-${lineCount}.`
+        `${errorPrefix}insert edit line ${from} is outside the readable renderer range 0-${lineCount}.`
       );
     }
 
@@ -786,12 +817,12 @@ function normalizeWidgetPatchEdit(edit, lineCount, sourceText) {
 
   if (!Number.isInteger(to) || to < from) {
     throw new Error(
-      "Widget patch edits require `to` to be an integer renderer line number greater than or equal to `from`."
+      `${errorPrefix}widget patch edits require \`to\` to be an integer renderer line number greater than or equal to \`from\`.`
     );
   }
 
   if (to >= lineCount) {
-    throw new Error(`Patch edit range ${from}-${to} is outside the readable renderer range 0-${Math.max(0, lineCount - 1)}.`);
+    throw new Error(`${errorPrefix}patch edit range ${from}-${to} is outside the readable renderer range 0-${Math.max(0, lineCount - 1)}.`);
   }
 
   return {
@@ -876,18 +907,69 @@ function validateWidgetPatchEdits(edits = [], lineCount = 0, sourceText = "") {
   validateLineWidgetPatchEdits(edits, lineCount);
 }
 
+function describeAppliedWidgetPatchEdit(edit, sourceText = "") {
+  if (!edit || typeof edit !== "object") {
+    return null;
+  }
+
+  if (edit.mode === "text") {
+    // Compute the renderer line number where the matched snippet starts.
+    // For multi-line `find` matches this is the start line; the agent can
+    // cross-reference its own `find` snippet against the numbered renderer
+    // readback at this line index. Counting newlines in the prefix is
+    // cheap and avoids a second pass over sourceLines, which is the array
+    // view of the same string.
+    const prefix = typeof sourceText === "string" ? sourceText.slice(0, edit.start) : "";
+    const lineNumber = prefix.length > 0 ? prefix.split("\n").length - 1 : 0;
+    return {
+      contentLength: typeof edit.content === "string" ? edit.content.length : 0,
+      findLength: typeof edit.find === "string" ? edit.find.length : Math.max(0, edit.end - edit.start),
+      kind: "find/replace",
+      lineNumber,
+      replacedLength: Math.max(0, edit.end - edit.start)
+    };
+  }
+
+  if (edit.kind === "insert") {
+    return {
+      from: edit.from,
+      insertedLines: Array.isArray(edit.contentLines) ? edit.contentLines.length : 0,
+      kind: "insert"
+    };
+  }
+
+  if (edit.kind === "replace") {
+    return {
+      from: edit.from,
+      insertedLines: Array.isArray(edit.contentLines) ? edit.contentLines.length : 0,
+      kind: "replace",
+      removedLines: Math.max(0, edit.to - edit.from + 1),
+      to: edit.to
+    };
+  }
+
+  return { kind: edit.kind || "unknown" };
+}
+
 function applyWidgetPatchEdits(widgetRecord, edits = []) {
   const sourceLines = getWidgetRendererReadLines(widgetRecord);
   const sourceText = sourceLines.join("\n");
-  const normalizedEdits = (Array.isArray(edits) ? edits : []).map((edit) =>
-    normalizeWidgetPatchEdit(edit, sourceLines.length, sourceText)
+  const normalizedEdits = (Array.isArray(edits) ? edits : []).map((edit, index) =>
+    normalizeWidgetPatchEdit(edit, sourceLines.length, sourceText, index)
   );
 
   if (!normalizedEdits.length) {
-    return normalizeWidgetRecord(widgetRecord, widgetRecord).rendererSource;
+    return {
+      appliedEdits: [],
+      rendererSource: normalizeWidgetRecord(widgetRecord, widgetRecord).rendererSource
+    };
   }
 
   validateWidgetPatchEdits(normalizedEdits, sourceLines.length, sourceText);
+
+  const appliedEdits = normalizedEdits
+    .map((edit) => describeAppliedWidgetPatchEdit(edit, sourceText))
+    .filter(Boolean);
 
   if (normalizedEdits[0]?.mode === "text") {
     let nextText = sourceText;
@@ -898,7 +980,10 @@ function applyWidgetPatchEdits(widgetRecord, edits = []) {
         nextText = `${nextText.slice(0, edit.start)}${edit.content}${nextText.slice(edit.end)}`;
       });
 
-    return normalizeRendererSource(nextText);
+    return {
+      appliedEdits,
+      rendererSource: normalizeRendererSource(nextText)
+    };
   }
 
   const nextLines = [...sourceLines];
@@ -919,7 +1004,10 @@ function applyWidgetPatchEdits(widgetRecord, edits = []) {
     nextLines.splice(edit.from, edit.to - edit.from + 1, ...edit.contentLines);
   });
 
-  return normalizeRendererSource(nextLines.join("\n"));
+  return {
+    appliedEdits,
+    rendererSource: normalizeRendererSource(nextLines.join("\n"))
+  };
 }
 
 function applyPatchedWidgetAttributes(widgetRecord, options = {}) {
@@ -956,15 +1044,20 @@ function applyPatchedWidgetAttributes(widgetRecord, options = {}) {
   );
 }
 
-function buildWidgetWriteResult(spaceRecord, widgetId) {
+function buildWidgetWriteResult(spaceRecord, widgetId, extras = null) {
   const widgetRecord = spaceRecord?.widgets?.[widgetId];
-
-  return {
+  const result = {
     space: spaceRecord,
     widgetId,
     widgetPath: buildSpaceWidgetFilePath(spaceRecord.id, widgetId),
     widgetText: widgetRecord ? formatWidgetRecordForRead(widgetRecord) : ""
   };
+
+  if (extras && typeof extras === "object" && Array.isArray(extras.appliedEdits)) {
+    result.appliedEdits = extras.appliedEdits;
+  }
+
+  return result;
 }
 
 function buildWidgetWriteResults(spaceRecord, widgetIds = []) {
@@ -2219,12 +2312,12 @@ export async function patchWidget(options = {}) {
     throw new Error(`Cannot patch widget "${widgetId}": widget not found in space "${spaceId}".`);
   }
 
-  const patchedRendererSource = applyWidgetPatchEdits(currentWidget, options.edits ?? options.lineEdits);
+  const patchOutcome = applyWidgetPatchEdits(currentWidget, options.edits ?? options.lineEdits);
   const nextWidget = validateWidgetRendererSourceForWrite(
     applyPatchedWidgetAttributes(
       {
         ...currentWidget,
-        rendererSource: patchedRendererSource
+        rendererSource: patchOutcome.rendererSource
       },
       options
     ),
@@ -2251,7 +2344,7 @@ export async function patchWidget(options = {}) {
   await runtime.api.fileWrite({ files });
   clearRecentListedSpaceRecords();
 
-  return buildWidgetWriteResult(nextSpace, widgetId);
+  return buildWidgetWriteResult(nextSpace, widgetId, { appliedEdits: patchOutcome.appliedEdits });
 }
 
 export async function removeWidget(options = {}) {
