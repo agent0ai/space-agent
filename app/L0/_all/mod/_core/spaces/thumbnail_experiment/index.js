@@ -23,11 +23,6 @@ function normalizeSpaceThumbnailId(value) {
   return String(value || "").trim().replace(/^\/+|\/+$/gu, "");
 }
 
-function isNotFoundError(error) {
-  const message = String(error?.message || "").toLowerCase();
-  return message.includes("status 404") || message.includes("file not found") || message.includes("path not found");
-}
-
 function ensureThumbnailRuntime() {
   if (!globalThis.space?.api?.fileDelete || !globalThis.space?.api?.fileWrite) {
     throw new Error("Space thumbnail capture requires the authenticated app-file runtime.");
@@ -278,16 +273,15 @@ async function blobToBase64(blob) {
 
 async function deleteThumbnailPathIfExists(path) {
   const runtime = ensureThumbnailRuntime();
-
-  try {
-    await runtime.api.fileDelete(path);
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      return;
-    }
-
-    throw error;
-  }
+  // Idempotent delete: pass `ifExists: true` so the server returns 200
+  // and lists the path under `skipped` instead of throwing 404 when the
+  // alternative-format thumbnail file (e.g. the `thumbnail.jpg` sibling
+  // of a `thumbnail.webp` that has always existed alone) was never on
+  // disk. Without this, every widget move generates a 404 entry in the
+  // DevTools console because the browser logs failed responses before
+  // JavaScript can suppress them, and triggers the fetch-proxy retry
+  // path which is what surfaces as a UI hitch during rapid moves.
+  await runtime.api.fileDelete(path, { ifExists: true });
 }
 
 export function buildSpaceThumbnailPath(spaceId, fileName = SPACE_THUMBNAIL_WEBP_FILE) {

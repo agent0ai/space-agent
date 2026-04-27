@@ -1510,8 +1510,15 @@ function normalizeDeleteRequests(options = {}) {
     runtimeParams: options.runtimeParams,
     username: options.username
   });
+  // Per RFC 7231 DELETE is idempotent. Callers that want that idempotency
+  // pass `ifExists: true`, in which case paths that resolve to nothing on
+  // disk are recorded as `skipped` and not reported as 404. Strict callers
+  // (default) still get the authoritative 404 so user-initiated deletes
+  // surface a real "this resource is gone" diagnostic.
+  const ifExists = options.ifExists === true;
   const entries = normalizeDeleteEntries(options);
-  const requests = entries.map((entry) => {
+  const skipped = [];
+  const requests = entries.flatMap((entry) => {
     const request = isPlainObject(entry) ? entry : { path: entry };
     const requestedPath = String(request.path || "").trim();
 
@@ -1525,13 +1532,18 @@ function normalizeDeleteRequests(options = {}) {
     );
 
     if (!resolvedPath.projectPath || !resolvedPath.exists) {
+      if (ifExists) {
+        skipped.push(requestedPath);
+        return [];
+      }
+
       throw createHttpError(`Path not found: ${requestedPath}`, 404);
     }
 
     ensurePublicAppProjectPath(resolvedPath.projectPath);
     ensureWritableProjectPath(resolvedPath.projectPath, accessController);
 
-    return {
+    return [{
       absolutePath: createAbsolutePath(
         String(options.projectRoot || ""),
         resolvedPath.projectPath,
@@ -1540,7 +1552,7 @@ function normalizeDeleteRequests(options = {}) {
       isDirectory: resolvedPath.isDirectory,
       path: toAppRelativePath(resolvedPath.projectPath),
       projectPath: resolvedPath.projectPath
-    };
+    }];
   });
 
   requests.forEach((request, index) => {
@@ -1561,19 +1573,28 @@ function normalizeDeleteRequests(options = {}) {
     });
   });
 
-  return requests;
+  return { requests, skipped };
 }
 
 function deleteAppPaths(options = {}) {
-  const requests = normalizeDeleteRequests(options);
+  const { requests, skipped } = normalizeDeleteRequests(options);
   const quotaDeltas = getDeleteQuotaDeltas(options, requests);
   const quotaPlan = createQuotaPlan(options, quotaDeltas);
+  // With `ifExists: true` the caller has already accepted that the target
+  // may be gone, so close the second race window symmetrically: when the
+  // path index says the file is there but it has been removed externally
+  // since the last scan, `fs.rmSync` would otherwise throw `ENOENT` and
+  // surface as a 500. `force: true` makes that case the same no-op the
+  // pathIndex-says-missing branch already handles in normalizeDeleteRequests.
+  // Strict callers keep `force: false` so they still get the authoritative
+  // "this resource is gone" signal.
+  const rmSyncForce = options.ifExists === true;
   let paths;
 
   try {
     paths = requests.map((request) => {
       fs.rmSync(request.absolutePath, {
-        force: false,
+        force: rmSyncForce,
         recursive: request.isDirectory
       });
       return request.path;
@@ -1585,24 +1606,47 @@ function deleteAppPaths(options = {}) {
 
   applyUserFolderQuotaPlan(quotaPlan);
 
-  recordAppPathMutations(
-    {
-      projectRoot: options.projectRoot,
-      quotaCacheUpdated: true,
-      runtimeParams: options.runtimeParams
-    },
-    requests.map((request) => request.projectPath)
-  );
+  // Gate on `paths.length`, not `requests.length`: the invariant we want is
+  // "at least one path mutated on disk". `paths` is set after `fs.rmSync`
+  // succeeds, so it is the authoritative count even when the loop above
+  // throws partway through (the catch re-throws and we never reach here).
+  if (paths.length > 0) {
+    recordAppPathMutations(
+      {
+        projectRoot: options.projectRoot,
+        quotaCacheUpdated: true,
+        runtimeParams: options.runtimeParams
+      },
+      requests.map((request) => request.projectPath)
+    );
+  }
 
-  return {
+  const result = {
     count: paths.length,
     paths
   };
+
+  if (skipped.length > 0) {
+    result.skipped = skipped;
+  }
+
+  return result;
 }
 
 function deleteAppPath(options = {}) {
+  const result = deleteAppPaths(options);
+  // Match the singular-form contract: the legacy result had a single
+  // `path` field. With ifExists, a missing path resolves to skipped so
+  // `paths[0]` is undefined; surface that case explicitly.
+  if (result.paths.length === 0 && Array.isArray(result.skipped) && result.skipped.length > 0) {
+    return {
+      path: null,
+      skipped: result.skipped
+    };
+  }
+
   return {
-    path: deleteAppPaths(options).paths[0]
+    path: result.paths[0]
   };
 }
 
