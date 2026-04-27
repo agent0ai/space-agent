@@ -33,11 +33,6 @@ function getRuntime() {
   return runtime;
 }
 
-function isMissingFileError(error) {
-  const message = String(error?.message || "");
-  return /\bstatus 404\b/u.test(message) || /File not found\./u.test(message) || /Path not found\./u.test(message);
-}
-
 function normalizeList(values) {
   return Array.isArray(values) ? values.map((value) => String(value || "")).filter(Boolean) : [];
 }
@@ -60,15 +55,13 @@ function normalizeFullName(fullName, username) {
 }
 
 async function readUserConfig(runtime) {
+  // Idempotent read: a fresh user has no `~/user.yaml` yet. Use ifExists so
+  // the missing file returns content: null instead of throwing 404.
   try {
-    const result = await runtime.api.fileRead(USER_CONFIG_PATH);
+    const result = await runtime.api.fileRead(USER_CONFIG_PATH, "utf8", { ifExists: true });
     const parsed = runtime.utils.yaml.parse(String(result?.content || ""));
     return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
   } catch (error) {
-    if (isMissingFileError(error)) {
-      return {};
-    }
-
     throw new Error(`Unable to load ${USER_CONFIG_PATH}: ${error.message}`);
   }
 }

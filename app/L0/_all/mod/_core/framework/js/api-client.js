@@ -350,11 +350,23 @@ function serializeStableValue(value) {
     .join(",")}}`;
 }
 
-function createFileReadRequest(pathOrFiles, encoding) {
+function createFileReadRequest(pathOrFiles, encoding, options) {
+  // `ifExists: true` opts into idempotent read semantics: missing paths
+  // resolve to a 200 response with `content: null` (singular form) or
+  // listed under `skipped` (batch form) instead of throwing 404. The
+  // option arrives either through the third positional argument
+  // (bare-path / array forms) or as an `ifExists` field on the input
+  // object (object forms); the input object wins when both are set.
+  const optionsObject = isPlainObject(options) ? options : {};
+  const ifExistsFlag = optionsObject.ifExists === true;
+  const ifExistsBody = ifExistsFlag ? { ifExists: true } : {};
+  const ifExistsQuery = ifExistsFlag ? { ifExists: "1" } : {};
+
   if (Array.isArray(pathOrFiles)) {
     return {
       method: "POST",
       body: {
+        ...ifExistsBody,
         encoding,
         files: pathOrFiles
       }
@@ -365,6 +377,8 @@ function createFileReadRequest(pathOrFiles, encoding) {
     return {
       method: "POST",
       body: {
+        ...ifExistsBody,
+        ...(typeof pathOrFiles.ifExists === "boolean" ? { ifExists: pathOrFiles.ifExists } : {}),
         encoding: pathOrFiles.encoding ?? encoding,
         files: pathOrFiles.files
       }
@@ -375,6 +389,8 @@ function createFileReadRequest(pathOrFiles, encoding) {
     return {
       method: "POST",
       body: {
+        ...ifExistsBody,
+        ...(typeof pathOrFiles.ifExists === "boolean" ? { ifExists: pathOrFiles.ifExists } : {}),
         encoding: pathOrFiles.encoding ?? encoding,
         path: pathOrFiles.path
       }
@@ -384,6 +400,7 @@ function createFileReadRequest(pathOrFiles, encoding) {
   return {
     method: "GET",
     query: {
+      ...ifExistsQuery,
       encoding,
       path: pathOrFiles
     }
@@ -1000,11 +1017,33 @@ export function createApiClient(options = {}) {
    * `~` or `~/...` shorthand for the current user's `L2/<username>/...` path.
    * It also accepts composed batch input through a `files` array.
    *
+   * Pass `{ ifExists: true }` (either on the input object for the
+   * `{path}` / `{files}` forms or as a third positional argument for the
+   * bare-path / array forms) to opt into idempotent semantics: paths that
+   * do not exist return `200`. The singular form returns
+   * `{ content: null, encoding: null, path: null, skipped: [requested] }`;
+   * the batch form returns the read files plus a `skipped[]` field for
+   * any missing entries. Without `ifExists` the call stays strict so
+   * callers that need authoritative 404 keep their existing behaviour.
+   *
+   * Idempotent reads bypass the file-read batching queue so the option
+   * is applied per-call and missing paths cannot poison a shared batch.
+   *
    * @param {string | FileReadInput[] | FileReadBatchOptions | FileReadInput} pathOrFiles
    * @param {string} [encoding]
+   * @param {{ ifExists?: boolean }} [options]
    * @returns {Promise<FileApiResult | FileBatchApiResult>}
    */
-  async function fileRead(pathOrFiles, encoding = "utf8") {
+  async function fileRead(pathOrFiles, encoding = "utf8", options) {
+    const optionsObject = isPlainObject(options) ? options : {};
+    const inputIfExists =
+      isPlainObject(pathOrFiles) && typeof pathOrFiles.ifExists === "boolean" ? pathOrFiles.ifExists : null;
+    const ifExistsFlag = inputIfExists === true || optionsObject.ifExists === true;
+
+    if (ifExistsFlag) {
+      return call("file_read", createFileReadRequest(pathOrFiles, encoding, { ifExists: true }));
+    }
+
     return queueFileRead(pathOrFiles, encoding);
   }
 

@@ -37,11 +37,6 @@ function getRuntime() {
   return runtime;
 }
 
-function isMissingFileError(error) {
-  const message = String(error?.message || "");
-  return /\bstatus 404\b/u.test(message) || /File not found\./u.test(message);
-}
-
 function isSingleUserAppRuntime(runtime) {
   return Boolean(runtime?.config?.get?.("SINGLE_USER_APP", false));
 }
@@ -204,16 +199,20 @@ async function buildStoredConfigPayload(runtime, { settings, systemPrompt }) {
 export async function loadAdminChatConfig() {
   const runtime = getRuntime();
 
+  // Idempotent read: a fresh user has no `~/conf/admin-chat.yaml` yet.
+  // ifExists returns content: null instead of throwing 404.
+  let result;
   try {
-    const result = await runtime.api.fileRead(config.ADMIN_CHAT_CONFIG_PATH);
-    return normalizeStoredConfig(runtime, runtime.utils.yaml.parse(String(result?.content || "")));
+    result = await runtime.api.fileRead(config.ADMIN_CHAT_CONFIG_PATH, "utf8", { ifExists: true });
   } catch (error) {
-    if (isMissingFileError(error)) {
-      return createDefaultConfig();
-    }
-
     throw new Error(`Unable to load admin chat config: ${error.message}`);
   }
+
+  if (typeof result?.content !== "string") {
+    return createDefaultConfig();
+  }
+
+  return normalizeStoredConfig(runtime, runtime.utils.yaml.parse(result.content));
 }
 
 export async function saveAdminChatConfig(nextConfig) {
@@ -235,20 +234,27 @@ export async function saveAdminChatConfig(nextConfig) {
 export async function loadAdminChatHistory() {
   const runtime = getRuntime();
 
+  // Idempotent read: history file may not exist on first run.
+  let result;
   try {
-    const result = await runtime.api.fileRead(config.ADMIN_CHAT_HISTORY_PATH);
-    const parsed = JSON.parse(String(result?.content || "[]"));
+    result = await runtime.api.fileRead(config.ADMIN_CHAT_HISTORY_PATH, "utf8", { ifExists: true });
+  } catch (error) {
+    throw new Error(`Unable to load admin chat history: ${error.message}`);
+  }
+
+  if (typeof result?.content !== "string") {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(result.content || "[]");
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
-    if (isMissingFileError(error)) {
-      return [];
-    }
-
     if (error instanceof SyntaxError) {
       throw new Error("Unable to load admin chat history: invalid JSON.");
     }
 
-    throw new Error(`Unable to load admin chat history: ${error.message}`);
+    throw error;
   }
 }
 

@@ -251,8 +251,14 @@ export async function listPanels() {
     return [];
   }
 
+  // Idempotent batch read: panel manifests can be removed by module_remove
+  // between the listing and this read. The panels parser keys files by
+  // path through a Map, so missing entries simply do not appear in the
+  // lookup — same shape we get from a 200 with `skipped`, just without
+  // the 404 console noise.
   const result = await runtime.api.fileRead({
-    files: manifestFiles.map((manifestFile) => manifestFile.filePath)
+    files: manifestFiles.map((manifestFile) => manifestFile.filePath),
+    ifExists: true
   });
   const files = Array.isArray(result?.files) ? result.files : [];
   const fileMap = new Map(

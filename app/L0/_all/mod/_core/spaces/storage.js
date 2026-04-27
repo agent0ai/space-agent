@@ -1393,8 +1393,13 @@ async function readWidgetFiles(spaceId, widgetPaths = null) {
     return {};
   }
 
+  // Idempotent batch read: same race window as `readSpace` — widget files can
+  // be deleted between the path-index listing and the read. The parser
+  // already accepts a partial files array, so let the server return 200
+  // with any missing entries under `skipped` instead of throwing 404.
   const readResult = await runtime.api.fileRead({
-    files: yamlWidgetPaths
+    files: yamlWidgetPaths,
+    ifExists: true
   });
 
   return parseWidgetFiles(spaceId, Array.isArray(readResult?.files) ? readResult.files : []);
@@ -1630,8 +1635,15 @@ export async function listSpaces() {
     widgetCounts[widgetSpaceId].add(widgetId);
   });
 
+  // Idempotent bulk read: when listing all spaces, individual manifest or
+  // widget files can disappear between the path-index walk and the read
+  // (concurrent space deletion, file_explorer rename, watchdog catching up).
+  // The downstream code keys files by path through a Map, so missing entries
+  // simply do not appear in the lookup — the same shape we get from a 200
+  // with a `skipped` field, just without the 404 noise.
   const readResult = await runtime.api.fileRead({
-    files: [...manifestPaths, ...yamlWidgetPaths]
+    files: [...manifestPaths, ...yamlWidgetPaths],
+    ifExists: true
   });
   const files = Array.isArray(readResult?.files) ? readResult.files : [];
   const fileMap = new Map(
@@ -1771,8 +1783,17 @@ export async function readSpace(spaceId) {
   }
 
   const yamlWidgetPaths = widgetPaths.filter((path) => String(path || "").endsWith(SPACE_WIDGET_FILE_EXTENSION));
+  // Idempotent batch read: a widget file or even the manifest can disappear
+  // between the path-index lookup and the read (space deletion races, watchdog
+  // catching up, external file removal). The downstream code already treats a
+  // missing manifest as `null`, so let the server return 200 with the missing
+  // path under `skipped` instead of throwing 404 and triggering the
+  // fetch-proxy retry path. The widget files come from `listSpaceWidgetPaths`
+  // which itself filters by index presence, so only race-window misses end up
+  // skipped here.
   const readResult = await runtime.api.fileRead({
-    files: [buildSpaceManifestPath(normalizedSpaceId), ...yamlWidgetPaths]
+    files: [buildSpaceManifestPath(normalizedSpaceId), ...yamlWidgetPaths],
+    ifExists: true
   });
   const files = Array.isArray(readResult?.files) ? readResult.files : [];
   const manifestFile =

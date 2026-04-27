@@ -124,11 +124,6 @@ function getRuntime() {
   return runtime;
 }
 
-function isMissingFileError(error) {
-  const message = String(error?.message || "");
-  return /\bstatus 404\b/u.test(message) || /File not found\./u.test(message);
-}
-
 function isSingleUserAppRuntime(runtime) {
   return Boolean(runtime?.config?.get?.("SINGLE_USER_APP", false));
 }
@@ -394,52 +389,58 @@ export async function loadOnscreenAgentConfig() {
   const runtime = getRuntime();
   const uiStateOwner = await getUiStateOwner(runtime);
 
+  // Idempotent read: a fresh user has no `~/conf/onscreen-agent.yaml` yet.
+  // Use ifExists so the missing file returns content: null instead of
+  // throwing 404 on every space switch and console-spamming the user.
+  let result;
   try {
-    const result = await runtime.api.fileRead(config.ONSCREEN_AGENT_CONFIG_PATH);
-    const normalizedConfig = await normalizeStoredConfig(
-      runtime,
-      runtime.utils.yaml.parse(String(result?.content || ""))
-    );
-    const storedUiState =
-      loadUiStateFromStorageArea("sessionStorage", { owner: uiStateOwner }) ||
-      loadUiStateFromStorageArea("localStorage", { owner: uiStateOwner }) ||
-      normalizeStoredUiState(normalizedConfig);
-
-    return {
-      settings: normalizedConfig.settings,
-      systemPrompt: normalizedConfig.systemPrompt,
-      ...storedUiState,
-      uiStateOwner,
-      shouldCenterInitialPosition: false
-    };
+    result = await runtime.api.fileRead(config.ONSCREEN_AGENT_CONFIG_PATH, "utf8", { ifExists: true });
   } catch (error) {
-    if (isMissingFileError(error)) {
-      const storedUiState =
-        loadUiStateFromStorageArea("sessionStorage", { allowUnowned: false, owner: uiStateOwner }) ||
-        loadUiStateFromStorageArea("localStorage", { allowUnowned: false, owner: uiStateOwner });
-      const defaultConfig = createDefaultConfig();
+    throw new Error(`Unable to load onscreen agent config: ${error.message}`);
+  }
 
-      if (storedUiState) {
-        return {
-          settings: defaultConfig.settings,
-          systemPrompt: defaultConfig.systemPrompt,
-          ...storedUiState,
-          uiStateOwner,
-          shouldCenterInitialPosition: false
-        };
-      }
+  if (typeof result?.content !== "string") {
+    // Missing config: fall through to first-run defaults with optional UI state replay.
+    const storedUiState =
+      loadUiStateFromStorageArea("sessionStorage", { allowUnowned: false, owner: uiStateOwner }) ||
+      loadUiStateFromStorageArea("localStorage", { allowUnowned: false, owner: uiStateOwner });
+    const defaultConfig = createDefaultConfig();
 
-      // A missing per-user config with no owner-tagged UI state means first-run defaults for this load.
+    if (storedUiState) {
       return {
-        ...defaultConfig,
-        ...createDefaultUiState(),
+        settings: defaultConfig.settings,
+        systemPrompt: defaultConfig.systemPrompt,
+        ...storedUiState,
         uiStateOwner,
-        shouldCenterInitialPosition: true
+        shouldCenterInitialPosition: false
       };
     }
 
-    throw new Error(`Unable to load onscreen agent config: ${error.message}`);
+    // A missing per-user config with no owner-tagged UI state means first-run defaults for this load.
+    return {
+      ...defaultConfig,
+      ...createDefaultUiState(),
+      uiStateOwner,
+      shouldCenterInitialPosition: true
+    };
   }
+
+  const normalizedConfig = await normalizeStoredConfig(
+    runtime,
+    runtime.utils.yaml.parse(result.content)
+  );
+  const storedUiState =
+    loadUiStateFromStorageArea("sessionStorage", { owner: uiStateOwner }) ||
+    loadUiStateFromStorageArea("localStorage", { owner: uiStateOwner }) ||
+    normalizeStoredUiState(normalizedConfig);
+
+  return {
+    settings: normalizedConfig.settings,
+    systemPrompt: normalizedConfig.systemPrompt,
+    ...storedUiState,
+    uiStateOwner,
+    shouldCenterInitialPosition: false
+  };
 }
 
 export async function saveOnscreenAgentConfig(nextConfig) {
@@ -466,20 +467,28 @@ export function saveOnscreenAgentUiState(nextState) {
 export async function loadOnscreenAgentHistory() {
   const runtime = getRuntime();
 
+  // Idempotent read: history file may not exist on first run. ifExists
+  // returns content: null instead of throwing 404.
+  let result;
   try {
-    const result = await runtime.api.fileRead(config.ONSCREEN_AGENT_HISTORY_PATH);
-    const parsed = JSON.parse(String(result?.content || "[]"));
+    result = await runtime.api.fileRead(config.ONSCREEN_AGENT_HISTORY_PATH, "utf8", { ifExists: true });
+  } catch (error) {
+    throw new Error(`Unable to load onscreen agent history: ${error.message}`);
+  }
+
+  if (typeof result?.content !== "string") {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(result.content || "[]");
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
-    if (isMissingFileError(error)) {
-      return [];
-    }
-
     if (error instanceof SyntaxError) {
       throw new Error("Unable to load onscreen agent history: invalid JSON.");
     }
 
-    throw new Error(`Unable to load onscreen agent history: ${error.message}`);
+    throw error;
   }
 }
 

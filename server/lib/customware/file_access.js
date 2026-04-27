@@ -759,9 +759,15 @@ function normalizeReadRequests(options = {}) {
     runtimeParams: options.runtimeParams,
     username: options.username
   });
+  // Per RFC-style idempotent read semantics: callers that can accept a
+  // missing file (e.g. preference loaders, manifest readers during space
+  // teardown) opt in with `ifExists: true`. Strict callers (default) keep
+  // the authoritative 404 so user-facing reads can still surface a real
+  // "this resource is gone" diagnostic.
+  const ifExists = options.ifExists === true;
   const entries = normalizeReadEntries(options);
-
-  return entries.map((entry) => {
+  const skipped = [];
+  const requests = entries.flatMap((entry) => {
     const request = isPlainObject(entry) ? entry : { path: entry };
     const requestedPath = String(request.path || "").trim();
 
@@ -775,6 +781,11 @@ function normalizeReadRequests(options = {}) {
     );
 
     if (!resolvedPath.projectPath || !resolvedPath.exists) {
+      if (ifExists) {
+        skipped.push(requestedPath);
+        return [];
+      }
+
       throw createHttpError(`File not found: ${requestedPath}`, 404);
     }
 
@@ -785,7 +796,7 @@ function normalizeReadRequests(options = {}) {
     ensurePublicAppProjectPath(resolvedPath.projectPath);
     ensureReadableProjectPath(resolvedPath.projectPath, accessController);
 
-    return {
+    return [{
       absolutePath: createAbsolutePath(
         String(options.projectRoot || ""),
         resolvedPath.projectPath,
@@ -793,30 +804,73 @@ function normalizeReadRequests(options = {}) {
       ),
       encoding: ensureValidReadEncoding(String(request.encoding || options.encoding || "utf8").toLowerCase()),
       path: toAppRelativePath(resolvedPath.projectPath)
-    };
+    }];
   });
+
+  return { requests, skipped };
 }
 
 function readAppFiles(options = {}) {
-  const requests = normalizeReadRequests(options);
-  const files = requests.map((request) => {
-    const buffer = fs.readFileSync(request.absolutePath);
+  const { requests, skipped } = normalizeReadRequests(options);
+  const ifExists = options.ifExists === true;
+  // With `ifExists: true`, also close the second race window symmetrically:
+  // when the path index says the file is there but it has been removed
+  // externally since the last scan, `fs.readFileSync` would throw `ENOENT`
+  // and surface as a 500. Treat that as "the file is gone" and append it
+  // to `skipped`, matching the pathIndex-says-missing branch in
+  // normalizeReadRequests. Strict reads still throw so the authoritative
+  // "this resource is gone" diagnostic remains.
+  const files = [];
+  const lateSkipped = [];
 
-    return {
+  requests.forEach((request) => {
+    let buffer;
+
+    try {
+      buffer = fs.readFileSync(request.absolutePath);
+    } catch (error) {
+      if (ifExists && error?.code === "ENOENT") {
+        lateSkipped.push(request.path);
+        return;
+      }
+
+      throw error;
+    }
+
+    files.push({
       content: request.encoding === "base64" ? buffer.toString("base64") : buffer.toString("utf8"),
       encoding: request.encoding,
       path: request.path
-    };
+    });
   });
 
-  return {
+  const result = {
     count: files.length,
     files
   };
+
+  if (skipped.length > 0 || lateSkipped.length > 0) {
+    result.skipped = [...skipped, ...lateSkipped];
+  }
+
+  return result;
 }
 
 function readAppFile(options = {}) {
-  return readAppFiles(options).files[0];
+  const result = readAppFiles(options);
+  // Match the singular-form contract: the legacy result was the single
+  // file object. With ifExists, a missing path resolves to skipped so
+  // `files[0]` is undefined; surface that case explicitly.
+  if (result.files.length === 0 && Array.isArray(result.skipped) && result.skipped.length > 0) {
+    return {
+      content: null,
+      encoding: null,
+      path: null,
+      skipped: result.skipped
+    };
+  }
+
+  return result.files[0];
 }
 
 function resolveReadableExistingAppPath(options = {}) {
