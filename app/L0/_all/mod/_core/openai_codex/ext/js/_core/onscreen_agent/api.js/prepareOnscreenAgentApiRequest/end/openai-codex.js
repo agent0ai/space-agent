@@ -38,6 +38,29 @@ function serializeTokens(tokens) {
   return tokens ? JSON.stringify(tokens) : "";
 }
 
+// chatgpt.com does not advertise CORS, so a direct browser fetch from the
+// page origin is always blocked by the browser's preflight. The standard
+// `prepareOnscreenAgentCompletionRequest` flow already routes its API URL
+// through `space.proxy.buildUrl(...)` for proxyable external endpoints; the
+// Codex hook overrides `requestUrl` and must therefore re-apply the same
+// proxy routing itself. Without this, every Codex chat call pays an extra
+// failed-direct-fetch roundtrip (rescued by `installFetchProxy(...)`'s
+// fallback retry) and emits a red CORS error in the DevTools console on
+// the first call of every page load.
+function resolveCodexProxyRequestUrl(targetUrl) {
+  const runtimeProxy = globalThis.space?.proxy;
+
+  if (!runtimeProxy || typeof runtimeProxy.buildUrl !== "function") {
+    return String(targetUrl || "");
+  }
+
+  try {
+    return runtimeProxy.buildUrl(targetUrl);
+  } catch {
+    return String(targetUrl || "");
+  }
+}
+
 // Token persistence lives on the store/storage side. When a refresh rotates
 // the refresh token the hook must hand the new payload back to the store so
 // that encoding, userCrypto, and YAML writing stay owned by `storage.js`.
@@ -78,11 +101,12 @@ export default async function openAiCodexOnscreenRequestHook(hookContext) {
       ? settings.codexModel.trim()
       : chatBody.model;
   const codexBody = chatToResponsesRequest({ ...chatBody, model });
+  const proxiedRequestUrl = resolveCodexProxyRequestUrl(CODEX_RESPONSES_ENDPOINT);
   const withHeaders = applyCodexHeaders(
     {
       ...apiRequest,
       requestBody: codexBody,
-      requestUrl: CODEX_RESPONSES_ENDPOINT
+      requestUrl: proxiedRequestUrl
     },
     {
       accessToken: freshTokens.accessToken,
@@ -90,9 +114,18 @@ export default async function openAiCodexOnscreenRequestHook(hookContext) {
     }
   );
 
+  // The proxy endpoint is itself an authenticated space-agent route that
+  // needs the browser session cookie. It strips the cookie header before
+  // forwarding upstream so this does not leak `space_session` to chatgpt.com.
+  const requestInit = {
+    ...(withHeaders.requestInit && typeof withHeaders.requestInit === "object" ? withHeaders.requestInit : {}),
+    credentials: "same-origin"
+  };
+
   hookContext.result = {
     ...withHeaders,
-    apiEndpoint: CODEX_RESPONSES_ENDPOINT,
+    apiEndpoint: proxiedRequestUrl,
+    requestInit,
     settings: {
       ...settings,
       codexTokens: serializeTokens(freshTokens)
