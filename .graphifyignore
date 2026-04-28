@@ -1,0 +1,8 @@
+# Graphify should index first-party source and docs, not vendored browser runtimes.
+app/L0/_all/mod/_core/framework/js/vendor/
+app/L0/_all/mod/_core/framework/js/alpine.min.js
+app/L0/_all/mod/_core/huggingface/vendor/
+app/L0/_all/mod/_core/skillset/vendor/
+*.min.js
+*.min.css
+*.bundle.js

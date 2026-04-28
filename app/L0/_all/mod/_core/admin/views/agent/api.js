@@ -357,6 +357,11 @@ function parseEventBlock(eventBlock, onDelta, meta) {
     }
 
     const payload = JSON.parse(value);
+
+    if (payload?.error) {
+      throw new Error(payload.error.message || "Streaming request failed.");
+    }
+
     const delta = extractStreamingDelta(payload);
 
     noteCompletionPayload(meta, payload, delta);
@@ -496,6 +501,47 @@ async function streamAdminAgentApiCompletion({ promptContext, settings, systemPr
   return readStreamingResponse(response, onDelta);
 }
 
+async function streamAdminAgentCodexCompletion({ promptContext, settings, systemPrompt, messages, onDelta, signal }) {
+  if (!String(settings?.codexWorkspace || "").trim()) {
+    throw new Error("Set a Codex workspace before sending a message.");
+  }
+
+  const requestBody = createRequestBody(settings, systemPrompt, messages, {
+    promptContext
+  });
+  const response = await fetch("/api/codex_chat", {
+    body: JSON.stringify({
+      ephemeral: settings.codexEphemeral !== false,
+      messages: Array.isArray(requestBody.messages) ? requestBody.messages : [],
+      model: String(settings.codexModel || "").trim(),
+      sandbox: config.normalizeAdminChatCodexSandbox(settings.codexSandbox),
+      settings: {
+        codexModel: String(settings.codexModel || "").trim(),
+        codexSandbox: config.normalizeAdminChatCodexSandbox(settings.codexSandbox),
+        codexWorkspace: String(settings.codexWorkspace || "").trim()
+      },
+      skipGitRepoCheck: settings.codexSkipGitRepoCheck !== false,
+      surface: "admin",
+      workspace: String(settings.codexWorkspace || "").trim()
+    }),
+    headers: {
+      "Content-Type": "application/json"
+    },
+    method: "POST",
+    signal
+  });
+
+  if (!response.ok) {
+    await throwResponseError(response);
+  }
+
+  if (!response.body) {
+    throw new Error("Streaming response body is not available.");
+  }
+
+  return readStreamingResponse(response, onDelta);
+}
+
 export async function streamAdminAgentCompletion({ promptContext, settings, systemPrompt, messages, onDelta, signal }) {
   const provider = config.normalizeAdminChatLlmProvider(settings?.provider);
   const normalizedPromptContext = normalizeAdminPromptContext(promptContext, systemPrompt);
@@ -510,6 +556,17 @@ export async function streamAdminAgentCompletion({ promptContext, settings, syst
     });
 
     return result.responseMeta;
+  }
+
+  if (provider === config.ADMIN_CHAT_LLM_PROVIDER.CODEX) {
+    return streamAdminAgentCodexCompletion({
+      messages,
+      onDelta,
+      promptContext: normalizedPromptContext,
+      settings,
+      signal,
+      systemPrompt: normalizedPromptContext.systemPrompt
+    });
   }
 
   return streamAdminAgentApiCompletion({

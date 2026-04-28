@@ -120,6 +120,7 @@ Server docs:
 - `/server/api/AGENTS.md`
 - `/server/jobs/AGENTS.md`
 - `/server/lib/auth/AGENTS.md`
+- `/server/lib/codex_cli/AGENTS.md`
 - `/server/lib/customware/AGENTS.md`
 - `/server/lib/file_watch/AGENTS.md`
 - `/server/lib/git/AGENTS.md`
@@ -288,3 +289,13 @@ Documentation rules:
 - when a code change adds a new stable seam, subsystem, ownership boundary, or workflow, document it where it belongs before finishing
 - when code reveals undocumented architecture, document it
 - keep all `AGENTS.md` files explicit, current, and high signal
+
+## graphify
+
+This project has a graphify knowledge graph at graphify-out/.
+
+Rules:
+- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
+- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
+- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
+- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)

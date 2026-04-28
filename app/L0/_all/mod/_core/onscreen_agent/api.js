@@ -137,6 +137,11 @@ function parseEventBlock(eventBlock, onDelta, meta) {
     }
 
     const payload = JSON.parse(value);
+
+    if (payload?.error) {
+      throw new Error(payload.error.message || "Streaming request failed.");
+    }
+
     const delta = extractStreamingDelta(payload);
 
     noteCompletionPayload(meta, payload, delta);
@@ -406,6 +411,76 @@ export class OnscreenAgentLocalLlmClient extends OnscreenAgentLlmClient {
   }
 }
 
+export class OnscreenAgentCodexLlmClient extends OnscreenAgentLlmClient {
+  validateSettings(settings = this.settings) {
+    if (!String(settings?.codexWorkspace || "").trim()) {
+      throw new Error("Set a Codex workspace before sending a message.");
+    }
+
+    const sandbox = config.normalizeOnscreenAgentCodexSandbox(settings?.codexSandbox);
+
+    if (sandbox !== "read-only" && sandbox !== "workspace-write") {
+      throw new Error("Choose a supported Codex sandbox mode.");
+    }
+  }
+
+  createRequestBody(settings, preparedRequest) {
+    const requestBody =
+      preparedRequest?.requestBody && typeof preparedRequest.requestBody === "object"
+        ? preparedRequest.requestBody
+        : {};
+
+    return {
+      ephemeral: settings.codexEphemeral !== false,
+      messages: Array.isArray(requestBody.messages)
+        ? requestBody.messages
+        : Array.isArray(preparedRequest?.messages)
+          ? preparedRequest.messages
+          : [],
+      model: String(settings.codexModel || "").trim(),
+      sandbox: config.normalizeOnscreenAgentCodexSandbox(settings.codexSandbox),
+      settings: {
+        codexModel: String(settings.codexModel || "").trim(),
+        codexSandbox: config.normalizeOnscreenAgentCodexSandbox(settings.codexSandbox),
+        codexWorkspace: String(settings.codexWorkspace || "").trim()
+      },
+      skipGitRepoCheck: settings.codexSkipGitRepoCheck !== false,
+      surface: "onscreen",
+      workspace: String(settings.codexWorkspace || "").trim()
+    };
+  }
+
+  async streamCompletion(options = {}) {
+    const onDelta = typeof options.onDelta === "function" ? options.onDelta : () => {};
+    const preparedRequest = await this.resolvePreparedRequest(options);
+    const effectiveSettings =
+      preparedRequest?.settings && typeof preparedRequest.settings === "object"
+        ? preparedRequest.settings
+        : this.settings;
+
+    this.validateSettings(effectiveSettings);
+
+    const response = await fetch("/api/codex_chat", {
+      body: JSON.stringify(this.createRequestBody(effectiveSettings, preparedRequest)),
+      headers: {
+        "Content-Type": "application/json"
+      },
+      method: "POST",
+      signal: options.signal
+    });
+
+    if (!response.ok) {
+      await throwResponseError(response);
+    }
+
+    if (!response.body) {
+      throw new Error("Streaming response body is not available.");
+    }
+
+    return readStreamingResponse(response, onDelta);
+  }
+}
+
 export const prepareOnscreenAgentApiRequest = globalThis.space.extend(
   import.meta,
   async function prepareOnscreenAgentApiRequest({ preparedRequest, settings } = {}) {
@@ -446,6 +521,12 @@ export function createOnscreenAgentLlmClient(settings = config.DEFAULT_ONSCREEN_
 
   if (provider === config.ONSCREEN_AGENT_LLM_PROVIDER.LOCAL) {
     return new OnscreenAgentLocalLlmClient({
+      settings
+    });
+  }
+
+  if (provider === config.ONSCREEN_AGENT_LLM_PROVIDER.CODEX) {
+    return new OnscreenAgentCodexLlmClient({
       settings
     });
   }

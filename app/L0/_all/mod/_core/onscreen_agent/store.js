@@ -817,7 +817,17 @@ function summarizeOnscreenAgentLlmSelection(settings, huggingfaceState) {
     return configuredModelId || activeModelId || "No model";
   }
 
+  if (provider === config.ONSCREEN_AGENT_LLM_PROVIDER.CODEX) {
+    return settings?.codexModel?.trim() || "Codex CLI";
+  }
+
   return agentView.summarizeLlmConfig(settings?.apiEndpoint || "", settings?.model || "");
+}
+
+function getCodexStatusText(settings) {
+  const sandbox = config.normalizeOnscreenAgentCodexSandbox(settings?.codexSandbox);
+  const label = sandbox === "workspace-write" ? "workspace-write" : "read-only";
+  return `Running Codex CLI (${label})...`;
 }
 
 function isHuggingFaceSelectionMatch(left = {}, right = {}) {
@@ -1408,6 +1418,11 @@ const model = {
   settings: {
     apiEndpoint: "",
     apiKey: "",
+    codexEphemeral: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.codexEphemeral,
+    codexModel: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.codexModel,
+    codexSandbox: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.codexSandbox,
+    codexSkipGitRepoCheck: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.codexSkipGitRepoCheck,
+    codexWorkspace: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.codexWorkspace,
     huggingfaceDtype: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.huggingfaceDtype,
     huggingfaceModel: "",
     localProvider: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.localProvider,
@@ -1420,6 +1435,11 @@ const model = {
   settingsDraft: {
     apiEndpoint: "",
     apiKey: "",
+    codexEphemeral: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.codexEphemeral,
+    codexModel: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.codexModel,
+    codexSandbox: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.codexSandbox,
+    codexSkipGitRepoCheck: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.codexSkipGitRepoCheck,
+    codexWorkspace: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.codexWorkspace,
     huggingfaceDtype: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.huggingfaceDtype,
     huggingfaceModel: "",
     localProvider: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.localProvider,
@@ -1619,6 +1639,10 @@ const model = {
 
   get isSettingsDraftUsingLocalProvider() {
     return config.normalizeOnscreenAgentLlmProvider(this.settingsDraft.provider) === config.ONSCREEN_AGENT_LLM_PROVIDER.LOCAL;
+  },
+
+  get isSettingsDraftUsingCodexProvider() {
+    return config.normalizeOnscreenAgentLlmProvider(this.settingsDraft.provider) === config.ONSCREEN_AGENT_LLM_PROVIDER.CODEX;
   },
 
   get huggingfaceSavedModels() {
@@ -4432,6 +4456,13 @@ const model = {
     }
   },
 
+  setSettingsCodexSandbox(value) {
+    this.settingsDraft = {
+      ...this.settingsDraft,
+      codexSandbox: config.normalizeOnscreenAgentCodexSandbox(value)
+    };
+  },
+
   setSettingsPromptBudgetRatio(key, value) {
     const normalizedRatios = rebalancePromptBudgetRatios(
       this.settingsDraft.promptBudgetRatios,
@@ -4591,6 +4622,10 @@ const model = {
           throw new Error("Choose a Hugging Face model and dtype before saving.");
         }
       }
+
+      if (provider === config.ONSCREEN_AGENT_LLM_PROVIDER.CODEX && !String(this.settingsDraft.codexWorkspace || "").trim()) {
+        throw new Error("Set a Codex workspace before saving.");
+      }
     } catch (error) {
       this.reportError("validating chat settings", error, {
         preserveStatus: true
@@ -4601,6 +4636,11 @@ const model = {
     this.settings = {
       apiEndpoint: (this.settingsDraft.apiEndpoint || "").trim(),
       apiKey: (this.settingsDraft.apiKey || "").trim(),
+      codexEphemeral: this.settingsDraft.codexEphemeral !== false,
+      codexModel: (this.settingsDraft.codexModel || "").trim(),
+      codexSandbox: config.normalizeOnscreenAgentCodexSandbox(this.settingsDraft.codexSandbox),
+      codexSkipGitRepoCheck: this.settingsDraft.codexSkipGitRepoCheck !== false,
+      codexWorkspace: (this.settingsDraft.codexWorkspace || "").trim(),
       huggingfaceDtype: (this.settingsDraft.huggingfaceDtype || "").trim(),
       huggingfaceModel: normalizeHuggingFaceModelInput(this.settingsDraft.huggingfaceModel || ""),
       localProvider,
@@ -4624,7 +4664,9 @@ const model = {
       await this.persistConfig();
       this.status = provider === config.ONSCREEN_AGENT_LLM_PROVIDER.LOCAL
         ? `Local ${getConfiguredLocalProviderLabel(this.settings)} settings updated. Preparing the selected model in the background.`
-        : "API chat settings updated.";
+        : provider === config.ONSCREEN_AGENT_LLM_PROVIDER.CODEX
+          ? "Codex CLI settings updated."
+          : "API chat settings updated.";
       this.closeSettingsDialog();
 
       if (provider === config.ONSCREEN_AGENT_LLM_PROVIDER.LOCAL) {
@@ -4914,8 +4956,9 @@ const model = {
 
   async streamAssistantResponse(requestMessages, assistantMessage, preparedRequest) {
     let hasSeenDelta = false;
-    const usingLocalProvider =
-      config.normalizeOnscreenAgentLlmProvider(this.settings.provider) === config.ONSCREEN_AGENT_LLM_PROVIDER.LOCAL;
+    const provider = config.normalizeOnscreenAgentLlmProvider(this.settings.provider);
+    const usingLocalProvider = provider === config.ONSCREEN_AGENT_LLM_PROVIDER.LOCAL;
+    const usingCodexProvider = provider === config.ONSCREEN_AGENT_LLM_PROVIDER.CODEX;
 
     if (usingLocalProvider) {
       const localModelReady = this.isConfiguredLocalModelReady(this.settings);
@@ -4927,6 +4970,8 @@ const model = {
           ? "Running local LLM..."
           : "Loading local LLM...";
       }
+    } else if (usingCodexProvider) {
+      this.status = getCodexStatusText(this.settings);
     } else {
       this.status = "Thinking...";
     }

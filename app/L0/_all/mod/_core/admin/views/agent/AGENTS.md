@@ -31,6 +31,11 @@ Current stored config fields are written in YAML as:
 
 - `llm_provider`
 - `local_provider`
+- `codex_workspace`
+- `codex_sandbox`
+- `codex_model`
+- `codex_ephemeral`
+- `codex_skip_git_repo_check`
 - `api_endpoint`
 - `api_key`
 - `model`
@@ -69,6 +74,8 @@ Prompt rules:
 - the only admin-specific prompt-shaping difference is custom instruction placement: admin appends those user-authored instructions after the standard shared system sections instead of directly after the base firmware prompt
 - `_core/memory` currently uses that normal auto-loaded system-skill channel to teach prompt-include-backed `~/memory/behavior.system.include.md`, `~/memory/memories.transient.include.md`, and optional extra `~/memory/*.transient.include.md` files; do not special-case that skill in prompt-builder code
 - the API-mode fetch branch must finalize its upstream request through `api.js` seam `_core/admin/views/agent/api.js/prepareAdminAgentApiRequest`; provider-specific headers or body rewrites belong in extension modules such as `_core/open_router`, not hard-coded in the admin runtime
+- Codex CLI mode reuses the same prepared admin prompt shape and sends it to authenticated `/api/codex_chat`, which owns local process execution and returns OpenAI-compatible SSE; admin browser code must not spawn or shell out directly
+- while a Codex CLI request is active, the admin status should include the normalized sandbox mode, such as `Running Codex CLI (read-only)...`, so operator triage can see whether the run is read-only or workspace-write without reopening the LLM settings modal
 - `api.js` may fold consecutive prepared `user` or `assistant` payload messages into alternating transport turns with `\n\n` joins immediately before the fetch call, but that transport-only fold must not mutate stored history or prompt-history state
 - the firmware prompt documents `space.api.userSelfInfo()` as `{ username, fullName, groups, managedGroups, sessionId, userCryptoKeyId, userCryptoState }`, and admin checks should still derive from `groups.includes("_admin")`
 
@@ -76,7 +83,7 @@ Prompt rules:
 
 Current behavior:
 
-- the LLM settings modal keeps one provider switch at the top with tabs named `API` and `Local`, and shows either the API settings fields or one `Local` section
+- the LLM settings modal keeps one provider switch at the top with tabs named `API`, `Local`, and `Codex CLI`, and shows the matching provider-specific settings fields
 - the `Local` section only supports the Hugging Face browser runtime
 - the toolbar LLM settings button summarizes the current selection with the configured model name only; it does not prepend provider labels such as `API`, `Local`, or `Hugging Face`
 - the local section mounts the standalone Hugging Face config sidebar component through `<x-component>`, so the admin modal and the routed testing harness share the same component file instead of maintaining duplicated local-provider markup
@@ -96,7 +103,7 @@ Current behavior:
 - the local provider section exposes a button that opens the full Hugging Face testing chat route in a new tab for fuller inspection or experimentation, but that route is no longer the only place where local model preparation can happen
 - the settings modal keeps `maxTokens`, shared prompt-budget controls, and `paramsText` below the provider-specific sections so remote API and local HuggingFace use the same context-budget and request-params surface
 - those shared prompt-budget ratios feed the same trimming path as the onscreen agent: prepared entries and prompt items reuse cached token counts, single live history messages are capped first, contributor-level part trims must be at least `250` tokens each, and `system` or `transient` falls back to one combined section-body trim when smaller contributor cuts would be required
-- the admin agent keeps one shared prompt assembly or compaction or execution loop and branches only at the final LLM transport call between API fetch streaming and the Hugging Face manager
+- the admin agent keeps one shared prompt assembly or compaction or execution loop and branches only at the final LLM transport call between API fetch streaming, the Hugging Face manager, and `/api/codex_chat`
 - `llm-params.js` delegates YAML parsing to the shared framework `js/yaml-lite.js` utility but still enforces the admin-agent-specific top-level `key: value` params contract
 - `huggingface.js` should stay limited to admin-facing snapshot shaping or helper glue around `_core/huggingface/manager.js`; do not reintroduce a second admin-side Hugging Face transport path when the shared manager already owns load or unload or stream behavior
 - browser execution blocks are detected by the `_____javascript` separator

@@ -6,6 +6,7 @@ node_modules
 dist
 coverage
 release
+graphify-out/cache/
 /app/L1/
 /app/L2/
 .env

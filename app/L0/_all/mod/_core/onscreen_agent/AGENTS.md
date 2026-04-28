@@ -49,7 +49,7 @@ This module owns:
 - `skills.js`: onscreen skill discovery wrappers around shared `/mod/_core/skillset/skills.js`, skill frontmatter metadata flags, `space.skills.load(...)`, and skill-related JS extension seams
 - `llm.js`, `api.js`, `execution.js`, `attachments.js`, and `llm-params.js`: local runtime helpers
 - `llm.js` owns LLM-facing system-prompt file loading, optional example-message construction, auto-loaded and runtime-loaded skill injection into system or transient prompt context, runtime system-prompt assembly, the surface-specific prepared-prompt builders layered on top of shared `_core/agent_prompt/prompt-runtime.js`, separate transient-message construction, final request assembly, history-compaction prompt loading, and the model-facing JS extension seams
-- `api.js` owns chat transport, HTTP error handling, streaming response parsing, the shared `OnscreenAgentLlmClient` superclass plus provider subclasses for OpenAI-compatible API streaming and local Hugging Face streaming, and the API-request preparation seam `prepareOnscreenAgentApiRequest`; prompt-shaping logic lives in `llm.js`
+- `api.js` owns chat transport, HTTP error handling, streaming response parsing, the shared `OnscreenAgentLlmClient` superclass plus provider subclasses for OpenAI-compatible API streaming, local Hugging Face streaming, and authenticated Codex CLI streaming through `/api/codex_chat`, and the API-request preparation seam `prepareOnscreenAgentApiRequest`; prompt-shaping logic lives in `llm.js`
 - `llm-params.js` delegates YAML parsing to the shared framework `js/yaml-lite.js` utility but still enforces the overlay-specific top-level `key: value` params contract
 - `config.js` and `storage.js`: persisted settings, owner-tagged browser UI state, and history
 - `prompts/`: shipped prompt files and prompt-local documentation
@@ -67,6 +67,11 @@ Current config fields include:
 
 - `llm_provider`
 - `local_provider`
+- `codex_workspace`
+- `codex_sandbox`
+- `codex_model`
+- `codex_ephemeral`
+- `codex_skip_git_repo_check`
 - API provider settings and params
 - `max_tokens`
 - `prompt_budget_ratios`
@@ -139,6 +144,8 @@ Prompt rules:
 - prompt-instance lifecycle itself is shared with other first-party agent surfaces through `_core/agent_prompt/prompt-runtime.js`; overlay-specific prompt section seams and prepared-message shaping still belong here
 - when a real human turn includes attachments, the `_____user` block should contain the literal user text plus the `Attachments↓` list, while the `space.chat` runtime access instructions for those attachments should move into a following `_____framework` block so prompt inspection keeps user intent separate from framework guidance
 - the API-mode fetch branch must finalize its upstream request through `api.js` seam `_core/onscreen_agent/api.js/prepareOnscreenAgentApiRequest`; provider-specific headers or body rewrites belong in extension modules such as `_core/open_router`, not in `llm.js`
+- Codex CLI mode reuses the same prepared prompt as API mode, but its final transport target is `/api/codex_chat`. Browser code may choose workspace, sandbox, model override, ephemeral mode, and git-repo-check behavior; the backend remains responsible for process execution, allowlists, and sandbox enforcement.
+- while a Codex CLI request is active, the overlay status should include the normalized sandbox mode, such as `Running Codex CLI (read-only)...`, so abort or latency triage can distinguish read-only and workspace-write runs without opening settings
 - `api.js` may fold consecutive prepared `user` or `assistant` payload messages into alternating transport turns with `\n\n` joins immediately before the fetch call, but that transport-only fold must not mutate prepared prompt entries, prompt-history state, or stored live history
 - whenever example messages exist, `llm.js` should append one final example-sourced `_____framework` boundary that says `start of new conversation - don't refer to previous contents` before live history begins so the next real user turn is not treated as a continuation of the example transcript
 - the built-in example extension under `ext/js/_core/onscreen_agent/llm.js/buildOnscreenAgentExampleMessages/end/user-self-info.js` should prepend a framework prompt asking the agent to check user detail, an assistant execution reply that calls `space.api.userSelfInfo()`, and a framework execution-result message populated with the live API result so the model sees both the expected execution format and the current user snapshot

@@ -1,0 +1,287 @@
+{
+  "mode": "curated-docs",
+  "source_files": [
+    "README.md",
+    "AGENTS.md",
+    "app/AGENTS.md",
+    "server/AGENTS.md",
+    "commands/AGENTS.md",
+    "packaging/AGENTS.md",
+    "tests/AGENTS.md"
+  ],
+  "nodes": [
+    {
+      "id": "semantic:space-agent",
+      "label": "Space Agent",
+      "source_location": "README.md; AGENTS.md",
+      "summary": "Browser-first AI agent runtime whose agent can reshape the running interface."
+    },
+    {
+      "id": "semantic:browser-first-runtime",
+      "label": "Browser-first runtime",
+      "source_location": "AGENTS.md; app/AGENTS.md",
+      "summary": "Agent orchestration, prompts, state, tools, and UI behavior default to the browser layer."
+    },
+    {
+      "id": "semantic:thin-server-infrastructure",
+      "label": "Thin server infrastructure",
+      "source_location": "AGENTS.md; server/AGENTS.md",
+      "summary": "Server owns explicit infrastructure contracts such as auth, routing, API hosting, proxying, file access, and runtime state."
+    },
+    {
+      "id": "semantic:layered-customware",
+      "label": "Layered customware model",
+      "source_location": "AGENTS.md; app/AGENTS.md; server/AGENTS.md",
+      "summary": "L0 firmware, L1 group customware, and L2 user customware define browser-delivered module and app-file ownership."
+    },
+    {
+      "id": "semantic:module-extension-system",
+      "label": "Module extension system",
+      "source_location": "app/AGENTS.md",
+      "summary": "Browser modules compose through explicit HTML seams, JS hooks, metadata manifests, context tags, and layered overrides."
+    },
+    {
+      "id": "semantic:agent-skills-text",
+      "label": "Text-based agent skills",
+      "source_location": "README.md; app/AGENTS.md",
+      "summary": "Capabilities can live in SKILL.md files with metadata-driven discovery and optional prompt placement."
+    },
+    {
+      "id": "semantic:prompt-context-system",
+      "label": "Prompt context system",
+      "source_location": "app/AGENTS.md",
+      "summary": "Promptinclude, memory, skills, context tags, and agent prompt modules shape agent runtime context."
+    },
+    {
+      "id": "semantic:admin-control-plane",
+      "label": "Admin control plane",
+      "source_location": "README.md; app/AGENTS.md; server/AGENTS.md",
+      "summary": "Admin mode, route clamping, file/admin views, and server permissions provide a stable control plane."
+    },
+    {
+      "id": "semantic:browser-surface-runtime",
+      "label": "Browser surface runtime",
+      "source_location": "app/AGENTS.md; packaging/AGENTS.md; tests/AGENTS.md",
+      "summary": "The web_browsing module and desktop host provide registered browser surfaces, readable content, actions, focus, persistence, and desktop webview transport."
+    },
+    {
+      "id": "semantic:local-llm-runtime",
+      "label": "Local LLM runtime",
+      "source_location": "app/AGENTS.md",
+      "summary": "Hugging Face and WebLLM modules provide browser-only local model test and agent transport surfaces."
+    },
+    {
+      "id": "semantic:cli-runtime-control",
+      "label": "CLI runtime control",
+      "source_location": "commands/AGENTS.md; AGENTS.md",
+      "summary": "The space CLI discovers command modules and controls serve, supervise, get/set, update, user, group, help, and version workflows."
+    },
+    {
+      "id": "semantic:runtime-params",
+      "label": "Runtime parameter system",
+      "source_location": "AGENTS.md; commands/AGENTS.md; server/AGENTS.md",
+      "summary": "commands/params.yaml and runtime helpers resolve launch args, stored .env values, process env, defaults, and frontend exposure."
+    },
+    {
+      "id": "semantic:desktop-packaging-host",
+      "label": "Desktop packaging host",
+      "source_location": "README.md; packaging/AGENTS.md",
+      "summary": "Electron packaging keeps the native host thin while owning desktop startup, userData, webview bridge, updater, and release artifacts."
+    },
+    {
+      "id": "semantic:git-history-time-travel",
+      "label": "Git-backed time travel",
+      "source_location": "README.md; app/AGENTS.md; server/AGENTS.md",
+      "summary": "Optional writable-layer Git history supports admin/user rollback, preview, revert, and time-travel workflows."
+    },
+    {
+      "id": "semantic:security-boundaries",
+      "label": "Security and ownership boundaries",
+      "source_location": "AGENTS.md; server/AGENTS.md; app/AGENTS.md",
+      "summary": "Auth, sessions, file permissions, user crypto, quotas, and backend-only secrets enforce multi-user and shared-state boundaries."
+    },
+    {
+      "id": "semantic:documentation-contract",
+      "label": "Documentation-first contract",
+      "source_location": "AGENTS.md; app/AGENTS.md; server/AGENTS.md; commands/AGENTS.md; packaging/AGENTS.md; tests/AGENTS.md",
+      "summary": "AGENTS.md hierarchy and supplemental docs are runtime contracts that must move with code changes."
+    },
+    {
+      "id": "semantic:test-harness-system",
+      "label": "Test harness system",
+      "source_location": "tests/AGENTS.md",
+      "summary": "Repo tests cover browser harnesses, prompt/runtime behavior, server clusters, packaging, commands, quotas, and regression surfaces."
+    }
+  ],
+  "edges": [
+    {
+      "source": "semantic:space-agent",
+      "target": "semantic:browser-first-runtime",
+      "relation": "is_defined_by",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:space-agent",
+      "target": "semantic:layered-customware",
+      "relation": "uses_architecture",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:space-agent",
+      "target": "semantic:agent-skills-text",
+      "relation": "supports",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:space-agent",
+      "target": "semantic:documentation-contract",
+      "relation": "is_governed_by",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:browser-first-runtime",
+      "target": "semantic:thin-server-infrastructure",
+      "relation": "delegates_only_when_needed_to",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:browser-first-runtime",
+      "target": "semantic:module-extension-system",
+      "relation": "is_composed_by",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:browser-first-runtime",
+      "target": "semantic:prompt-context-system",
+      "relation": "hosts",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:module-extension-system",
+      "target": "semantic:layered-customware",
+      "relation": "resolves_through",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:module-extension-system",
+      "target": "semantic:agent-skills-text",
+      "relation": "discovers",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:module-extension-system",
+      "target": "semantic:browser-surface-runtime",
+      "relation": "extends",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:prompt-context-system",
+      "target": "semantic:agent-skills-text",
+      "relation": "loads",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:prompt-context-system",
+      "target": "semantic:local-llm-runtime",
+      "relation": "can_shape_transport_for",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:admin-control-plane",
+      "target": "semantic:security-boundaries",
+      "relation": "depends_on",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:admin-control-plane",
+      "target": "semantic:git-history-time-travel",
+      "relation": "exposes_recovery_for",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:browser-surface-runtime",
+      "target": "semantic:desktop-packaging-host",
+      "relation": "uses_host_bridge_in",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:browser-surface-runtime",
+      "target": "semantic:test-harness-system",
+      "relation": "is_verified_by",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:thin-server-infrastructure",
+      "target": "semantic:runtime-params",
+      "relation": "is_configured_by",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:thin-server-infrastructure",
+      "target": "semantic:security-boundaries",
+      "relation": "enforces",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:thin-server-infrastructure",
+      "target": "semantic:git-history-time-travel",
+      "relation": "owns_backend_helpers_for",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:cli-runtime-control",
+      "target": "semantic:runtime-params",
+      "relation": "manages",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:cli-runtime-control",
+      "target": "semantic:thin-server-infrastructure",
+      "relation": "starts",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:desktop-packaging-host",
+      "target": "semantic:thin-server-infrastructure",
+      "relation": "starts_local",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:desktop-packaging-host",
+      "target": "semantic:browser-surface-runtime",
+      "relation": "hosts",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:test-harness-system",
+      "target": "semantic:security-boundaries",
+      "relation": "regresses",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:documentation-contract",
+      "target": "semantic:browser-first-runtime",
+      "relation": "documents",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:documentation-contract",
+      "target": "semantic:thin-server-infrastructure",
+      "relation": "documents",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:documentation-contract",
+      "target": "semantic:cli-runtime-control",
+      "relation": "documents",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "semantic:documentation-contract",
+      "target": "semantic:desktop-packaging-host",
+      "relation": "documents",
+      "confidence": "INFERRED"
+    }
+  ],
+  "note": "Curated semantic layer from high-signal first-party docs; no external LLM/API extraction was run."
+}

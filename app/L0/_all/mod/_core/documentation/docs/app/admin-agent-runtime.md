@@ -26,7 +26,7 @@ It owns:
 
 - its own settings and history persistence under `~/conf/admin-chat.yaml` and `~/hist/admin-chat.json`
 - its own history compaction, execution loop, provider settings, and attachment runtime
-- its own LLM transport switch between remote API streaming and the browser-local Hugging Face provider
+- its own LLM transport switch between remote API streaming, the browser-local Hugging Face provider, and the authenticated server-owned Codex CLI provider
 
 It now reuses the same standard prepared prompt builder as the onscreen agent, through shared `_core/agent_prompt/prompt-runtime.js` plus the standard builder callbacks in `_core/onscreen_agent/llm.js`. The only admin-specific prompt-shaping difference is that admin appends custom user instructions at the end of the assembled standard system prompt.
 That shared prompt runtime caches only plain structured prompt-input data. Runtime-only objects such as prompt instances must be stripped before caching so prompt-history previews, retry preparation, and other clone-heavy paths stay safe.
@@ -61,6 +61,7 @@ The admin settings modal now starts with a provider switch:
 
 - `API`: the existing endpoint, model, API key, params, and max-token settings
 - `Local`: a browser-local Hugging Face path that uses Transformers.js on WebGPU
+- `Codex CLI`: a server-owned local Codex path that streams `codex exec --json` through `/api/codex_chat`
 
 Below those provider-specific sections, the shared settings area also exposes `max_tokens`, prompt-budget ratios for `system`, `history`, and `transient`, plus the separate single-history-message ratio used by the shared trimming path. Those values are persisted in `prompt_budget_ratios` and feed the same prompt-budget builder used by the onscreen agent: prepared entries and prompt items reuse cached token counts, single live history messages are capped first, contributor-level trims must each be at least `250` tokens, and `system` or `transient` falls back to one combined section-body trim when smaller contributor cuts would otherwise be required.
 
@@ -72,6 +73,11 @@ The stored config keeps both API settings and the selected local provider state:
 - `local_provider`
 - `huggingface_model`
 - `huggingface_dtype`
+- `codex_workspace`
+- `codex_sandbox`
+- `codex_model`
+- `codex_ephemeral`
+- `codex_skip_git_repo_check`
 - `prompt_budget_ratios`
 - the existing API fields and optional custom system prompt
 
@@ -83,9 +89,11 @@ Switching providers does not fork the rest of the admin agent loop. The admin su
 - browser execution blocks
 - streaming into the thread view
 
-Only the final LLM transport call branches.
+Only the final LLM transport call branches. API mode streams through the configured OpenAI-compatible endpoint, Local mode streams through the shared browser Hugging Face manager, and Codex CLI mode posts the same prepared prompt messages to the authenticated `/api/codex_chat` endpoint.
 
 For remote API mode, `views/agent/api.js` now finalizes the upstream request through extension seam `_core/admin/views/agent/api.js/prepareAdminAgentApiRequest`. Provider-specific request policy such as OpenRouter headers belongs in headless helper modules like `_core/open_router`, so the admin runtime keeps only the generic fetch path plus the prepared request object.
+
+For Codex CLI mode, `views/agent/api.js` keeps the same prepared-request shape but delegates execution to `/api/codex_chat`. The server-side Codex helper validates the workspace against the Space Agent repo or Hermes handoff workspace, allows only `read-only` or `workspace-write` sandbox modes, spawns `codex exec --json`, and converts completed Codex JSONL assistant messages into the same SSE delta shape consumed by the thread view.
 
 ## Local Runtime Layer
 
@@ -121,6 +129,7 @@ This means the admin agent reuses the same shared visual assets, browser-local w
 
 - if `llm_provider` is `api`, admin chat uses the existing fetch-based streaming path
 - if `llm_provider` is `local`, admin chat shows `Loading local LLM...` until the configured Hugging Face model is ready, and then streams through the shared Hugging Face manager
+- if `llm_provider` is `codex`, admin chat shows `Running Codex CLI...` and streams the local Codex process through `/api/codex_chat`
 - stop requests use the same admin stop flow; the Hugging Face manager translates that abort into the appropriate worker-side stop or teardown behavior
 - history compaction uses the selected provider too, so local mode stays fully local once configured
 

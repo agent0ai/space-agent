@@ -5,6 +5,7 @@ export const ADMIN_CHAT_HISTORY_PATH = "~/hist/admin-chat.json";
 export const DEFAULT_ADMIN_CHAT_MAX_TOKENS = 120_000;
 export const ADMIN_CHAT_LLM_PROVIDER = {
   API: "api",
+  CODEX: "codex",
   LOCAL: "local"
 };
 
@@ -15,6 +16,11 @@ export const ADMIN_CHAT_LOCAL_PROVIDER = {
 export const DEFAULT_ADMIN_CHAT_SETTINGS = {
   apiEndpoint: "https://openrouter.ai/api/v1/chat/completions",
   apiKey: "",
+  codexEphemeral: true,
+  codexModel: "",
+  codexSandbox: "read-only",
+  codexSkipGitRepoCheck: true,
+  codexWorkspace: "/Users/nutic/Workspaces/repos/space-agent",
   huggingfaceDtype: "q4",
   huggingfaceModel: "",
   localProvider: ADMIN_CHAT_LOCAL_PROVIDER.HUGGINGFACE,
@@ -26,9 +32,19 @@ export const DEFAULT_ADMIN_CHAT_SETTINGS = {
 };
 
 export function normalizeAdminChatLlmProvider(value) {
-  return value === ADMIN_CHAT_LLM_PROVIDER.LOCAL
-    ? ADMIN_CHAT_LLM_PROVIDER.LOCAL
-    : ADMIN_CHAT_LLM_PROVIDER.API;
+  if (value === ADMIN_CHAT_LLM_PROVIDER.LOCAL) {
+    return ADMIN_CHAT_LLM_PROVIDER.LOCAL;
+  }
+
+  if (value === ADMIN_CHAT_LLM_PROVIDER.CODEX) {
+    return ADMIN_CHAT_LLM_PROVIDER.CODEX;
+  }
+
+  return ADMIN_CHAT_LLM_PROVIDER.API;
+}
+
+export function normalizeAdminChatCodexSandbox(value) {
+  return value === "workspace-write" ? "workspace-write" : "read-only";
 }
 
 export function normalizeAdminChatLocalProvider(value) {

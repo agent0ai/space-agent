@@ -143,6 +143,23 @@ async function normalizeStoredConfig(runtime, parsedConfig) {
     settings: {
       apiEndpoint: String(storedConfig.api_endpoint || storedConfig.apiEndpoint || config.DEFAULT_ADMIN_CHAT_SETTINGS.apiEndpoint || "").trim(),
       apiKey: storedApiKey.value,
+      codexEphemeral:
+        typeof storedConfig.codex_ephemeral === "boolean"
+          ? storedConfig.codex_ephemeral
+          : typeof storedConfig.codexEphemeral === "boolean"
+            ? storedConfig.codexEphemeral
+            : config.DEFAULT_ADMIN_CHAT_SETTINGS.codexEphemeral,
+      codexModel: String(storedConfig.codex_model || storedConfig.codexModel || config.DEFAULT_ADMIN_CHAT_SETTINGS.codexModel || "").trim(),
+      codexSandbox: config.normalizeAdminChatCodexSandbox(
+        storedConfig.codex_sandbox || storedConfig.codexSandbox || config.DEFAULT_ADMIN_CHAT_SETTINGS.codexSandbox
+      ),
+      codexSkipGitRepoCheck:
+        typeof storedConfig.codex_skip_git_repo_check === "boolean"
+          ? storedConfig.codex_skip_git_repo_check
+          : typeof storedConfig.codexSkipGitRepoCheck === "boolean"
+            ? storedConfig.codexSkipGitRepoCheck
+            : config.DEFAULT_ADMIN_CHAT_SETTINGS.codexSkipGitRepoCheck,
+      codexWorkspace: String(storedConfig.codex_workspace || storedConfig.codexWorkspace || config.DEFAULT_ADMIN_CHAT_SETTINGS.codexWorkspace || "").trim(),
       huggingfaceDtype: String(
         storedConfig.huggingface_dtype || storedConfig.huggingfaceDtype || config.DEFAULT_ADMIN_CHAT_SETTINGS.huggingfaceDtype || ""
       ).trim(),
@@ -173,6 +190,11 @@ async function buildStoredConfigPayload(runtime, { settings, systemPrompt }) {
   const payload = {
     api_endpoint: String(settings?.apiEndpoint || config.DEFAULT_ADMIN_CHAT_SETTINGS.apiEndpoint || "").trim(),
     api_key: await encodeStoredApiKey(runtime, settings),
+    codex_ephemeral: settings?.codexEphemeral !== false,
+    codex_model: String(settings?.codexModel || "").trim(),
+    codex_sandbox: config.normalizeAdminChatCodexSandbox(settings?.codexSandbox),
+    codex_skip_git_repo_check: settings?.codexSkipGitRepoCheck !== false,
+    codex_workspace: String(settings?.codexWorkspace || config.DEFAULT_ADMIN_CHAT_SETTINGS.codexWorkspace || "").trim(),
     huggingface_dtype: String(settings?.huggingfaceDtype || config.DEFAULT_ADMIN_CHAT_SETTINGS.huggingfaceDtype || "").trim(),
     huggingface_model: String(settings?.huggingfaceModel || config.DEFAULT_ADMIN_CHAT_SETTINGS.huggingfaceModel || "").trim(),
     local_provider: config.normalizeAdminChatLocalProvider(settings?.localProvider),

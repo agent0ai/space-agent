@@ -346,6 +346,14 @@
                       >
                         <span>Local</span>
                       </button>
+                      <button
+                        type="button"
+                        class="secondary-button dialog-segmented-button"
+                        :class="{ 'is-active': $store.onscreenAgent.isSettingsDraftUsingCodexProvider }"
+                        @click="$store.onscreenAgent.setSettingsProvider('codex')"
+                      >
+                        <span>Codex CLI</span>
+                      </button>
                     </div>
                     <div x-show="$store.onscreenAgent.isSettingsDraftUsingApiProvider" x-cloak>
                       <label class="field">
@@ -365,6 +373,34 @@
                       <div class="onscreen-agent-local-provider-panel">
                         <x-component path="/mod/_core/huggingface/config-sidebar.html" mode="onscreen"></x-component>
                       </div>
+                    </div>
+                    <div x-show="$store.onscreenAgent.isSettingsDraftUsingCodexProvider" x-cloak class="onscreen-agent-local-settings">
+                      <label class="field">
+                        <span>Workspace</span>
+                        <input type="text" x-model="$store.onscreenAgent.settingsDraft.codexWorkspace" />
+                      </label>
+                      <label class="field">
+                        <span>Model Override</span>
+                        <input type="text" placeholder="Use Codex default" x-model="$store.onscreenAgent.settingsDraft.codexModel" />
+                      </label>
+                      <label class="field">
+                        <span>Sandbox</span>
+                        <select
+                          :value="$store.onscreenAgent.settingsDraft.codexSandbox"
+                          @change="$store.onscreenAgent.setSettingsCodexSandbox($event.target.value)"
+                        >
+                          <option value="read-only">Read only</option>
+                          <option value="workspace-write">Workspace write</option>
+                        </select>
+                      </label>
+                      <label class="field checkbox-field">
+                        <input type="checkbox" x-model="$store.onscreenAgent.settingsDraft.codexEphemeral" />
+                        <span>Ephemeral session</span>
+                      </label>
+                      <label class="field checkbox-field">
+                        <input type="checkbox" x-model="$store.onscreenAgent.settingsDraft.codexSkipGitRepoCheck" />
+                        <span>Skip git repo check</span>
+                      </label>
                     </div>
                     <label class="field">
                       <span>Max Tokens</span>

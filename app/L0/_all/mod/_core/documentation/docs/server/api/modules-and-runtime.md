@@ -78,6 +78,7 @@ Important runtime endpoints:
 - `debug_path_index`
 - `password_generate`
 - `password_change`
+- `codex_chat`
 - `user_crypto_bootstrap`
 - `user_crypto_session_key`
 - `user_self_info`
@@ -118,6 +119,15 @@ Important runtime endpoints:
 - is authenticated and applies only to the current user
 - validates the current password through the auth service before generating the replacement sealed verifier
 - rewrites `meta/password.json`, rewraps `meta/user_crypto.json` when the current account has ready browser crypto, clears stored sessions, and clears the current browser auth cookie so the frontend can return to `/login`
+
+`codex_chat`:
+
+- is authenticated and acts as the server-owned local Codex CLI provider for the onscreen and admin agents
+- accepts either prepared chat messages or a direct `promptText`
+- delegates prompt wrapping, workspace validation, sandbox validation, process spawning, JSONL parsing, stderr bounding, and abort handling to `server/lib/codex_cli/`
+- uses `codex exec --json` with stdin prompts and adapts completed Codex JSONL assistant messages back into OpenAI-compatible `text/event-stream` chunks
+- allows only `read-only` and `workspace-write` sandbox modes, with `read-only` as the default; `danger-full-access` is intentionally rejected at the endpoint boundary
+- should remain the only browser-facing path for local Codex execution so the frontend never shells out directly and provider-specific process policy stays server-side
 
 `user_crypto_bootstrap`:
 

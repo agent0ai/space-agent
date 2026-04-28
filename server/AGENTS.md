@@ -29,6 +29,7 @@ Current subsystem-local docs in the server tree:
 - `server/pages/AGENTS.md`
 - `server/runtime/AGENTS.md`
 - `server/lib/customware/AGENTS.md`
+- `server/lib/codex_cli/AGENTS.md`
 - `server/lib/auth/AGENTS.md`
 - `server/lib/file_watch/AGENTS.md`
 - `server/lib/share/AGENTS.md`
@@ -114,6 +115,7 @@ Current server layout:
 - `server/lib/utils/process_title.js`: canonical OS process-title helper for direct serve, clustered primary, clustered workers, and supervisor-owned runtime naming
 - `server/lib/utils/project_version.js`: shared project-version resolver for Git-tag source checkouts and package-version fallback display in page shells
 - `server/lib/customware/`: logical app-path normalization, customware-root resolution, group and inheritance logic, extension override resolution, app-file access, and module management
+- `server/lib/codex_cli/`: backend-owned Codex CLI chat transport for agent surfaces, including fixed `codex exec` subprocess spawning, workspace and sandbox validation, prompt formatting, JSONL parsing, and SSE normalization
 - `server/lib/customware/git_history.js`: optional writable-layer local Git history scheduling, repository discovery, paginated commit listing, file-diff reads, operation previews, rollback, revert, and commit-loop suppression
 - `server/lib/customware/user_quota.js`: optional per-user `L2` folder size accounting and cached quota projection helpers for app-file mutations
 - `server/lib/auth/`: password verification, session service, user file helpers, user indexing, and user-management helpers
@@ -188,6 +190,7 @@ The server relies on a small set of shared infrastructure contracts. Do not re-i
 - `server/runtime/state_system.js` is the canonical primary-owned shared state engine for cross-worker coordination, replicated index shards, primary-only challenge state, delta replay, and named locks
 - `server/jobs/job_runner.js` is the canonical primary-owned periodic job scheduler and should reuse `state_system.js` named locks instead of inventing parallel lockfiles or second schedulers
 - `server/lib/utils/project_version.js` is the canonical project-version resolver for both the CLI version command and page-shell version display
+- `server/lib/codex_cli/` is the only server-side helper allowed to spawn Codex CLI for chat transport; endpoints and frontend modules must not add general shell execution or duplicate Codex subprocess logic
 - `app/L0/_all/mod/_core/framework/js/yaml-lite.js` is the canonical YAML parser and serializer for both browser and server code; server modules import it directly instead of maintaining a duplicate server-side helper
 - `server/lib/customware/layout.js` is the canonical logical-to-disk resolver for repo `L0` and configured writable `L1`/`L2` roots
 

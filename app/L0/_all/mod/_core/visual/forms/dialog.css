@@ -299,6 +299,7 @@
 }
 
 .field input,
+.field select,
 .field textarea {
   display: block;
   width: 100%;
@@ -316,6 +317,30 @@
 
 .field textarea {
   resize: vertical;
+}
+
+.field select {
+  appearance: auto;
+}
+
+.field.checkbox-field {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.field.checkbox-field input[type="checkbox"] {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  min-width: 1rem;
+  max-width: 1rem;
+  margin: 0;
+  padding: 0;
+}
+
+.field.checkbox-field span {
+  min-width: 0;
 }
 
 .field input:focus,

@@ -6,6 +6,7 @@ export const ONSCREEN_AGENT_UI_STATE_STORAGE_KEY = "space.onscreenAgent.uiState"
 export const DEFAULT_ONSCREEN_AGENT_MAX_TOKENS = 120_000;
 export const ONSCREEN_AGENT_LLM_PROVIDER = Object.freeze({
   API: "api",
+  CODEX: "codex",
   LOCAL: "local"
 });
 export const ONSCREEN_AGENT_LOCAL_PROVIDER = Object.freeze({
@@ -21,6 +22,11 @@ export const ONSCREEN_AGENT_HIDDEN_EDGE = Object.freeze({
 export const DEFAULT_ONSCREEN_AGENT_SETTINGS = {
   apiEndpoint: "https://openrouter.ai/api/v1/chat/completions",
   apiKey: "",
+  codexEphemeral: true,
+  codexModel: "",
+  codexSandbox: "read-only",
+  codexSkipGitRepoCheck: true,
+  codexWorkspace: "/Users/nutic/Workspaces/repos/space-agent",
   huggingfaceDtype: "q4",
   huggingfaceModel: "",
   localProvider: ONSCREEN_AGENT_LOCAL_PROVIDER.HUGGINGFACE,
@@ -36,9 +42,19 @@ function normalizeOnscreenAgentSettingText(value) {
 }
 
 export function normalizeOnscreenAgentLlmProvider(value) {
-  return value === ONSCREEN_AGENT_LLM_PROVIDER.LOCAL
-    ? ONSCREEN_AGENT_LLM_PROVIDER.LOCAL
-    : ONSCREEN_AGENT_LLM_PROVIDER.API;
+  if (value === ONSCREEN_AGENT_LLM_PROVIDER.LOCAL) {
+    return ONSCREEN_AGENT_LLM_PROVIDER.LOCAL;
+  }
+
+  if (value === ONSCREEN_AGENT_LLM_PROVIDER.CODEX) {
+    return ONSCREEN_AGENT_LLM_PROVIDER.CODEX;
+  }
+
+  return ONSCREEN_AGENT_LLM_PROVIDER.API;
+}
+
+export function normalizeOnscreenAgentCodexSandbox(value) {
+  return value === "workspace-write" ? "workspace-write" : "read-only";
 }
 
 export function normalizeOnscreenAgentLocalProvider(value) {
@@ -102,6 +118,10 @@ export function isDefaultOnscreenAgentLlmSettings(settings) {
       DEFAULT_ONSCREEN_AGENT_SETTINGS.provider &&
     normalizeOnscreenAgentSettingText(normalizedSettings.apiEndpoint) ===
       normalizeOnscreenAgentSettingText(DEFAULT_ONSCREEN_AGENT_SETTINGS.apiEndpoint) &&
+    normalizeOnscreenAgentSettingText(normalizedSettings.codexWorkspace) ===
+      normalizeOnscreenAgentSettingText(DEFAULT_ONSCREEN_AGENT_SETTINGS.codexWorkspace) &&
+    normalizeOnscreenAgentCodexSandbox(normalizedSettings.codexSandbox) ===
+      DEFAULT_ONSCREEN_AGENT_SETTINGS.codexSandbox &&
     normalizeOnscreenAgentSettingText(normalizedSettings.model) ===
       normalizeOnscreenAgentSettingText(DEFAULT_ONSCREEN_AGENT_SETTINGS.model) &&
     normalizeOnscreenAgentMaxTokens(normalizedSettings.maxTokens) === DEFAULT_ONSCREEN_AGENT_SETTINGS.maxTokens &&

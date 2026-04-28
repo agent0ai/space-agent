@@ -196,6 +196,14 @@
                     >
                       <span>Local</span>
                     </button>
+                    <button
+                      type="button"
+                      class="secondary-button dialog-segmented-button"
+                      :class="{ 'is-active': $store.adminAgent.isSettingsDraftUsingCodexProvider }"
+                      @click="$store.adminAgent.setSettingsProvider('codex')"
+                    >
+                      <span>Codex CLI</span>
+                    </button>
                   </div>
                   <div x-show="$store.adminAgent.isSettingsDraftUsingApiProvider" x-cloak>
                     <label class="field">
@@ -215,6 +223,34 @@
                     <div class="admin-agent-local-provider-panel">
                       <x-component path="/mod/_core/huggingface/config-sidebar.html" mode="admin"></x-component>
                     </div>
+                  </div>
+                  <div x-show="$store.adminAgent.isSettingsDraftUsingCodexProvider" x-cloak class="admin-agent-local-settings">
+                    <label class="field">
+                      <span>Workspace</span>
+                      <input type="text" x-model="$store.adminAgent.settingsDraft.codexWorkspace" />
+                    </label>
+                    <label class="field">
+                      <span>Model Override</span>
+                      <input type="text" placeholder="Use Codex default" x-model="$store.adminAgent.settingsDraft.codexModel" />
+                    </label>
+                    <label class="field">
+                      <span>Sandbox</span>
+                      <select
+                        :value="$store.adminAgent.settingsDraft.codexSandbox"
+                        @change="$store.adminAgent.setSettingsCodexSandbox($event.target.value)"
+                      >
+                        <option value="read-only">Read only</option>
+                        <option value="workspace-write">Workspace write</option>
+                      </select>
+                    </label>
+                    <label class="field checkbox-field">
+                      <input type="checkbox" x-model="$store.adminAgent.settingsDraft.codexEphemeral" />
+                      <span>Ephemeral session</span>
+                    </label>
+                    <label class="field checkbox-field">
+                      <input type="checkbox" x-model="$store.adminAgent.settingsDraft.codexSkipGitRepoCheck" />
+                      <span>Skip git repo check</span>
+                    </label>
                   </div>
                   <label class="field">
                     <span>Max Tokens</span>

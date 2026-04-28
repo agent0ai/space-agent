@@ -116,6 +116,7 @@ Current rules:
 
 Runtime and identity endpoints:
 
+- `codex_chat`
 - `extensions_load`
 - `debug_path_index`
 - `password_generate`
@@ -134,6 +135,7 @@ Important notes:
 - when the current account has a ready `userCrypto` record, `password_change` also requires a browser-produced replacement `userCryptoRecord` so the wrapped key survives self-service password rotation without re-encrypting user data
 - `user_crypto_bootstrap` is an authenticated recovery endpoint for the current user; it reports the current `userCrypto` state and, when that state is `missing`, can mint a provisioning share and later accept the browser-generated wrapped record so the first authenticated app load can self-heal a missing record without requiring a second login
 - `user_crypto_session_key` is an authenticated restore helper endpoint for the current user; it derives and returns the current session's localStorage wrapping key by hashing the backend `sessionId` with the server-held session secret, so the browser can decrypt or encrypt the single encrypted `localStorage` blob without the server persisting that wrapping key or the user master key
+- `codex_chat` is an authenticated server-owned local-provider endpoint for agent chat. It accepts prepared messages or direct `promptText`, validates workspace and sandbox through `server/lib/codex_cli/`, runs fixed `codex exec --json` with stdin prompt mode, and returns OpenAI-compatible `text/event-stream` chunks so existing agent streaming readers can consume the response.
 - frontend HTML anchors and JS hooks resolve through `ext/html/...` and `ext/js/...` request paths respectively
 - frontend modules may also enumerate other extension-resolved metadata assets through this endpoint when those files should honor readable-layer permissions plus same-path layered overrides; the current first-party example is `ext/panels/*.yaml`
 - `user_self_info` returns the authenticated user's derived identity plus browser-bootstrap crypto metadata: `{ username, fullName, groups, managedGroups, sessionId, userCryptoKeyId, userCryptoState }`
