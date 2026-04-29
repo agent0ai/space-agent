@@ -113,7 +113,7 @@ Current server layout:
 - `server/router/`: top-level request routing, page handling, `/mod/...` serving, direct app-file fetches, request context, response helpers, proxy transport, and CORS handling
 - `server/lib/utils/process_title.js`: canonical OS process-title helper for direct serve, clustered primary, clustered workers, and supervisor-owned runtime naming
 - `server/lib/utils/project_version.js`: shared project-version resolver for Git-tag source checkouts and package-version fallback display in page shells
-- `server/lib/customware/`: logical app-path normalization, customware-root resolution, group and inheritance logic, extension override resolution, app-file access, and module management
+- `server/lib/customware/`: logical app-path normalization, customware-root resolution, group and inheritance logic, extension override resolution, customware-bundle manifest discovery, app-file access, and module management
 - `server/lib/customware/git_history.js`: optional writable-layer local Git history scheduling, repository discovery, paginated commit listing, file-diff reads, operation previews, rollback, revert, and commit-loop suppression
 - `server/lib/customware/user_quota.js`: optional per-user `L2` folder size accounting and cached quota projection helpers for app-file mutations
 - `server/lib/auth/`: password verification, session service, user file helpers, user indexing, and user-management helpers
@@ -179,7 +179,8 @@ The server relies on a small set of shared infrastructure contracts. Do not re-i
 - `server/lib/share/service.js` is the canonical hosted-share helper for backend-owned ZIP storage under `CUSTOMWARE_PATH/share/spaces/`, archive validation, authenticated imports, and guest-clone session issuance; endpoints and page shells must not duplicate that logic
 - `server/lib/tmp/` owns the canonical `server/tmp/` janitor and disk-backed archive creation for streamed folder downloads
 - `server/lib/customware/module_inheritance.js` and `server/lib/customware/extension_overrides.js` are the canonical module and extension resolution helpers
-- `server/lib/customware/module_manage.js` is the canonical module list, info, install, and remove helper
+- `server/lib/customware/module_manage.js` is the canonical module list, info, install, remove, and customware-bundle listing helper
+- `server/lib/customware/bundles.js` is the canonical `space.bundle.yaml` parser for installed customware module manifests
 - `server/lib/auth/service.js` is the canonical session and login service
 - `server/lib/auth/keys_manage.js` is the canonical backend auth-key loader, with shared-env override support and local `server/data/` or `SPACE_AUTH_DATA_DIR` fallback
 - `server/lib/utils/runtime_params.js` is the canonical parameter-resolution layer for startup env overrides, defaults, and frontend exposure

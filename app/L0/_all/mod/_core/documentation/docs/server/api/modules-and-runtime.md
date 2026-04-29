@@ -53,6 +53,8 @@ Important behaviors:
 ## Module Endpoints
 Current module endpoints:
 
+- `bundle_list`
+- `bundle_info`
 - `module_list`
 - `module_info`
 - `module_install`
@@ -62,6 +64,9 @@ These delegate to `server/lib/customware/module_manage.js`.
 
 Important behaviors:
 
+- `bundle_list` and `bundle_info` expose root `space.bundle.yaml` metadata for installed modules without adding a separate plugin loader
+- bundle reads use the same module indexes, owner filters, permissions, `CUSTOMWARE_PATH` roots, and L1/L2 visibility rules as module reads
+- bundle manifests can describe capabilities, extension points, compatibility, config defaults, and declarative actions, but executable behavior must still enter through documented module seams or the browser-side bundle action registry
 - module writes must reuse shared permission rules
 - module writes should publish changed logical paths through the shared mutation commit flow so every worker sees the new module state before the response finishes
 - request-time module list and info reads consume replicated shared-state shards, usually only the readable `L1` roots plus the caller's own `L2`, instead of scanning the full app index

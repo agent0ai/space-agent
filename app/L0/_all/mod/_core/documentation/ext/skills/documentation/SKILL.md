@@ -29,6 +29,7 @@ recommended starting points
 - frontend runtime and layers: `app/runtime-and-layers.md`
 - admin agent runtime: `app/admin-agent-runtime.md`
 - modules, routing, extensions, or dashboard panels: `app/modules-and-extensions.md`
+- customware bundle manifests and runtime actions: `app/customware-bundles.md`
 - browser-side Hugging Face testing: `app/huggingface-browser-runtime.md`
 - browser-side WebLLM testing: `app/webllm-browser-runtime.md`
 - spaces and widgets: `app/spaces-and-widgets.md`
@@ -49,6 +50,7 @@ architecture/overview.md|Runtime Overview|Browser-first architecture, major entr
 architecture/desktop-host-and-packaging.md|Desktop Host And Packaging|Electron host startup, free-port binding, packaged single-user behavior, and desktop build outputs.
 architecture/documentation-system.md|Documentation System|How `AGENTS.md`, the documentation module, and code fit together, plus update rules.
 app/runtime-and-layers.md|App Runtime And Layers|Frontend boot flow, `space` runtime namespaces, entry shells, and `L0/L1/L2` rules.
+app/customware-bundles.md|Customware Bundles|Bundle manifests, installed module discovery, bundle actions, bridge sync, and no-injection guidance.
 app/admin-agent-runtime.md|Admin Agent Runtime|Admin chat ownership, config persistence, shared execution loop, and API-versus-local-Hugging-Face transport switching.
 app/modules-and-extensions.md|Modules And Extensions|`/mod/...` delivery, router path resolution, dashboard panel manifests, `ext/html`, `ext/js`, and `<x-component>` behavior.
 app/huggingface-browser-runtime.md|Hugging Face Browser Runtime|The routed Transformers.js test surface, its worker split, direct Hub model loading contract, and throughput metrics.

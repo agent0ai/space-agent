@@ -75,7 +75,7 @@ Resolution rules:
 - the caller names only the seam
 - matching files live under `mod/<author>/<repo>/ext/html/some/path/*.html`
 - extension files should stay thin and normally mount the real component or view
-- `_core/framework` also injects `_core/framework/head/end` into `document.head` during bootstrap so layers can add declarative head-side tags or inline bootstraps without editing page shells
+- `_core/framework` also injects `_core/framework/theme/end` and `_core/framework/head/end` into `document.head` during bootstrap so layers can add declarative theme CSS, head-side tags, or inline bootstraps without editing page shells
 - `_core/framework` also registers `x-inject="selector"` during bootstrap; it mirrors Alpine `x-teleport` for `<template>` roots, waits for the selector when the target seam is not mounted yet, and tears down that wait when the source template unmounts
 - dynamic extension and component discovery watches the whole document tree, so seams and components inserted under `head` are hydrated the same way as body-mounted ones
 
@@ -120,7 +120,7 @@ Rules:
 - the wrapped function becomes async
 - hooks resolve under `mod/<author>/<repo>/ext/js/<extension-point>/*.js` or `*.mjs`
 - wrapped functions expose `/start` and `/end` hook points
-- framework-backed page boot also creates the `_core/framework/head/end` HTML seam in `document.head`; use that seam when the integration can stay declarative, and use `_core/framework/initializer.js/initialize/end` when the setup must stay imperative
+- framework-backed page boot also creates the `_core/framework/theme/end` and `_core/framework/head/end` HTML seams in `document.head`; use the theme seam for declarative CSS/background customization, use the head seam for other declarative setup, and use `_core/framework/initializer.js/initialize/end` when the setup must stay imperative
 - feature-specific prompt or execution behavior for the onscreen agent should be supplied from the owning module through `_core/onscreen_agent/...` extension seams, not hardcoded into `_core/onscreen_agent`
 - `_core/agent_prompt` is a headless shared helper module: it owns the reusable prepared-prompt runtime used by first-party agent surfaces, while surface-specific prompt sections, examples, and transient builders still live in the owning agent modules
 - headless helper modules are valid first-party modules too: `_core/promptinclude` has no route or UI, but it extends `_core/onscreen_agent/llm.js/buildOnscreenAgentSystemPromptSections` and `_core/onscreen_agent/llm.js/buildOnscreenAgentTransientSections` to auto-inject readable `**/*.system.include.md` files into the overlay system prompt and readable `**/*.transient.include.md` files into the overlay transient context
@@ -139,6 +139,29 @@ Uncached HTML `<x-extension>` lookups are grouped before they hit `/api/extensio
 JS hook lookups do not use that frame wait window. Hook callers await them directly, so the frontend requests JS extension paths immediately instead of delaying them for batching.
 
 The framework fetch wrapper also carries the highest observed `Space-State-Version` on follow-up same-origin requests, keeps that floor in per-tab `sessionStorage`, mirrors it into a short-lived same-origin `space_state_version` cookie for immediate redirect handoffs, and automatically retries the router's bounded retryable sync `503` responses a few times, so startup-time worker catch-up races do not usually surface as broken extension bootstrap.
+
+## Customware Bundles
+
+A customware bundle is a normal installed `L1` or `L2` module with a root `space.bundle.yaml` manifest. The manifest advertises the package id, name, version, capabilities, config defaults, compatibility notes, extension points, and declarative action metadata; it does not grant permission to replace private framework or feature internals.
+
+Bundle files live under the same module roots as any other customware:
+
+```txt
+L1/<group>/mod/<author>/<repo>/space.bundle.yaml
+L2/<user>/mod/<author>/<repo>/space.bundle.yaml
+```
+
+Bundles compose through the existing Space Agent seams:
+
+- UI adapters in `ext/html/...`
+- behavior hooks in `ext/js/...` through `space.extend(...)`
+- skills in `ext/skills/*/SKILL.md`
+- theme or landing-background CSS in `_core/framework/theme/end`
+- other head-side setup in `_core/framework/head/end`
+- browser-side executable actions registered from module code through `space.bundles.actions`
+- external bridge state synchronized through `space.bundles.bridge`
+
+Installed bundle metadata is exposed through `space.api.bundleList(...)`, `space.api.bundleInfo(...)`, `space.bundles.list(...)`, and `space.bundles.info(...)`. Actions registered through `space.bundles.actions.register(...)` are runtime handlers owned by the loaded module; they should be unregistered on unmount or disappear naturally when the module is removed and the page reloads.
 
 ## Extension Metadata Manifests
 

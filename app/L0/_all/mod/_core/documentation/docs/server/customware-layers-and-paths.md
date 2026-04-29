@@ -12,6 +12,7 @@ This doc covers the layered filesystem model behind `/mod/...` and the app-file 
 - `server/lib/customware/git_history.js`
 - `server/lib/customware/module_inheritance.js`
 - `server/lib/customware/extension_overrides.js`
+- `server/lib/customware/bundles.js`
 - `server/lib/customware/layer_limit.js`
 
 ## Logical Versus Disk Paths
@@ -122,6 +123,19 @@ Resolution rules:
 - `module_inheritance.js` owns `/mod/...` resolution
 - `extension_overrides.js` owns extension lookup resolution
 - request-time module and extension lookup reads replicated shared-state shards for the relevant readable owners instead of scanning the full watchdog path index
+
+## Customware Bundles
+
+Customware bundles are installed modules with a root `space.bundle.yaml` manifest:
+
+```txt
+L1/<group>/mod/<author>/<repo>/space.bundle.yaml
+L2/<user>/mod/<author>/<repo>/space.bundle.yaml
+```
+
+The server parses those manifests through `server/lib/customware/bundles.js` and exposes them through `bundle_list`, `bundle_info`, and the existing module list or info payloads. Discovery is intentionally tied to module management, so bundles keep the same readable-owner filtering, admin-only cross-user rules, and configured `CUSTOMWARE_PATH` storage behavior as other modules.
+
+The manifest is metadata, not executable permission. Bundle code still enters through module-owned files such as `ext/html`, `ext/js`, `ext/skills`, documented `space.extend(...)` seams, and browser-side `space.bundles.actions` registrations.
 
 ## `maxLayer`
 

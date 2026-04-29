@@ -18,6 +18,7 @@ Use this skill before deciding where new files belong or how readable and writab
 - `L2/<username>/user.yaml` stores user metadata such as `full_name`.
 - `L2/<username>/meta/` holds auth state such as password and login session records.
 - `L2/<username>/mod/` is that user's customware module root.
+- Installed customware bundles live in normal module roots such as `L1/<group>/mod/<author>/<repo>/` or `L2/<username>/mod/<author>/<repo>/` and add a root `space.bundle.yaml` manifest.
 - `L1/<group>/group.yaml` is the canonical group membership and management file.
 - When `CUSTOMWARE_GIT_HISTORY` is enabled, each writable `L1/<group>/` and `L2/<username>/` root may have a server-managed local Git history repository.
 - L2 history ignores `meta/password.json` and `meta/logins.json`; rollback preserves those current auth files and keeps previous heads listable for forward travel when possible, while revert creates a new inverse commit.

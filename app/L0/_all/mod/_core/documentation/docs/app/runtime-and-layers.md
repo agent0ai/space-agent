@@ -76,6 +76,7 @@ Important namespaces:
 
 - `space.api`: authenticated backend API client helpers
 - `space.api.gitHistoryList(...)`, `gitHistoryDiff(...)`, `gitHistoryPreview(...)`, `gitHistoryRollback(...)`, and `gitHistoryRevert(...)`: optional writable-layer local-history helpers backed by server-owned Git APIs
+- `space.bundles`: installed customware-bundle metadata helpers plus removable browser action and external bridge-state registries for bundle-owned integrations
 - `space.config`: frontend-exposed runtime params
 - `space.fw.createStore`: Alpine store helper
 - `space.utils.markdown.render(...)` and `parseDocument(...)`

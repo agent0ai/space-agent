@@ -113,6 +113,54 @@ type SpaceUserSelfInfo = {
   username: string;
 };
 
+type SpaceBundleActionInfo = {
+  bundleId?: string;
+  capability?: string;
+  description?: string;
+  id: string;
+  inputSchema?: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
+  title: string;
+};
+
+type SpaceBundleInfo = {
+  actions: SpaceBundleActionInfo[];
+  capabilities: string[];
+  compatibility: Record<string, unknown>;
+  configDefaults: Record<string, unknown>;
+  description: string;
+  errors: string[];
+  extensionPoints: string[];
+  id: string;
+  manifestPath: string;
+  module?: Record<string, unknown>;
+  name: string;
+  source: Record<string, unknown>;
+  valid: boolean;
+  version: string;
+};
+
+type SpaceBundleListOptions = {
+  area?: string;
+  ownerId?: string;
+  search?: string;
+  username?: string;
+};
+
+type SpaceBundleInfoOptions = {
+  maxLayer?: number;
+  modulePath?: string;
+  ownerId?: string;
+  path?: string;
+  username?: string;
+};
+
+type SpaceBundleInfoResult = {
+  bundle: SpaceBundleInfo | null;
+  installed: boolean;
+  module: Record<string, unknown>;
+};
+
 type SpaceGitHistoryFile = {
   action?: "added" | "modified" | "deleted" | string;
   oldPath?: string;
@@ -197,6 +245,8 @@ type SpaceGitHistoryPreviewResult = {
 };
 
 type SpaceApi = {
+  bundleInfo(pathOrOptions: string | SpaceBundleInfoOptions): Promise<SpaceBundleInfoResult>;
+  bundleList(options?: SpaceBundleListOptions): Promise<SpaceBundleInfo[]>;
   call<T = unknown>(endpointName: string, callOptions?: SpaceApiCallOptions): Promise<T>;
   fileCopy(path: string, toPath: string): Promise<SpaceFileApiResult>;
   fileCopy(entry: SpaceFileTransferInput): Promise<SpaceFileApiResult>;
@@ -350,6 +400,31 @@ type SpaceChat = {
   promptItems: SpaceChatPromptItem[];
   readLongMessage(options: SpaceChatReadLongMessageOptions): string;
   transient: SpaceChatTransient;
+};
+
+type SpaceBundleActionRegistration = SpaceBundleActionInfo & {
+  name?: string;
+  run(payload?: unknown, context?: Record<string, unknown>): unknown | Promise<unknown>;
+};
+
+type SpaceBundlesNamespace = {
+  actions: {
+    get(id: string): SpaceBundleActionInfo | null;
+    list(): SpaceBundleActionInfo[];
+    register(action: SpaceBundleActionRegistration): () => boolean;
+    run(id: string, payload?: unknown, context?: Record<string, unknown>): Promise<unknown>;
+    unregister(id: string): boolean;
+  };
+  bridge: {
+    registerSync(
+      id: string,
+      handler: (payload?: unknown, context?: Record<string, unknown>) => unknown | Promise<unknown>
+    ): () => boolean;
+    syncState(id: string, payload?: unknown, context?: Record<string, unknown>): Promise<unknown>;
+    unregisterSync(id: string): boolean;
+  };
+  info(pathOrOptions: string | SpaceBundleInfoOptions): Promise<SpaceBundleInfoResult>;
+  list(options?: SpaceBundleListOptions): Promise<SpaceBundleInfo[]>;
 };
 
 type SpaceUtils = {
@@ -785,6 +860,7 @@ type SpaceBrowserNamespace = {
 type SpaceRuntime = {
   api?: SpaceApi;
   browser?: SpaceBrowserNamespace;
+  bundles?: SpaceBundlesNamespace;
   chat?: SpaceChat;
   current?: SpaceCurrentNamespace | null;
   extend: SpaceExtend;

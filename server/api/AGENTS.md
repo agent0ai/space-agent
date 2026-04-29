@@ -102,6 +102,8 @@ Current rules:
 - both `cloud_share_clone` and `space_import` must reuse `server/lib/share/service.js` for archive validation, extracted-folder checks, destination naming, and install logic instead of adding endpoint-local ZIP handling
 
 Module endpoints:
+- `bundle_list`
+- `bundle_info`
 - `module_list`
 - `module_info`
 - `module_install`
@@ -110,6 +112,7 @@ Module endpoints:
 Current rules:
 
 - these endpoints delegate to `server/lib/customware/module_manage.js`
+- `bundle_list` and `bundle_info` expose `space.bundle.yaml` metadata for installed modules while preserving the same module visibility, owner, and admin-access rules as module listing
 - request-time reads should consume replicated shared-state shards instead of calling watchdog scan helpers directly
 - writable operations must reuse the shared permission model and publish concrete changed logical paths through the shared mutation flow so the primary refreshes replicated module state
 - when `USER_FOLDER_SIZE_LIMIT_BYTES` is positive, new `module_install` writes into `L2/<user>/` are measured in a system temp directory and quota-checked before the module tree is moved into the user folder

@@ -20,6 +20,7 @@ Current files:
 - `group_files.js`: normalized `L1/<group>/group.yaml` read and write helpers used by CLI-managed group editing; membership adds ensure the target writable group directory exists first
 - `group_index.js`: derived group membership and management graph from `group.yaml`
 - `overrides.js`: inheritance ranking, accessible module collection, and override selection
+- `bundles.js`: `space.bundle.yaml` manifest parsing and normalization for customware bundles installed as normal modules
 - `module_inheritance.js`: `/mod/...` file resolution through layered overrides
 - `extension_overrides.js`: extension request-path resolution and ordered grouped extension lookup results keyed by requested pattern groups rather than synthetic ids
 - `file_access.js`: canonical app-file permission model, file operations, and readable-folder download resolution
@@ -118,6 +119,14 @@ Rules:
 - module metadata lookup
 - Git-backed installs and updates
 - module removal
+- customware bundle listing and bundle info lookup through installed module manifests
+
+Customware bundle rules:
+
+- a bundle is a normal readable `L1` or `L2` module with a root `space.bundle.yaml`
+- bundle discovery must use the same module indexes, group permissions, owner filtering, and `CUSTOMWARE_PATH` resolution as module discovery
+- bundle manifests may declare id, name, version, description, compatibility, capabilities, config defaults, extension points, and declarative action metadata
+- bundle manifests do not grant arbitrary runtime patching privileges; executable behavior still enters through documented module seams such as `ext/html`, `ext/js`, `ext/skills`, `space.extend(...)`, and browser-side `space.bundles.actions`
 
 Module Git rules:
 

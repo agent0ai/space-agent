@@ -10,6 +10,8 @@ Use this skill first for any development task. This is a routing skill: it tells
 
 When the user wants to extend the system with a reusable interface rather than a space widget, prefer a custom routed page module plus an optional `ext/panels/*.yaml` dashboard entry instead of pushing everything into spaces.
 
+When the user wants to package reusable downstream customizations for install, update, or removal as one unit, use the customware-bundle convention: a normal `L1` or `L2` module with `space.bundle.yaml`, normal `ext/html`, `ext/js`, and `ext/skills` seams, and browser commands registered through `space.bundles.actions`.
+
 ## Hard Boundary
 
 - This skill set only authorizes development in `app/`.
@@ -38,6 +40,8 @@ Load for framework-backed pages, Alpine stores, `space.*` runtime usage, shared 
 ### `development/extensions-components`
 
 Load for `ext/html/`, `ext/js/`, `x-extension`, `x-component`, `x-context`, and layered override behavior.
+
+Also load it for customware bundles that need to turn runtime patches into documented seams.
 
 ### `development/app-files-apis`
 

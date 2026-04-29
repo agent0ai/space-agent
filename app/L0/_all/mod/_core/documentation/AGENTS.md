@@ -16,7 +16,7 @@ Current structure:
 
 - `ext/skills/documentation/SKILL.md`: the required entry skill that lists every documentation page by relative path, name, and short description and tells the agent how to read focused docs
 - `docs/architecture/`: repo-wide runtime, desktop-host packaging, and documentation-system orientation
-- `docs/app/`: frontend runtime, admin-agent, browser-side WebLLM and Hugging Face runtime docs, extension, and spaces documentation
+- `docs/app/`: frontend runtime, customware bundle, admin-agent, browser-side WebLLM and Hugging Face runtime docs, extension, and spaces documentation
 - `docs/agent/`: onscreen-agent runtime, prompt, execution, and skill-system documentation
 - `docs/server/`: router, page, API, auth, layered-filesystem, and writable-layer history documentation, including auth-preserving rollback rules
 - `docs/cli/`: CLI command and runtime-parameter documentation

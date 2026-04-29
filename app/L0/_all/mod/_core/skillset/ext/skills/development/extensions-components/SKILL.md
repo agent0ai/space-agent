@@ -11,7 +11,7 @@ Use this skill when the task needs `ext/html/`, `ext/js/`, `x-extension`, `x-com
 - Matching HTML files live at `mod/<author>/<repo>/ext/html/some/path/*.html`.
 - HTML callers name only the seam; the runtime resolves `ext/html/` automatically.
 - Keep extension files thin. They should usually mount a real component with `<x-component path="/mod/...">`.
-- `_core/framework` also creates `_core/framework/head/end` in `document.head` during bootstrap when a layer needs head-side HTML or inline bootstrap code without editing page shells.
+- `_core/framework` also creates `_core/framework/theme/end` and `_core/framework/head/end` in `document.head` during bootstrap when a layer needs declarative theme CSS, landing or background customization, head-side HTML, or inline bootstrap code without editing page shells.
 - Use framework `x-inject="selector"` instead of raw Alpine `x-teleport` when route-owned markup targets a shell seam that may mount later; it mirrors teleport semantics for `<template>` roots, waits for the selector, and disconnects its observer when the source template unmounts.
 - Dynamic discovery watches the whole document tree, so `head` seams and the `x-component` nodes they insert are loaded the same way as body content.
 - The routed shell header owns Home itself and points it at the empty route `#/`; `_core/onscreen_menu/bar_start` and `_core/onscreen_menu/bar_end` are the left and right shell-control seams, and feature modules add non-Home dropdown menu-action buttons under `_core/onscreen_menu/items` with numeric `data-order` values such as `100`, `200`, `300`, and `400`; `_core/onscreen_menu` sorts contributed controls or items automatically and keeps only the auth exit action after the dropdown seam.
@@ -32,8 +32,16 @@ Example:
 - JS hook files live at `mod/<author>/<repo>/ext/js/<extension-point>/*.js` or `*.mjs`.
 - The runtime resolves `/start` and `/end` hooks around the wrapped function automatically.
 - `space.extend()` requires a valid module ref and a standalone named function or explicit extension point name.
-- Framework-backed pages expose `_core/framework/initializer.js/initialize`; use `_core/framework/head/end` when the work can stay declarative, and keep the initializer `/end` hook for once-per-page shell setup that must stay imperative.
+- Framework-backed pages expose `_core/framework/initializer.js/initialize`; use `_core/framework/theme/end` for declarative theme or background changes, `_core/framework/head/end` when other head-side work can stay declarative, and keep the initializer `/end` hook for once-per-page shell setup that must stay imperative.
 - If a feature needs onscreen-agent-specific prompt shaping or execution validation for its own helpers, add an `ext/js/_core/onscreen_agent/...` hook from that feature instead of editing `_core/onscreen_agent` directly.
+
+## Customware Bundle Rules
+
+- A customware bundle is a normal installed `L1` or `L2` module with a root `space.bundle.yaml`.
+- Bundle manifests describe capabilities, compatibility, config defaults, extension points, and declarative actions; they do not authorize private runtime patching.
+- Bundle UI should use normal `ext/html` seams, bundle behavior should use `ext/js` plus `space.extend(...)`, and bundle skills should live under `ext/skills/*/SKILL.md`.
+- Browser commands should register executable handlers through `space.bundles.actions.register(...)` from loaded module code and unregister when the owning component unmounts.
+- When a bundle needs an integration point that does not exist yet, add a documented seam in the owning module instead of injecting into private DOM, stores, or framework internals.
 
 ## Extension Metadata Rules
 

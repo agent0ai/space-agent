@@ -23,11 +23,12 @@ Use this skill when the task changes browser runtime behavior, framework-backed 
 - Framework-backed pages boot through `/mod/_core/framework/js/initFw.js`.
 - The runtime installs onto `globalThis.space`.
 - `initFw.js` runs the extensible framework bootstrap step at `_core/framework/initializer.js/initialize` before Alpine startup.
-- Framework bootstrap also creates `_core/framework/head/end` in `document.head` for declarative head-side tags or inline bootstraps.
-- Use `_core/framework/head/end` when the setup can stay declarative, and use `_core/framework/initializer.js/initialize/end` when the setup must stay imperative instead of editing page shells.
+- Framework bootstrap also creates `_core/framework/theme/end` and `_core/framework/head/end` in `document.head` for declarative theme CSS, landing or background customization, head-side tags, or inline bootstraps.
+- Use `_core/framework/theme/end` for declarative theme or background changes, `_core/framework/head/end` for other declarative head setup, and `_core/framework/initializer.js/initialize/end` when setup must stay imperative instead of editing page shells.
 - Framework-backed pages centrally handle same-origin `/` and `/admin` opens through normal `target="_blank"` link clicks and `window.open(..., "_blank")` by granting the child window the current tab's `/enter` access marker before navigation; context-menu, middle-click, and modifier-key browser opens stay unmodified and still route through `/enter`.
 - Current shared runtime surface includes:
   - `space.api`
+  - `space.bundles` for installed customware-bundle metadata, removable browser-side actions, and external bridge sync handlers
   - `space.config`
   - `space.chat` when the current agent surface publishes the active thread snapshot
   - `space.fw.createStore`
@@ -38,6 +39,8 @@ Use this skill when the task changes browser runtime behavior, framework-backed 
   - `space.download`
   - `space.fetchExternal(...)`
   - `space.browser` for registered browser-surface control; load the top-level `browser-control` skill for the detailed method list and browser-frame bridge usage
+
+Use `space.bundles.actions.register({ id, title, run })` when a loaded customware bundle needs to expose an executable browser command. Unregister the action when the owning component unmounts, and keep action ids stable enough that other bundle UI can call `space.bundles.actions.run(id, payload)`.
 
 Use `<x-browser src="https://example.com"></x-browser>` when frontend UI, pages, or widgets need to embed a live browser surface directly in their DOM. Add `controls="true"` when that surface should render its own address bar and navigation controls; omit it or set `controls="false"` for a frameless embedded browser. Authored `<x-browser>` elements register with `space.browser` automatically, so agents can discover, inspect, navigate, and interact with them the same way they use stand-alone browser windows.
 

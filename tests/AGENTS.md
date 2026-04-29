@@ -12,6 +12,7 @@ Keep test workflows explicit scriptable and isolated from app runtime behavior u
 
 Current deeper docs:
 
+- `tests/fixtures/AGENTS.md`
 - `tests/agent_llm_performance/AGENTS.md`
 - `tests/browser_component_harness/AGENTS.md`
 - `tests/agent_llm_performance_structured/AGENTS.md`
@@ -20,6 +21,7 @@ Current deeper docs:
 Parent vs child split:
 
 - this file owns the top-level test layout and shared test-workflow boundaries
+- `fixtures/AGENTS.md` owns durable hand-authored fixture folders such as the customware-bundle reference manifest
 - `agent_llm_performance/AGENTS.md` owns the LLM prompt-performance harness, its config, cases, prompts, and scoring rules
 - `browser_component_harness/AGENTS.md` owns the standalone Electron browser-component harness under `tests/browser_component_harness/`
 - `agent_llm_performance_structured/AGENTS.md` owns the structured-output LLM prompt-performance harness, its schema contract, cases, prompts, and scoring rules
@@ -48,6 +50,8 @@ This scope owns:
 - `browser_desktop_harness_test.mjs`: regression coverage for the standalone browser-component harness against the Novinky consent flow
 - `browser_skill_contract_test.mjs`: focused frontend-skill coverage for the onscreen `browser-manager` auto-load metadata, the `browser-control` `browser:open` auto-load gate, and the browser overlay `x-context` export that makes that gate work
 - `customware_git_history_test.mjs`: focused server-side harness for optional writable-layer Git history, adaptive debounce rules, primary-owned scheduling, per-repo queue serialization, repository discovery, pagination, nested filename filters with full file metadata, diff reads, operation previews, revert, ignore rules, rollback or forward-travel preservation, filtered-list `total: null` behavior, explicit `409` revert-conflict coverage, successful non-overlapping isomorphic revert coverage, and runtime-param-selected isomorphic-backend coverage for Time Travel diff, preview, rollback, and revert flows
+- `customware_bundle_test.mjs`: focused coverage for `space.bundle.yaml` manifest discovery through installed modules, bundle metadata exposure on module list/info helpers, invalid-manifest reporting, and the browser-side `space.bundles` action and bridge sync registries
+- `fixtures/customware_bundle_example/`: minimal reference customware-bundle manifest copied by bundle tests into temporary `L1` or `L2` module roots; it is fixture content, not product behavior
 - `desktop_packaging_test.mjs`: focused packaging-runtime coverage for the packaged desktop host storage overrides so bundled desktop builds keep transient temp artifacts under a writable OS temp root, preserve the rebrand-stable packaged `userData` tree, keep backend-only auth fallback data under that user-data root instead of the installed app tree, keep the packaged updater log rooted at `<userData>/logs/desktop-updater.log`, keep Windows on the stock direct updater handoff while hardening the NSIS installer-side running-app shutdown path, detect malformed Windows updater metadata that omits the current arch installer and preserve the canonical fallback asset naming used to recover from it, stage same-version or downgrade debug reinstalls against canonical GitHub Release metadata, and clean stale updater `pending/` payloads after a marked install handoff without deleting reusable cache metadata
 - `extensions_load_request_shape_test.mjs`: focused frontend-loader request-shape coverage for top-level `maxLayer`, ordered grouped `patterns`, and grouped `extensions_load` responses without synthetic transport keys
 - `assistant_message_evaluation_test.mjs`: focused frontend agent-runtime coverage for repeated-assistant-message loop detection, severity escalation, normalization of exact-message matches, and safe prepending of synthetic transcript logs ahead of real execution console output
