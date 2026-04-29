@@ -1,0 +1,17 @@
+id: space/component-context-menu
+name: Component Context Menu
+version: 0.1.0
+description: Reference customware bundle that adds right-click component actions and Copy ID for Space widgets.
+capabilities:
+  - component-menu
+  - actions
+  - browser-runtime
+extension_points:
+  - _core/framework/initializer.js/initialize/end
+compatibility:
+  space_agent: ">=0.65"
+actions:
+  - id: space.component_menu.copy_id
+    title: Copy component ID
+    capability: component-menu
+    description: Copy the clicked UI entity id so Agent Space can target exact component changes.

@@ -133,6 +133,9 @@ Test docs:
 - `/tests/AGENTS.md`
 - `/tests/agent_llm_performance/AGENTS.md`
 - `/tests/browser_component_harness/AGENTS.md`
+- `/tests/fixtures/AGENTS.md`
+- `/tests/fixtures/component_context_menu_bundle/AGENTS.md`
+- `/tests/fixtures/customware_bundle_example/AGENTS.md`
 
 ## Programming Guide
 

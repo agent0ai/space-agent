@@ -34,7 +34,9 @@ The manifest advertises the package. It does not grant permission to monkey patc
 
 The root file is `space.bundle.yaml`.
 
-The checked-in minimal reference fixture lives at `tests/fixtures/customware_bundle_example/`.
+The checked-in minimal manifest fixture lives at `tests/fixtures/customware_bundle_example/`.
+
+The checked-in browser-runtime reference plugin lives at `tests/fixtures/component_context_menu_bundle/`.
 
 Example:
 
@@ -98,6 +100,34 @@ External integrations can publish bridge state through:
 space.bundles.bridge.registerSync("acme/fleet", async (payload) => payload);
 await space.bundles.bridge.syncState("acme/fleet", { online: true });
 ```
+
+## Reference Component Menu Plugin
+
+`tests/fixtures/component_context_menu_bundle/` is an installable reference plugin for component-level browser behavior.
+
+Install it at:
+
+```txt
+L1/<group>/mod/space/component-context-menu/
+L2/<user>/mod/space/component-context-menu/
+```
+
+It loads through `_core/framework/initializer.js/initialize/end`, right-clicks Space widget cards by their `data-widget-id`, and exposes:
+
+```js
+const unregister = space.componentMenu.registerAction({
+  id: "example.inspect",
+  label: "Inspect component",
+  when(context) {
+    return context.type === "space-widget";
+  },
+  run(context) {
+    console.log(context.id);
+  }
+});
+```
+
+The menu footer always includes `Copy ID`. That copied id can be pasted into Agent Space when the user wants an agent to modify a precise UI entity.
 
 ## Install, Update, Remove
 

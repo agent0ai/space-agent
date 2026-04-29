@@ -18,6 +18,9 @@ import {
 const CUSTOMWARE_BUNDLE_FIXTURE_PATH = fileURLToPath(
   new URL("./fixtures/customware_bundle_example/", import.meta.url)
 );
+const COMPONENT_CONTEXT_MENU_FIXTURE_PATH = fileURLToPath(
+  new URL("./fixtures/component_context_menu_bundle/", import.meta.url)
+);
 
 function createRuntimeParams(values = {}) {
   return {
@@ -82,6 +85,37 @@ function seedBundleState() {
   return stateSystem;
 }
 
+function seedComponentContextMenuBundleState() {
+  const stateSystem = createStateSystem();
+
+  stateSystem.setEntry(GROUP_INDEX_AREA, "team", {
+    groupId: "team",
+    includesAllUsers: false,
+    memberUsers: ["alice"]
+  });
+  stateSystem.setEntry(GROUP_META_AREA, "errors", []);
+  stateSystem.setEntry(GROUP_META_AREA, "inclusion_cycles", []);
+  stateSystem.setEntry(GROUP_USER_INDEX_AREA, "alice", {
+    username: "alice",
+    groups: ["team"],
+    managedGroups: []
+  });
+  stateSystem.setEntry(FILE_INDEX_AREA, "L1/team", {
+    "/app/L1/team/mod/space/component-context-menu/": {
+      isDirectory: true,
+      mtimeMs: 1,
+      sizeBytes: 0
+    },
+    "/app/L1/team/mod/space/component-context-menu/space.bundle.yaml": {
+      isDirectory: false,
+      mtimeMs: 1,
+      sizeBytes: 460
+    }
+  });
+
+  return stateSystem;
+}
+
 test("customware bundles are discovered from installed module manifests", async (t) => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "space-bundle-test-"));
   t.after(() => fs.rmSync(projectRoot, { force: true, recursive: true }));
@@ -122,6 +156,49 @@ test("customware bundles are discovered from installed module manifests", async 
     username: "alice"
   });
   assert.equal(moduleEntries[0].bundle.id, "example/customware-bundle");
+});
+
+test("component context menu bundle fixture advertises the initializer plugin seam", async (t) => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "space-component-menu-test-"));
+  t.after(() => fs.rmSync(projectRoot, { force: true, recursive: true }));
+
+  copyDirectory(
+    projectRoot,
+    "L1/team/mod/space/component-context-menu",
+    COMPONENT_CONTEXT_MENU_FIXTURE_PATH
+  );
+
+  const runtimeParams = createRuntimeParams();
+  const stateSystem = seedComponentContextMenuBundleState();
+
+  const bundles = await listInstalledBundles({
+    area: "l1",
+    projectRoot,
+    runtimeParams,
+    stateSystem,
+    username: "alice"
+  });
+
+  assert.equal(bundles.length, 1);
+  assert.equal(bundles[0].id, "space/component-context-menu");
+  assert.deepEqual(bundles[0].capabilities, ["component-menu", "actions", "browser-runtime"]);
+  assert.deepEqual(bundles[0].extensionPoints, ["_core/framework/initializer.js/initialize/end"]);
+  assert.deepEqual(
+    bundles[0].actions.map((action) => [action.id, action.title, action.capability]),
+    [["space.component_menu.copy_id", "Copy component ID", "component-menu"]]
+  );
+  assert.equal(bundles[0].module.path, "L1/team/mod/space/component-context-menu/");
+
+  const info = await readBundleInfo({
+    maxLayer: 1,
+    path: "/mod/space/component-context-menu",
+    projectRoot,
+    runtimeParams,
+    stateSystem,
+    username: "alice"
+  });
+  assert.equal(info.installed, true);
+  assert.equal(info.bundle.id, "space/component-context-menu");
 });
 
 test("customware bundle info returns selected module metadata and invalid manifest errors", async (t) => {

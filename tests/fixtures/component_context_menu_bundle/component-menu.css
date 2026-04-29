@@ -1,0 +1,100 @@
+.space-component-menu-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.space-component-menu-panel {
+  position: fixed;
+  width: min(260px, calc(100vw - 24px));
+  max-height: min(420px, calc(100vh - 24px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--space-text-primary, #f8fafc);
+  background: var(--space-surface-strong, #111827);
+  border: 1px solid var(--space-border-subtle, rgba(148, 163, 184, 0.28));
+  border-radius: 8px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.32);
+  pointer-events: auto;
+}
+
+.space-component-menu-header {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--space-border-subtle, rgba(148, 163, 184, 0.18));
+}
+
+.space-component-menu-title {
+  margin: 0;
+  overflow: hidden;
+  color: var(--space-text-primary, #f8fafc);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.space-component-menu-subtitle {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--space-text-muted, #94a3b8);
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.space-component-menu-actions {
+  overflow: auto;
+  padding: 6px;
+}
+
+.space-component-menu-action,
+.space-component-menu-footer-button {
+  width: 100%;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 7px 9px;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.space-component-menu-action:hover,
+.space-component-menu-action:focus-visible,
+.space-component-menu-footer-button:hover,
+.space-component-menu-footer-button:focus-visible {
+  background: var(--space-control-hover, rgba(148, 163, 184, 0.14));
+  outline: none;
+}
+
+.space-component-menu-empty {
+  margin: 0;
+  padding: 8px 9px;
+  color: var(--space-text-muted, #94a3b8);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.space-component-menu-footer {
+  padding: 6px;
+  border-top: 1px solid var(--space-border-subtle, rgba(148, 163, 184, 0.18));
+  background: var(--space-surface-muted, rgba(15, 23, 42, 0.24));
+}
+
+.space-component-menu-footer-button {
+  justify-content: center;
+  color: var(--space-accent-text, #c7d2fe);
+  font-weight: 700;
+}
