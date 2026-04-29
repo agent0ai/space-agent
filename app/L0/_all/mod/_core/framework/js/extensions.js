@@ -67,6 +67,7 @@ const EXTENSION_BATCH_FALLBACK_MS = 32;
 const HTML_EXTENSIONS_LOAD_BATCH_WAIT_MS = 0;
 const HTML_EXTENSION_SCOPE = "html";
 const JS_EXTENSION_SCOPE = "js";
+const FRAMEWORK_THEME_EXTENSION_POINT = "_core/framework/theme/end";
 const FRAMEWORK_HEAD_EXTENSION_POINT = "_core/framework/head/end";
 export const HTML_EXTENSION_READY_ATTRIBUTE = "data-space-extension-ready";
 
@@ -87,7 +88,7 @@ function readCachedValue(area, key) {
   return cache.get(area, key);
 }
 
-function ensureFrameworkHeadExtensionAnchor() {
+function ensureFrameworkHeadExtensionAnchor(id) {
   const head = document.head;
   if (!head) {
     return null;
@@ -96,16 +97,21 @@ function ensureFrameworkHeadExtensionAnchor() {
   const existing = Array.from(head.children).find(
     (child) =>
       child.tagName === "X-EXTENSION" &&
-      child.getAttribute("id") === FRAMEWORK_HEAD_EXTENSION_POINT
+      child.getAttribute("id") === id
   );
   if (existing instanceof HTMLElement) {
     return existing;
   }
 
   const extension = document.createElement("x-extension");
-  extension.setAttribute("id", FRAMEWORK_HEAD_EXTENSION_POINT);
+  extension.setAttribute("id", id);
   head.appendChild(extension);
   return extension;
+}
+
+function ensureFrameworkHeadExtensionAnchors() {
+  ensureFrameworkHeadExtensionAnchor(FRAMEWORK_THEME_EXTENSION_POINT);
+  ensureFrameworkHeadExtensionAnchor(FRAMEWORK_HEAD_EXTENSION_POINT);
 }
 
 function ensureSpaceRuntime() {
@@ -760,9 +766,9 @@ const extensionObserverCallback = (mutations) => {
 const extensionObserver = new MutationObserver(extensionObserverCallback);
 extensionObserver.observe(document.documentElement, { childList: true, subtree: true });
 
-// Framework-backed pages always get one head-side HTML seam for declarative
-// tags or inline bootstraps that should not require page-shell edits.
-ensureFrameworkHeadExtensionAnchor();
+// Framework-backed pages always get head-side HTML seams for declarative theme
+// and bootstrap tags that should not require page-shell edits.
+ensureFrameworkHeadExtensionAnchors();
 
 // Do an initial scan for static x-extension tags
 // that already exist in the DOM (index.html), then rely on

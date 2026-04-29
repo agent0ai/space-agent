@@ -178,7 +178,7 @@ Top-level structure:
 - `commands/`: CLI command modules such as `serve`, `help`, `get`, `set`, `version`, and `update`
 - `app/`: browser runtime, layered customware model, shared frontend modules, and browser test surfaces
 - `server/`: thin local infrastructure runtime, with page shells, request routing, API hosting, fetch proxying, file-watch indexes, auth/session infrastructure, and Git support code
-- `tests/`: repo-level verification harnesses, prepared evaluation fixtures, and saved result artifacts
+- `tests/`: repo-level verification harnesses, prepared evaluation fixtures such as `tests/fixtures/`, and saved result artifacts
 - `packaging/`: optional Electron host and packaging scripts; native hosts should stay thin
 
 Project concepts:
@@ -188,6 +188,7 @@ Project concepts:
 - browser modules are namespaced as `mod/<author>/<repo>/...`
 - frontend extensibility is a core runtime primitive; the framework installs `space.extend` first and the browser runtime grows by loading modules and extension points deterministically
 - the layered browser model is `app/L0` firmware, `app/L1` group customware, and `app/L2` user customware
+- customware bundles are ordinary installed `L1` or `L2` modules that include a `space.bundle.yaml` manifest; the server discovers them through the same module index and permission model, and the browser uses `space.bundles` for metadata reads, removable action handlers, and external bridge-state sync points
 - `app/L1` and `app/L2` are the logical writable layers; on disk they default to `app/L1` and `app/L2`, but when `CUSTOMWARE_PATH` is set the backend stores them under `CUSTOMWARE_PATH/L1` and `CUSTOMWARE_PATH/L2`
 - writable layer content is transient runtime state and is gitignored when it lives under the repo; do not treat it as durable repo-owned sample content
 - `L2/<username>/user.yaml` stores user metadata such as `full_name`; auth state lives under `L2/<username>/meta/`

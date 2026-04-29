@@ -187,6 +187,61 @@
 
 /**
  * @typedef {{
+ *   area?: string,
+ *   ownerId?: string,
+ *   search?: string
+ * }} BundleListOptions
+ */
+
+/**
+ * @typedef {{
+ *   maxLayer?: number,
+ *   ownerId?: string,
+ *   path?: string
+ * }} BundleInfoOptions
+ */
+
+/**
+ * @typedef {{
+ *   id: string,
+ *   title: string,
+ *   bundleId?: string,
+ *   capability?: string,
+ *   description?: string,
+ *   inputSchema?: Record<string, unknown>,
+ *   outputSchema?: Record<string, unknown>
+ * }} BundleActionInfo
+ */
+
+/**
+ * @typedef {{
+ *   actions: BundleActionInfo[],
+ *   capabilities: string[],
+ *   compatibility: Record<string, unknown>,
+ *   configDefaults: Record<string, unknown>,
+ *   description: string,
+ *   errors: string[],
+ *   extensionPoints: string[],
+ *   id: string,
+ *   manifestPath: string,
+ *   module?: Record<string, unknown>,
+ *   name: string,
+ *   source: Record<string, unknown>,
+ *   valid: boolean,
+ *   version: string
+ * }} BundleInfo
+ */
+
+/**
+ * @typedef {{
+ *   bundle: BundleInfo | null,
+ *   installed: boolean,
+ *   module: Record<string, unknown>
+ * }} BundleInfoResult
+ */
+
+/**
+ * @typedef {{
  *   fullName: string,
  *   groups: string[],
  *   managedGroups: string[],
@@ -665,12 +720,44 @@ function createGitHistoryPreviewRequest(pathOrOptions, commitHash, operation = "
   };
 }
 
+function createBundleListRequest(options = {}) {
+  const input = isPlainObject(options) ? options : {};
+
+  return {
+    area: input.area,
+    ownerId: input.ownerId ?? input.owner_id ?? input.username,
+    search: input.search
+  };
+}
+
+function createBundleInfoRequest(pathOrOptions) {
+  if (isPlainObject(pathOrOptions)) {
+    return {
+      method: "GET",
+      query: {
+        maxLayer: pathOrOptions.maxLayer,
+        ownerId: pathOrOptions.ownerId ?? pathOrOptions.owner_id ?? pathOrOptions.username,
+        path: pathOrOptions.path ?? pathOrOptions.modulePath ?? pathOrOptions.module_path
+      }
+    };
+  }
+
+  return {
+    method: "GET",
+    query: {
+      path: pathOrOptions
+    }
+  };
+}
+
 export function createApiClient(options = {}) {
   const basePath = options.basePath || "/api";
   const inFlightRequestPromises = new Map();
   const queuedFileReadRequests = [];
   const pendingFileReadPromises = new Map();
   const DEDUPED_ENDPOINTS = new Set([
+    "bundle_info",
+    "bundle_list",
     "extensions_load",
     "file_read",
     "file_info",
@@ -995,6 +1082,29 @@ export function createApiClient(options = {}) {
   }
 
   /**
+   * List installed customware bundles visible to the current user.
+   *
+   * @param {BundleListOptions} [options]
+   * @returns {Promise<BundleInfo[]>}
+   */
+  async function bundleList(options = {}) {
+    return call("bundle_list", {
+      method: "GET",
+      query: createBundleListRequest(options)
+    });
+  }
+
+  /**
+   * Read bundle metadata for one module path such as `/mod/acme/demo`.
+   *
+   * @param {string | BundleInfoOptions} pathOrOptions
+   * @returns {Promise<BundleInfoResult>}
+   */
+  async function bundleInfo(pathOrOptions) {
+    return call("bundle_info", createBundleInfoRequest(pathOrOptions));
+  }
+
+  /**
    * Read an authenticated app file.
    * `fileRead()` accepts app-rooted paths such as `L2/alice/note.txt` and the
    * `~` or `~/...` shorthand for the current user's `L2/<username>/...` path.
@@ -1184,6 +1294,8 @@ export function createApiClient(options = {}) {
   }
 
   return {
+    bundleInfo,
+    bundleList,
     call,
     fileCopy,
     fileDelete,

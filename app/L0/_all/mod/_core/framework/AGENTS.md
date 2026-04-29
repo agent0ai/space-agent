@@ -21,7 +21,8 @@ This module owns:
 - `js/yaml-lite.js`: project-owned lightweight YAML parser and serializer shared directly by browser runtime helpers, server modules, and agent-surface param parsers
 - `js/execution-format.js`: shared YAML-first execution transcript formatting helpers used by first-party agent runtimes for console-log and returned-value serialization
 - `js/server-config.js`: injected page-meta parsing for frontend-exposed backend runtime parameters
-- `js/extensions.js`: `space.extend`, HTML extension loading, the framework-managed `_core/framework/head/end` head seam, JS hook loading, lookup caching, and batching
+- `js/bundles.js`: browser-side customware-bundle runtime helper for metadata reads through `space.api`, removable bundle action handlers, and external bridge-state sync handlers
+- `js/extensions.js`: `space.extend`, HTML extension loading, the framework-managed `_core/framework/theme/end` and `_core/framework/head/end` head seams, JS hook loading, lookup caching, and batching
 - `js/moduleResolution.js`: propagation of `maxLayer` into framework-managed module and extension requests
 - `js/components.js`: `<x-component>` loading, recursive component imports, and `xAttrs(...)`
 - `js/modals.js`: the generic framework modal wrapper used for separately loaded modal documents that are not mounted as feature-owned native dialogs
@@ -39,7 +40,7 @@ Framework-backed page shells load `/mod/_core/framework/js/initFw.js` once.
 
 Current boot order:
 
-1. `initFw.js` imports `extensions.js` first so `space.extend` exists before other framework modules expose seams and so the framework-managed head HTML seam is present before the initial extension scan.
+1. `initFw.js` imports `extensions.js` first so `space.extend` exists before other framework modules expose seams and so the framework-managed head HTML seams are present before the initial extension scan.
 2. `initializeRuntime(...)` publishes the shared runtime onto `globalThis.space`.
 3. `initializer.initialize()` runs the first extensible framework bootstrap step, installs the framework navigation guard, and injects the framework-owned runtime context tag.
 4. Alpine and framework support modules are loaded.
@@ -48,6 +49,7 @@ Current boot order:
 `initializeRuntime(...)` currently publishes:
 
 - `space.api`
+- `space.bundles`, which exposes installed customware-bundle metadata reads, a removable action registry at `space.bundles.actions`, and external bridge-state sync hooks at `space.bundles.bridge`
 - `space.config`
 - `space.chat` when an agent surface publishes the active thread messages plus attachment handles
 - `space.fw.createStore`
@@ -62,6 +64,7 @@ Current boot order:
 Current API helper contract:
 
 - `space.api.userSelfInfo()` is the canonical frontend identity snapshot; it now also returns the backend `sessionId` plus `userCryptoKeyId` and `userCryptoState`, and frontend agents should still use `username`, `managedGroups`, and `_admin` membership in `groups` to infer writable app roots before choosing where to store files or modules
+- `space.api.bundleList(...)` and `space.api.bundleInfo(...)` expose installed customware-bundle manifests from `space.bundle.yaml` files discovered through the server module-management path
 - `space.api.fileRead(...)` accepts one logical path, one `{ path, encoding? }` entry, or a `files` batch, and `js/api-client.js` now coalesces same-tick file reads into one `/api/file_read` request before re-slicing the returned files back to each caller; when a combined batch fails, it retries the queued reads individually so shorthand paths like `~/...` and optional missing-file callers keep their original per-call behavior
 - `space.api.fileList(pathOrOptions, recursive?)` accepts normal path strings and an options object with `access: "write"`, `writableOnly: true`, or `gitRepositories: true` for server-confirmed writable discovery without exposing reserved `.git` metadata
 - `space.api.folderDownloadUrl(pathOrOptions)` builds the same-origin attachment URL for a permission-checked folder ZIP download without fetching the archive into browser memory
@@ -72,6 +75,12 @@ Current API helper contract:
 - framework-managed external `fetch(...)` calls and `space.fetchExternal(...)` try the browser's direct request first; when a direct cross-origin attempt fails and the `/api/proxy` retry succeeds, the frontend remembers that origin for the rest of the runtime and routes later requests for the same origin through the backend immediately
 - same-origin `fetch(...)` calls made after the fetch proxy is installed automatically carry the highest observed `Space-State-Version`; `js/state-version.js` keeps that floor in per-tab `sessionStorage` and mirrors it into a short-lived same-origin cookie so immediate top-level redirects can reuse the same minimum version without query params, and when the router returns its bounded retryable sync `503` with `Retry-After: 0`, `fetch-proxy.js` retries the request a few times before surfacing the failure to callers
 - frontend modules and widgets must not hardcode third-party CORS proxy services; use direct `fetch(...)` or `space.fetchExternal(...)` for remote reads and reserve `space.proxy.buildUrl(...)` for cases that need a same-origin proxied URL string
+
+Current customware-bundle runtime contract:
+
+- `space.bundles.list(...)` and `space.bundles.info(...)` are thin browser helpers over the authenticated bundle APIs
+- bundle manifests may declare action metadata, but executable browser behavior must register through `space.bundles.actions.register({ id, title, run })` from normal module code and unregister when the owning module unmounts
+- external bridges should publish state through named `space.bundles.bridge` sync handlers instead of patching private feature stores or framework globals
 
 Current context helper contract:
 
@@ -87,7 +96,7 @@ Rules:
 - framework bootstrap registers `x-inject="selector"` for `<template>` roots; it mirrors Alpine `x-teleport`, waits for a matching selector with a `MutationObserver`, and disconnects that wait when the source template cleans up, so route-owned markup can safely target shell seams that may mount later
 - `css/index.css` installs the app-wide border-box sizing baseline; modules may rely on `width: 100%` including padding and borders unless they explicitly opt an element back into content-box sizing
 - if bootstrap order changes, update this doc and `/app/AGENTS.md`
-- shell-level one-time setup that can stay declarative, such as inline analytics bootstrap or static `document.head` tags, should prefer the framework-managed `_core/framework/head/end` HTML seam instead of page-shell edits
+- shell-level theme customization that can stay declarative should prefer the framework-managed `_core/framework/theme/end` HTML seam, while other one-time declarative setup such as inline analytics bootstrap or static `document.head` tags should prefer `_core/framework/head/end` instead of page-shell edits
 - shell-level one-time setup that must stay imperative should prefer the shared `_core/framework/initializer.js/initialize/end` JS hook instead of page-shell edits
 - ordinary authenticated feature dialogs must not route through `js/modals.js`; they should stay feature-owned native `<dialog class="chat-dialog">` surfaces using `_core/visual/forms/dialog.css` plus `forms/dialog.js`, while `js/modals.js` stays reserved for generic separately loaded modal documents or platform utilities that truly need it
 - framework-backed pages centralize navigation interception in `js/new-window.js`: same-origin `/` and `/admin` URLs opened with `_blank` through normal left-clicks or `window.open(..., "_blank")` receive the current tab's `/enter` access in the child window before navigation, while same-tab cross-origin `http(s)` navigations are first blocked through the Navigation API `navigate` event when that event exists and is cancelable, and otherwise fall back to interception of anchor clicks, `window.open(..., "_self")`, and best-effort `Location.assign(...)`, `Location.replace(...)`, or `Location.href = ...` writes; web runtime tries to move those cross-origin requests into a new browser tab, while packaged desktop runtime blocks them in-place and relies on the Electron host as the hard guarantee; location-bar navigations, manual browser opens such as context-menu or middle-click or modifier-key opens, non-cancelable navigation events, and any browser engines that refuse the location patches still fall back to the page-shell or host guard
@@ -101,7 +110,7 @@ Important contracts:
 - `<x-extension id="some/path">` resolves HTML adapters from `mod/<author>/<repo>/ext/html/some/path/*.html`
 - `space.extend(import.meta, ...)` requires a valid module ref and wraps standalone functions only
 - `space.extend(...)` and `callJsExtensions("some/path", ...)` resolve JS hook files from `mod/<author>/<repo>/ext/js/<extension-point>/*.js` or `*.mjs`
-- `extensions.js` injects `_core/framework/head/end` into `document.head` on framework-backed pages before the initial HTML extension scan, so layers can contribute head-side HTML without page-shell edits
+- `extensions.js` injects `_core/framework/theme/end` and `_core/framework/head/end` into `document.head` on framework-backed pages before the initial HTML extension scan, so layers can contribute theme CSS and other head-side HTML without page-shell edits
 - dynamic `<x-extension>` discovery watches the whole `document.documentElement`, not only `body`, so head-side extension seams keep working after bootstrap
 - `_core/framework/initializer.js/initialize` is the shared once-per-page bootstrap seam for framework-backed shells, and its `/end` hook is the imperative fallback when a head-side integration cannot stay declarative
 - extension callers should name only the seam; the runtime chooses the `html/` or `js/` subfolder implicitly

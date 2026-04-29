@@ -6,6 +6,7 @@ import path from "node:path";
 import { FILE_INDEX_AREA } from "../../runtime/state_areas.js";
 import { cloneGitRepository, createGitClient } from "../git/client_create.js";
 import { sanitizeRemoteUrl } from "../git/shared.js";
+import { readBundleManifestAtModulePath } from "./bundles.js";
 import { createAppAccessController, createHttpError, toAppRelativePath } from "./file_access.js";
 import { recordAppPathMutations } from "./git_history.js";
 import { getLayerOrder, normalizeMaxLayer } from "./layer_limit.js";
@@ -639,24 +640,32 @@ async function resolveInstalledLocations(options = {}) {
   const locations = await mapWithConcurrencyLimit(
     visibleEntries,
     GIT_INFO_CONCURRENCY,
-    async (entry) => ({
-      authorId: entry.authorId,
-      canRead: entry.canRead,
-      canWrite: entry.canWrite,
-      effective: selectedEntryMap.has(entry.projectPath),
-      git: await readModuleGitInfo({
-        absolutePath: createAbsolutePath(options.projectRoot, entry.projectPath, options.runtimeParams),
-        runtimeParams: options.runtimeParams
-      }),
-      layer: entry.layer,
-      ownerId: entry.ownerId,
-      ownerType: entry.ownerType,
-      path: toAppRelativePath(entry.projectPath),
-      rank: selectedEntryMap.get(entry.projectPath)?.rank ?? null,
-      requestPath: entry.requestPath,
-      repositoryId: entry.repositoryId,
-      selected: selectedEntryMap.get(entry.projectPath)?.selected === true
-    })
+    async (entry) => {
+      const absolutePath = createAbsolutePath(options.projectRoot, entry.projectPath, options.runtimeParams);
+      const location = {
+        authorId: entry.authorId,
+        canRead: entry.canRead,
+        canWrite: entry.canWrite,
+        effective: selectedEntryMap.has(entry.projectPath),
+        git: await readModuleGitInfo({
+          absolutePath,
+          runtimeParams: options.runtimeParams
+        }),
+        layer: entry.layer,
+        ownerId: entry.ownerId,
+        ownerType: entry.ownerType,
+        path: toAppRelativePath(entry.projectPath),
+        rank: selectedEntryMap.get(entry.projectPath)?.rank ?? null,
+        requestPath: entry.requestPath,
+        repositoryId: entry.repositoryId,
+        selected: selectedEntryMap.get(entry.projectPath)?.selected === true
+      };
+
+      return {
+        ...location,
+        bundle: await readBundleManifestAtModulePath(absolutePath, location)
+      };
+    }
   );
 
   return locations.sort(compareResolvedModuleLocations);
@@ -682,10 +691,12 @@ async function readModuleInfo(options = {}) {
   const selectedLocation = locations.find((location) => location.selected) || null;
 
   return {
+    bundle: selectedLocation ? selectedLocation.bundle : null,
     installed: locations.length > 0,
     locations,
     modulePath: moduleReference.requestPath.slice(1),
     requestPath: moduleReference.requestPath,
+    selectedLocation,
     selectedPath: selectedLocation ? selectedLocation.path : ""
   };
 }
@@ -788,19 +799,20 @@ async function listInstalledModules(options = {}) {
       GIT_INFO_CONCURRENCY,
       async (groupedEntry) => {
         const representativeEntry = groupedEntry.entries[0];
+        const absolutePath = createAbsolutePath(
+          options.projectRoot,
+          representativeEntry.projectPath,
+          options.runtimeParams
+        );
         const ownerPreview = [...groupedEntry.ownerIds].sort((left, right) => left.localeCompare(right)).slice(0, 3);
 
-        return {
+        const listEntry = {
           aggregated: true,
           authorId: groupedEntry.authorId,
           canRead: groupedEntry.canRead,
           canWrite: false,
           git: await readModuleGitInfo({
-            absolutePath: createAbsolutePath(
-              options.projectRoot,
-              representativeEntry.projectPath,
-              options.runtimeParams
-            ),
+            absolutePath,
             runtimeParams: options.runtimeParams
           }),
           id: createModuleListItemId(groupedEntry, {
@@ -816,6 +828,11 @@ async function listInstalledModules(options = {}) {
           requestPath: groupedEntry.requestPath,
           repositoryId: groupedEntry.repositoryId
         };
+
+        return {
+          ...listEntry,
+          bundle: await readBundleManifestAtModulePath(absolutePath, listEntry)
+        };
       }
     );
   }
@@ -823,32 +840,78 @@ async function listInstalledModules(options = {}) {
   return mapWithConcurrencyLimit(
     entries,
     GIT_INFO_CONCURRENCY,
-    async (entry) => ({
-      aggregated: false,
-      authorId: entry.authorId,
-      canRead: entry.canRead,
-      canWrite: entry.canWrite,
-      git: await readModuleGitInfo({
-        absolutePath: createAbsolutePath(options.projectRoot, entry.projectPath, options.runtimeParams),
-        runtimeParams: options.runtimeParams
-      }),
-      id: createModuleListItemId(entry, {
-        area
-      }),
-      layer: entry.layer,
-      ownerId: entry.ownerId,
-      ownerType: entry.ownerType,
-      ownerCount: 1,
-      path: toAppRelativePath(entry.projectPath),
-      requestPath: entry.requestPath,
-      repositoryId: entry.repositoryId
-    })
+    async (entry) => {
+      const absolutePath = createAbsolutePath(options.projectRoot, entry.projectPath, options.runtimeParams);
+      const listEntry = {
+        aggregated: false,
+        authorId: entry.authorId,
+        canRead: entry.canRead,
+        canWrite: entry.canWrite,
+        git: await readModuleGitInfo({
+          absolutePath,
+          runtimeParams: options.runtimeParams
+        }),
+        id: createModuleListItemId(entry, {
+          area
+        }),
+        layer: entry.layer,
+        ownerId: entry.ownerId,
+        ownerType: entry.ownerType,
+        ownerCount: 1,
+        path: toAppRelativePath(entry.projectPath),
+        requestPath: entry.requestPath,
+        repositoryId: entry.repositoryId
+      };
+
+      return {
+        ...listEntry,
+        bundle: await readBundleManifestAtModulePath(absolutePath, listEntry)
+      };
+    }
   );
+}
+
+async function listInstalledBundles(options = {}) {
+  const modules = await listInstalledModules(options);
+
+  return modules
+    .filter((entry) => entry.bundle)
+    .map((entry) => ({
+      ...entry.bundle,
+      module: {
+        aggregated: entry.aggregated === true,
+        authorId: entry.authorId,
+        canRead: entry.canRead,
+        canWrite: entry.canWrite,
+        id: entry.id,
+        layer: entry.layer,
+        ownerCount: entry.ownerCount,
+        ownerId: entry.ownerId,
+        ownerPreview: entry.ownerPreview || [],
+        ownerType: entry.ownerType,
+        path: entry.path,
+        requestPath: entry.requestPath,
+        repositoryId: entry.repositoryId
+      }
+    }));
+}
+
+async function readBundleInfo(options = {}) {
+  const moduleInfo = await readModuleInfo(options);
+  const bundle = moduleInfo.bundle || moduleInfo.locations.find((location) => location.bundle)?.bundle || null;
+
+  return {
+    bundle,
+    installed: Boolean(bundle),
+    module: moduleInfo
+  };
 }
 
 export {
   installModule,
+  listInstalledBundles,
   listInstalledModules,
   normalizeModuleTargetPath,
+  readBundleInfo,
   readModuleInfo
 };

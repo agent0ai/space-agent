@@ -1,0 +1,18 @@
+id: example/customware-bundle
+name: Example Customware Bundle
+version: 0.1.0
+description: Minimal reference manifest for the Customware Bundle Interface.
+capabilities:
+  - theme
+  - actions
+extension_points:
+  - _core/framework/theme/end
+compatibility:
+  space_agent: ">=0.65"
+config_defaults:
+  accent: mint
+actions:
+  - id: example.bundle.ping
+    title: Example bundle ping
+    capability: actions
+    description: Demonstrates declarative action metadata; runtime code registers the handler through space.bundles.actions.

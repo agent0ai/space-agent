@@ -134,6 +134,14 @@ node space supervise HOST=0.0.0.0 PORT=3000 # zero downtime auto-update
 
 Run `node space help` to see the full command surface and built-in help for each from [`commands/params.yaml`](./commands/params.yaml).
 
+## Customware bundles
+
+Reusable customizations can ship as customware bundles: ordinary `L1` or `L2` modules with a root `space.bundle.yaml` manifest.
+
+Bundles stay inside Space Agent's existing browser-first model. They add UI through `ext/html`, behavior through `ext/js` and `space.extend(...)`, skills through `ext/skills`, theme or landing-background CSS through `_core/framework/theme/end`, and removable browser actions through `space.bundles.actions`. The manifest exposes metadata such as id, version, capabilities, config defaults, compatibility, extension points, and action descriptions.
+
+Install, update, or remove a bundle the same way you manage any customware module under `L1/<group>/mod/<author>/<repo>/` or `L2/<user>/mod/<author>/<repo>/`. Direct runtime injection is discouraged because it depends on private implementation details; when a customization needs a new stable seam, add or propose that seam instead.
+
 ## AI-driven development and documentation
 
 Space Agent is developed by AI agents, including its documentation.

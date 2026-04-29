@@ -31,7 +31,7 @@ Important frontend-facing endpoint families are:
 
 - app files: `file_list`, `file_paths`, `file_read`, `file_write`, `file_delete`, `file_copy`, `file_move`, `file_info`, `folder_download`
 - local history: `git_history_list`, `git_history_diff`, `git_history_preview`, `git_history_rollback`, `git_history_revert`
-- modules: `module_list`, `module_info`, `module_install`, `module_remove`
+- modules: `bundle_list`, `bundle_info`, `module_list`, `module_info`, `module_install`, `module_remove`
 - runtime and identity: `extensions_load`, `password_generate`, `password_change`, `user_crypto_session_key`, `user_self_info`
 
 These endpoints are thin wrappers over shared helpers in `server/lib/customware/` and `server/lib/auth/`.
@@ -57,6 +57,7 @@ These endpoints are thin wrappers over shared helpers in `server/lib/customware/
 - `/admin` effectively clamps module and extension resolution to `L0`.
 - Frontend HTML extensions resolve through `ext/html/...`.
 - Frontend JS hooks resolve through `ext/js/...`.
+- Customware bundles are normal installed `L1` or `L2` modules with root `space.bundle.yaml` manifests; `bundle_list` and `bundle_info` expose that metadata through the same module-management visibility and owner rules instead of a separate plugin loader.
 - Frontend modules may also enumerate other extension-owned assets such as `ext/panels/*.yaml` through `file_paths` plus `file_read` when they only need readable logical file discovery and contents. `extensions_load` remains the backend contract for HTML and JS extension resolution, keeping `maxLayer` at the top level, ordered `patterns` groups in the request, and ordered grouped results with matching `patterns` plus resolved `extensions`.
 
 ## Auth And User Storage

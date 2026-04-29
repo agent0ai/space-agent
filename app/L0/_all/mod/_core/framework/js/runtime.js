@@ -1,5 +1,6 @@
 import { createApiClient } from "./api-client.js";
 import { createStore } from "./AlpineStore.js";
+import { createBundleRuntime } from "./bundles.js";
 import { downloadProxiedFile } from "./download.js";
 import { installFetchProxy } from "./fetch-proxy.js";
 import * as markdown from "./markdown-frontmatter.js";
@@ -19,6 +20,8 @@ export function initializeRuntime(options = {}) {
     previousRuntime.config && typeof previousRuntime.config === "object" ? previousRuntime.config : {};
   const previousFw =
     previousRuntime.fw && typeof previousRuntime.fw === "object" ? previousRuntime.fw : {};
+  const previousBundles =
+    previousRuntime.bundles && typeof previousRuntime.bundles === "object" ? previousRuntime.bundles : null;
   const previousUtils =
     previousRuntime.utils && typeof previousRuntime.utils === "object" ? previousRuntime.utils : {};
   const previousMarkdownUtils =
@@ -55,6 +58,7 @@ export function initializeRuntime(options = {}) {
       createStore
     },
     chat: previousChat || legacyCurrentChat || undefined,
+    bundles: previousBundles || createBundleRuntime({ api }),
     proxyPath,
     utils: {
       ...previousUtils,
