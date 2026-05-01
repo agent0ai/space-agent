@@ -10,7 +10,7 @@ The supervisor keeps `server/` agnostic: it does not require server-owned cluste
 
 Current files:
 
-- `auth_keys.js`: supervisor-owned shared auth-key storage and environment injection for child servers
+- `auth_keys.js`: supervisor auth-key loading and environment injection for child servers
 - `child_process.js`: `space serve` child startup, readiness detection, health checking, crash/stop handling, and proxied-stream activity tracking
 - `git_releases.js`: Git remote polling, release cloning, dependency installation, and release metadata
 - `http_proxy.js`: public HTTP and upgrade proxying to the active child
@@ -32,7 +32,7 @@ Stable behavior:
 - supervisor state defaults to `<projectRoot>/supervisor`
 - staged releases live under that project-root supervisor directory, separate from both the live source files and `CUSTOMWARE_PATH`
 - auto-update polling uses `--auto-update-interval`, defaults to `300` seconds, and is disabled when the interval is less than or equal to `0`
-- auth keys are either inherited from `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` or generated once under supervisor state and injected into every child
+- auth keys are either inherited from `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` or loaded from the shared server-side auth store and injected into every child
 - `supervise` should stay independent from server runtime-param parsing so new `space serve` flags can flow through without a supervisor-specific change
 - the watched update repository is resolved in shared order: `--remote-url`, then `GIT_URL`, then the local `origin` remote URL, then the canonical fallback
 - GitHub update checks and staged release clones use the same `SPACE_GITHUB_TOKEN` auth rule as `node space update`, and send no GitHub auth header when that variable is unset
@@ -49,8 +49,9 @@ The public command owns argument parsing. Helper modules should receive normaliz
 
 Runtime state written by this subtree:
 
-- `<projectRoot>/supervisor/auth/auth_keys.json` by default, unless auth keys are injected through environment variables
 - `<projectRoot>/supervisor/releases/<revision>/` release directories by default
+
+Shared auth keys are sourced from the same loader used by the server-side auth subsystem, so the supervisor reuses `server/data/auth_keys.json` by default unless environment-injected secrets are already present.
 
 External commands used by this subtree:
 

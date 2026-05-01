@@ -134,7 +134,7 @@ Current supervisor options:
 Supervisor state:
 
 - default state directory: `<projectRoot>/supervisor`
-- shared child auth keys: `auth/auth_keys.json`, unless `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` are already injected
+- shared child auth keys: the same server-side auth store used by `node space user create`, which defaults to `server/data/auth_keys.json` unless `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` are already injected
 - staged source releases: `releases/<revision>/`
 
 The supervisor intentionally avoids changing `server/` lifecycle code. Its only runtime assumptions about a child are that `node space serve` prints the existing listening URL line and that `/api/health` succeeds after startup.
