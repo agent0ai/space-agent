@@ -1,0 +1,30 @@
+# railway.toml
+[projects]
+name = "space-agent"
+
+[[service]]
+name= "server"
+env = { RAILWAY_VOLUME_MOUNT_PATH = "/data/customware" }
+[service.build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[service.deploy]
+# start command defaults to the ENTRYPOINT
+# preDeployCommand = [""]
+healthcheckPath = "/"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# Require a volume for persistent data
+#requiredMountPath = "/data/customware"
+
+[service.variables]
+# NOTE: Railway injects PORT automatically.
+CUSTOMWARE_PATH = "/data/customware"
+#CUSTOMWARE_PATH = $RAILWAY_VOLUME_MOUNT_PATH
+
+[service.experimental]
+# Enable Railway Volumes for persistent file storage
+volumes = ["/data/customware"]

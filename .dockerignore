@@ -1,0 +1,54 @@
+# Dependencies — always reinstall inside the image
+**/node_modules
+**/backups
+
+# Logs and package-manager noise
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Git and CI (not needed in the runtime image)
+.git
+.github
+
+# Env and secrets — never bake local config into layers
+.env
+.env.*
+!.env.example
+
+# Build, test, and release artifacts
+dist
+coverage
+.nyc_output
+release
+*.tsbuildinfo
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea
+.vscode
+*.swp
+*.swo
+
+# Writable app layers and local runtime state (see repo `.gitignore`)
+app/L1
+app/L2
+tmp
+
+# Server-local temp and auth data (image should start clean)
+server/tmp
+server/data
+
+# SQLite and local TLS experiments
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.pem
+*.csr
+
+# Optional local tooling caches
+.cache
+.eslintcache
