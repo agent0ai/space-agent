@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { loadSupervisorAuthEnv } from "../commands/lib/supervisor/auth_keys.js";
 import { __test as superviseTest } from "../commands/supervise.js";
 import { buildServeProcessTitle, buildSupervisorProcessTitle } from "../server/lib/utils/process_title.js";
 
@@ -76,6 +79,39 @@ test("supervise defaults state dir to project-root supervisor folder", () => {
     superviseTest.resolveDefaultStateDir("/workspace/agent-one"),
     path.join("/workspace/agent-one", "supervisor")
   );
+});
+
+test("supervise shares the server data auth store with user creation by default", async () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "space-agent-"));
+  const authDir = path.join(projectRoot, "server", "data");
+  const authFile = path.join(authDir, "auth_keys.json");
+  const passwordSealKey = Buffer.alloc(32, 1).toString("base64url");
+  const sessionHmacKey = Buffer.alloc(32, 2).toString("base64url");
+
+  try {
+    fs.mkdirSync(authDir, { recursive: true });
+    fs.writeFileSync(
+      authFile,
+      `${JSON.stringify(
+        {
+          created_at: "2026-05-01T00:00:00.000Z",
+          password_seal_key: passwordSealKey,
+          session_hmac_key: sessionHmacKey
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    const auth = await loadSupervisorAuthEnv({ env: {}, projectRoot });
+
+    assert.equal(auth.source, authFile);
+    assert.equal(auth.env.SPACE_AUTH_PASSWORD_SEAL_KEY, passwordSealKey);
+    assert.equal(auth.env.SPACE_AUTH_SESSION_HMAC_KEY, sessionHmacKey);
+  } finally {
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+  }
 });
 
 test("runtime process titles stay distinct and short enough for htop-style listings", () => {

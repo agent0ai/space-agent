@@ -341,7 +341,7 @@ export const help = {
     "node space supervise --auto-update-interval 0 CUSTOMWARE_PATH=/srv/space/customware"
   ],
   description:
-    "Starts a production-ready public reverse-proxy supervisor, runs real space serve children on private loopback ports, periodically stages source updates in release directories when the auto-update interval is greater than zero, and switches to a healthy replacement child. The supervisor only owns its own flags plus the public bind host and port; every other CLI argument is forwarded to space serve unchanged except that child HOST and PORT are forced to loopback and CUSTOMWARE_PATH is normalized to an absolute shared-state path.",
+    "Starts a production-ready public reverse-proxy supervisor, runs real space serve children on private loopback ports, periodically stages source updates in release directories when the auto-update interval is greater than zero, and switches to a healthy replacement child. The supervisor reuses the same local auth-key store as the server-side auth loader unless auth secrets are injected directly. It only owns its own flags plus the public bind host and port; every other CLI argument is forwarded to space serve unchanged except that child HOST and PORT are forced to loopback and CUSTOMWARE_PATH is normalized to an absolute shared-state path.",
   options: [
     {
       flag: "--branch <branch>",
@@ -395,7 +395,7 @@ export async function execute(context) {
   const releasesDir = path.join(stateDir, "releases");
   const auth = await loadSupervisorAuthEnv({
     env: process.env,
-    stateDir
+    projectRoot: context.projectRoot
   });
   const updateSource = await resolveSupervisorSource(
     {
