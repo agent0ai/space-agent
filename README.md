@@ -1,93 +1,31 @@
-<p align="center">
-  <a href="https://space-agent.ai"><img src="./.github/readme-banner-thin.svg" alt="Space Agent banner" /></a>
-</p>
+[![Space Agent banner](./.github/readme-banner-thin.svg)](https://space-agent.ai)
 
-<p align="center">
-<br>
-  <a href="https://space-agent.ai"><img alt="Try Live Now!" src="./.github/readme-try-live-now.svg" /></a>
-  <br />
-  <br />
-  <a href="https://github.com/agent0ai/space-agent/releases/latest"><img alt="Run local App" height="50" src="https://img.shields.io/badge/Run%20local%20App-59F0A8?style=for-the-badge&labelColor=07111F&color=59F0A8" /></a>
-  <a href="#host"><img alt="Host yourself" height="50" src="https://img.shields.io/badge/Host%20yourself-FFFFFF?style=for-the-badge&labelColor=07111F&color=FFFFFF" /></a>
-</p>
+[![Try Live Now!](./.github/readme-try-live-now.svg)](https://space-agent.ai)
 
-<h3 align="center">Created by <a href="https://agent-zero.ai">Agent Zero</a>.</h3>
+[![Run local App](https://img.shields.io/badge/Run%20local%20App-59F0A8?style=for-the-badge&labelColor=07111F&color=59F0A8)](https://github.com/agent0ai/space-agent/releases/latest)
+[![Host yourself](https://img.shields.io/badge/Host%20yourself-FFFFFF?style=for-the-badge&labelColor=07111F&color=FFFFFF)](#a-real-server-for-you-or-your-team)
 
-<p align="center">
-  <a href="https://discord.gg/B8KZKNsPpj"><img alt="Discord" src="https://img.shields.io/badge/Discord-5865F2?style=flat&logo=discord&logoColor=white" /></a>
-  &nbsp;
-  <a href="https://x.com/Agent0ai"><img alt="X" src="https://img.shields.io/badge/X-000000?style=flat&logo=x&logoColor=white" /></a>
-  &nbsp;
-  <a href="https://www.youtube.com/@AgentZeroFW"><img alt="YouTube" src="https://img.shields.io/badge/YouTube-FF0000?style=flat&logo=youtube&logoColor=white" /></a>
-  &nbsp;
-  <a href="https://deepwiki.com/agent0ai/space-agent"><img alt="Ask DeepWiki" src="https://deepwiki.com/badge.svg" /></a>
-</p>
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/qVnMIg?referralCode=HhsRaZ&utm_medium=integration&utm_source=template&utm_campaign=generic)
 
-<p align="center">
-  <a href="https://www.youtube.com/watch?v=CNRHxEZ8yqs"><img src="./.github/thumbnail.webp" alt="Watch Space Agent on YouTube" width="560" /></a>
-</p>
+### Created by [Agent Zero](https://agent-zero.ai).
+
+[![Discord](https://img.shields.io/badge/Discord-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/B8KZKNsPpj)
+[![X](https://img.shields.io/badge/X-000000?style=flat&logo=x&logoColor=white)](https://x.com/Agent0ai)
+[![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=flat&logo=youtube&logoColor=white)](https://www.youtube.com/@AgentZeroFW)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/agent0ai/space-agent)
+
+[![Watch Space Agent on YouTube](./.github/thumbnail.webp)](https://www.youtube.com/watch?v=CNRHxEZ8yqs)
 
 ## Why Space Agent Is Different
 
-<table width="100%" border="0" cellpadding="0" cellspacing="0">
-  <tr>
-    <td valign="top" width="50%">
-      <strong>The agent reshapes the interface</strong><br />
-      Ask for a page, tool, widget, or workflow and the agent can build it straight into the running workspace while you work.
-    </td>
-    <td valign="top" width="50%">
-      <strong>Endless possibilities</strong><br />
-      The agent is not trapped inside a fixed product surface. It can develop the capabilities it needs from within the system itself and keep extending the Space toward whatever the user can imagine.
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="50%">
-      <img src="packaging/resources/icons/source/space-agent-icon-256.webp" alt="Space Agent app icon" width="120" />
-    </td>
-    <td valign="top" width="50%">
-      <strong>The agent lives in the frontend runtime</strong><br />
-      Space Agent runs in the browser layer itself, whether you open it in a tab or through the desktop app, so the agent can work directly with the same framework, modules, spaces, and UI it is reshaping.
-    </td>
-  </tr>
-  <tr>
-    <td valign="top" width="50%">
-      <strong>Text-based agent</strong><br />
-      New capabilities can live in simple <code>SKILL.md</code> files that the agent can write and extend itself in plain text.
-    </td>
-    <td valign="top" width="50%">
-      <strong>Token-efficient execution</strong><br />
-      No bulky tool-call JSON. When action is needed, the agent can stay in plain text and plain JavaScript inside the same message.
-    </td>
-  </tr>
-  <tr>
-    <td valign="top" width="50%">
-      <strong>Puzzle-piece modularity</strong><br />
-      The core stays small. Most of Space Agent is made of modular pieces that can be added, removed, or swapped cleanly instead of being welded into one rigid app.
-    </td>
-    <td align="center" valign="top" width="50%">
-      <img src="app/L0/_all/mod/_core/visual/res/chat/admin/helmet_no_bg_256.webp" alt="Space Agent helmet" height="112" />
-    </td>
-  </tr>
-  <tr>
-    <td valign="top" width="50%">
-      <strong>Personal to hierarchical</strong><br />
-      Use Space Agent as a completely personal assistant, or organize it into a hierarchical system of users and groups as the scope grows.
-    </td>
-    <td valign="top" width="50%">
-      <strong>Per-user work, group sharing</strong><br />
-      Users can build in their own layer without affecting anyone else, then groups can share tools, workflows, and behavior across teams when they are ready.
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="50%">
-      <img src="app/L0/_all/mod/_core/visual/res/engineer/astronaut_red_512h.webp" alt="Space Agent astronaut" height="148" />
-    </td>
-    <td valign="top" width="50%">
-      <strong>Persistent admin and time travel</strong><br />
-      When something breaks, admin mode gives you a stable control plane, and Git-backed history lets you roll back user or group changes without taking everyone down with you.
-    </td>
-  </tr>
-</table>
+|  |  |
+| :--- | :--- |
+| **The agent reshapes the interface** — Ask for a page, tool, widget, or workflow and the agent can build it straight into the running workspace while you work. | **Endless possibilities** — The agent is not trapped inside a fixed product surface. It can develop the capabilities it needs from within the system itself and keep extending the Space toward whatever the user can imagine. |
+| ![Space Agent app icon](packaging/resources/icons/source/space-agent-icon-256.webp) | **The agent lives in the frontend runtime** — Space Agent runs in the browser layer itself, whether you open it in a tab or through the desktop app, so the agent can work directly with the same framework, modules, spaces, and UI it is reshaping. |
+| **Text-based agent** — New capabilities can live in simple `SKILL.md` files that the agent can write and extend itself in plain text. | **Token-efficient execution** — No bulky tool-call JSON. When action is needed, the agent can stay in plain text and plain JavaScript inside the same message. |
+| **Puzzle-piece modularity** — The core stays small. Most of Space Agent is made of modular pieces that can be added, removed, or swapped cleanly instead of being welded into one rigid app. | ![Space Agent helmet](app/L0/_all/mod/_core/visual/res/chat/admin/helmet_no_bg_256.webp) |
+| **Personal to hierarchical** — Use Space Agent as a completely personal assistant, or organize it into a hierarchical system of users and groups as the scope grows. | **Per-user work, group sharing** — Users can build in their own layer without affecting anyone else, then groups can share tools, workflows, and behavior across teams when they are ready. |
+| ![Space Agent astronaut](app/L0/_all/mod/_core/visual/res/engineer/astronaut_red_512h.webp) | **Persistent admin and time travel** — When something breaks, admin mode gives you a stable control plane, and Git-backed history lets you roll back user or group changes without taking everyone down with you. |
 
 ## Try it in 30 seconds
 
@@ -102,8 +40,6 @@ Try our demo server with guest account.
 Grab the latest build from [GitHub Releases](https://github.com/agent0ai/space-agent/releases/latest). It runs everything as one app. No terminal required.
 
 ### A real server, for you or your team
-
-<a id="host"></a>
 
 ```bash
 git clone https://github.com/agent0ai/space-agent.git
@@ -131,6 +67,16 @@ Open the checked-in VS Code launch entry `Dev Server (npm run dev)` when you wan
 node space set CUSTOMWARE_PATH=/srv/space/customware
 node space supervise HOST=0.0.0.0 PORT=3000 # zero downtime auto-update
 ```
+
+### Deploying to Railway
+
+[Railway](https://railway.com) can run Space Agent from this repo using the checked-in [`railway.toml`](./railway.toml): the service builds from the root [`Dockerfile`](./Dockerfile), sets `CUSTOMWARE_PATH` to `/data/customware`, and expects a **persistent volume** at that path so user data survives redeploys (see the `volumes` entry under `[service.experimental]` in `railway.toml`).
+
+1. Create a Railway project and connect this repository (or push the image you build from the same `Dockerfile`).
+2. Attach storage so `/data/customware` is a mounted volume; without it, redeploys can wipe local state.
+3. Deploy; Railway injects `PORT` and the container listens on `HOST=0.0.0.0`.
+
+**Default login (Docker / Railway first boot):** username `admin`, password `change-me-now`. The entrypoint creates this user only when the admin layer is missing on the volume (see [`docker-entrypoint.sh`](./docker-entrypoint.sh)). Change the password immediately after first sign-in, or set `SPACE_DOCKER_ADMIN_PASSWORD` before the first boot if you want a different initial password.
 
 Run `node space help` to see the full command surface and built-in help for each from [`commands/params.yaml`](./commands/params.yaml).
 

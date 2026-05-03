@@ -1,0 +1,20 @@
+# Build the image first: `just docker-build` (tag `space-agent:local`).
+# Writable L1/L2 state lives in the named volume at the same path as `docker-entrypoint.sh`
+# defaults (`CUSTOMWARE_PATH=/srv/space/customware`).
+# Agent configs can be mounted as `~/conf/onscreen-agent.yaml`
+
+services:
+  space-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: space-agent
+    image: space-agent:local
+    ports:
+      - "3000:3000"
+    volumes:
+      - space-agent-customware:/data/customware
+    restart: unless-stopped
+
+volumes:
+  space-agent-customware:
