@@ -84,7 +84,7 @@
     </td>
     <td valign="top" width="50%">
       <strong>Persistent admin and time travel</strong><br />
-      When something breaks, admin mode gives you a stable control plane, and Git-backed history lets you roll back user or group changes without taking everyone down with you.
+      Enter Space opens the native workspace shell. Admin mode gives you the stable control plane, and Git-backed history lets you roll back user or group changes without taking everyone down with you.
     </td>
   </tr>
 </table>
