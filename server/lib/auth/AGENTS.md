@@ -12,10 +12,11 @@ Documentation is top priority for this subtree. After any change under `server/l
 
 Current files:
 
-- `service.js`: login challenge creation, login completion, backend-owned trusted session issuance for server-controlled auth flows, self-service password change, session-cookie helpers, session revocation, request-user resolution, and session-derived `userCrypto` localStorage-key derivation
+- `service.js`: login challenge creation, login completion, backend-owned trusted session issuance for server-controlled auth flows, self-service password change, session-cookie helpers, session revocation, request-user resolution, session-derived `userCrypto` localStorage-key derivation, and the small Claude subscription OAuth state-cache hooks `storeAnthropicOauthState(...)` plus `consumeAnthropicOauthState(...)` that share the same state system used for login challenges
 - `keys_manage.js`: backend-only auth-key loading from shared env injection or local fallback storage at `server/data/auth_keys.json` by default or `SPACE_AUTH_DATA_DIR/auth_keys.json` when that override is set
 - `passwords.js`: verifier and proof helpers
 - `user_crypto.js`: persistent wrapped user-key record helpers, backend-sealed server-share recovery, local backend-share cache storage, and invalidation
+- `anthropic_oauth.js`: Claude subscription OAuth helpers; PKCE challenge generation, AES-256-GCM token sealing using a key derived from the shared password seal key, the persisted record at logical `L2/<username>/meta/anthropic_oauth.json`, lazy refresh against the configured Anthropic token endpoint, and the read-only status helper used by the API endpoints; this module never returns plaintext tokens to the browser and never touches the password seal key directly outside of its own derived sub-key
 - `user_files.js`: canonical `L2/<username>/user.yaml` and `meta/` read or write helpers
 - `user_index.js`: derived user and session index snapshot builder
 - `user_manage.js`: create user, delete user, set password, and create guest user helpers
@@ -28,6 +29,7 @@ Current user storage layout:
 - password verifier envelope: logical `L2/<username>/meta/password.json`
 - active session verifiers: logical `L2/<username>/meta/logins.json`
 - wrapped browser-encryption record: logical `L2/<username>/meta/user_crypto.json`
+- Claude subscription OAuth tokens (when connected): logical `L2/<username>/meta/anthropic_oauth.json`, AES-256-GCM sealed with a key derived from the shared password seal key
 - user-owned modules: logical `L2/<username>/mod/`
 - on disk those files live under `CUSTOMWARE_PATH/L2/...` when `CUSTOMWARE_PATH` is configured, otherwise under repo `app/L2/...`
 - backend-only auth keys live outside the logical app tree and come from either shared process env injection via `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY`, or the gitignored local fallback `server/data/auth_keys.json`, unless `SPACE_AUTH_DATA_DIR` relocates that fallback root

@@ -299,7 +299,8 @@
 }
 
 .field input,
-.field textarea {
+.field textarea,
+.field select {
   display: block;
   width: 100%;
   max-width: 100%;
@@ -318,8 +319,35 @@
   resize: vertical;
 }
 
+.field select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  padding-right: 2.5rem;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.15rem) calc(50% - 0.16rem),
+    calc(100% - 0.7rem) calc(50% - 0.16rem);
+  background-size: 0.45rem 0.45rem, 0.45rem 0.45rem;
+  background-repeat: no-repeat;
+}
+
+.field select::-ms-expand {
+  display: none;
+}
+
+.field select option {
+  /* Native option dropdown is OS-rendered, so the panel itself can't be
+     restyled, but we can at least keep the surrounding tone aligned. */
+  background: var(--space-field-bg);
+  color: var(--color-text);
+}
+
 .field input:focus,
-.field textarea:focus {
+.field textarea:focus,
+.field select:focus {
   border-color: var(--space-field-focus-border);
   box-shadow: 0 0 0 3px var(--space-field-focus-ring);
 }

@@ -84,3 +84,45 @@ USER_FOLDER_SIZE_LIMIT_BYTES:
   allowed: [0..9007199254740991]
   default: 0
   frontend_exposed: false
+ANTHROPIC_OAUTH_ALLOWED:
+  description: Allow the Claude subscription OAuth provider for the agent surfaces. When false the connect endpoints reject and the UI hides the subscription option.
+  type: boolean
+  allowed: [true, false]
+  default: true
+  frontend_exposed: true
+ANTHROPIC_OAUTH_CLIENT_ID:
+  description: OAuth client_id used when starting a Claude subscription connect. Defaults to the published Claude Code public client. Override only if this deployment has registered its own Anthropic OAuth client.
+  type: text
+  allowed: ["*"]
+  default: 9d1c250a-e61b-44d9-88ed-5944d1962f5e
+  frontend_exposed: false
+ANTHROPIC_OAUTH_AUTHORIZE_URL:
+  description: Anthropic OAuth authorize endpoint used to start the connect flow.
+  type: text
+  allowed: ["*"]
+  default: https://claude.ai/oauth/authorize
+  frontend_exposed: false
+ANTHROPIC_OAUTH_TOKEN_URL:
+  description: Anthropic OAuth token exchange endpoint used to swap an authorization code for tokens and to refresh access tokens.
+  type: text
+  allowed: ["*"]
+  default: https://console.anthropic.com/v1/oauth/token
+  frontend_exposed: false
+ANTHROPIC_OAUTH_REDIRECT_URI:
+  description: Redirect URI sent during the Claude subscription OAuth flow when using paste-mode. Defaults to the Anthropic-hosted code-paste page so deployments do not need to register their own redirect URI.
+  type: text
+  allowed: ["*"]
+  default: https://console.anthropic.com/oauth/code/callback
+  frontend_exposed: false
+ANTHROPIC_OAUTH_FLOW_MODE:
+  description: Choose how Claude OAuth completes. auto resolves to paste (the public Claude Code OAuth client does not allowlist arbitrary localhost callbacks). redirect points Anthropic back at /api/oauth_anthropic_callback for a button-only flow but only works when ANTHROPIC_OAUTH_CLIENT_ID is overridden with a deployment-specific Anthropic OAuth application that has registered this Space Agent host as a redirect URI. paste explicitly forces the manual code-paste flow.
+  type: text
+  allowed: [auto, redirect, paste]
+  default: auto
+  frontend_exposed: false
+ANTHROPIC_API_BASE_URL:
+  description: Base URL for the Anthropic Messages API used by the subscription provider. Override only when proxying through a private Anthropic-compatible endpoint.
+  type: text
+  allowed: ["*"]
+  default: https://api.anthropic.com
+  frontend_exposed: false

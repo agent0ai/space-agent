@@ -299,12 +299,17 @@ export class OnscreenAgentLlmClient {
 
 export class OnscreenAgentApiLlmClient extends OnscreenAgentLlmClient {
   validateSettings(settings = this.settings) {
-    if (!settings?.apiEndpoint?.trim()) {
-      throw new Error("Set an API endpoint before sending a message.");
-    }
+    const provider = config.normalizeOnscreenAgentLlmProvider(settings?.provider);
+    const isSubscription = provider === config.ONSCREEN_AGENT_LLM_PROVIDER.SUBSCRIPTION;
 
-    if (!settings.apiKey.trim()) {
-      throw new Error("Set an API key before sending a message.");
+    if (!isSubscription) {
+      if (!settings?.apiEndpoint?.trim()) {
+        throw new Error("Set an API endpoint before sending a message.");
+      }
+
+      if (!settings.apiKey.trim()) {
+        throw new Error("Set an API key before sending a message.");
+      }
     }
 
     if (!settings.model.trim()) {

@@ -29,7 +29,7 @@ Current persistence paths:
 
 Current stored config fields are written in YAML as:
 
-- `llm_provider`
+- `llm_provider` (currently `api`, `subscription`, or `local`)
 - `local_provider`
 - `api_endpoint`
 - `api_key`
@@ -76,7 +76,9 @@ Prompt rules:
 
 Current behavior:
 
-- the LLM settings modal keeps one provider switch at the top with tabs named `API` and `Local`, and shows either the API settings fields or one `Local` section
+- the LLM settings modal keeps one provider switch at the top with three tabs named `API key`, `Claude subscription`, and `Local`, and shows the API settings fields, the subscription connect block, or the `Local` section based on the active tab
+- the `Claude subscription` tab is owned by `_core/anthropic_oauth/`; it mounts `connect-block.html` through `<x-component>` and shows a Claude model name input alongside it
+- when the active provider is `subscription`, `api.js` validation skips the `apiEndpoint` and `apiKey` checks and the `_core/anthropic_oauth/` request hook redirects the prepared fetch URL to the authenticated `/api/anthropic_subscription_completions` endpoint while stripping any `Authorization` header so the browser never sees the OAuth bearer token
 - the `Local` section only supports the Hugging Face browser runtime
 - the toolbar LLM settings button summarizes the current selection with the configured model name only; it does not prepend provider labels such as `API`, `Local`, or `Hugging Face`
 - the local section mounts the standalone Hugging Face config sidebar component through `<x-component>`, so the admin modal and the routed testing harness share the same component file instead of maintaining duplicated local-provider markup

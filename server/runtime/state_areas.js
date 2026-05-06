@@ -1,3 +1,4 @@
+const ANTHROPIC_OAUTH_STATE_AREA = "anthropic_oauth_state";
 const FILE_INDEX_AREA = "file_index";
 const FILE_INDEX_META_AREA = "file_index_meta";
 const GROUP_INDEX_AREA = "group_index";
@@ -13,6 +14,7 @@ const GROUP_ERRORS_ID = "errors";
 const GROUP_INCLUSION_CYCLES_ID = "inclusion_cycles";
 
 export {
+  ANTHROPIC_OAUTH_STATE_AREA,
   FILE_INDEX_AREA,
   FILE_INDEX_META_AREA,
   GROUP_ERRORS_ID,

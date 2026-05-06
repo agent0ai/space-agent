@@ -127,6 +127,26 @@ Runtime and identity endpoints:
 - `user_crypto_session_key`
 - `user_self_info`
 
+Claude subscription OAuth endpoints:
+
+- `oauth_anthropic_authorize`
+- `oauth_anthropic_callback`
+- `oauth_anthropic_status`
+- `oauth_anthropic_disconnect`
+- `anthropic_subscription_completions`
+
+Current rules:
+
+- these endpoints back the optional Claude subscription LLM provider for the first-party agent surfaces; they are gated by `ANTHROPIC_OAUTH_ALLOWED` (default `true`) and refuse with `403` when disabled
+- all five endpoints require an authenticated session and operate on the current user only; they never accept a `username` parameter
+- `oauth_anthropic_authorize` is `POST` only; it generates a PKCE verifier plus opaque state token, resolves the active flow mode (`redirect` or `paste`) from `ANTHROPIC_OAUTH_FLOW_MODE` plus the request's host, stores everything under the `anthropic_oauth_state` shared-state area through `auth.storeAnthropicOauthState(...)` with a short TTL, and returns the authorize URL plus state token plus resolved `flowMode` and `redirectUri` so the browser knows whether to wait for a popup `postMessage` or to surface the paste field
+- `oauth_anthropic_callback` exposes both `GET` and `POST` and shares one exchange path; `GET` is used by the redirect-mode popup (Anthropic redirects back with `?code=...&state=...`) and returns a small HTML page that posts a result message to `window.opener` and closes itself, while `POST` is used by the paste-mode dialog (the browser submits `{ code, state }` JSON) and returns the new connection status; both paths consume the state token through `auth.consumeAnthropicOauthState(...)`, validate the cached username against the current session, exchange the authorization code at the configured Anthropic token endpoint, seal the access and refresh tokens with the shared password seal key, and write the encrypted record to `/app/L2/<username>/meta/anthropic_oauth.json` through the shared mutation flow
+- `oauth_anthropic_status` is `GET` only; it returns `{ allowed, connected, accountEmail, expiresAt, scope, organizationId, organizationName, obtainedAt }` and never includes plaintext tokens
+- `oauth_anthropic_disconnect` is `POST` only; it deletes the encrypted record and publishes the changed logical path through the shared mutation flow
+- `anthropic_subscription_completions` is `POST` only; it accepts an OpenAI chat-completions body, refreshes the user's access token if needed, calls Anthropic Messages API at `${ANTHROPIC_API_BASE_URL}/v1/messages` with the OAuth bearer plus `anthropic-beta: oauth-2025-04-20` and `anthropic-version: 2023-06-01`, translates the Anthropic event stream back into OpenAI-compatible `chat.completion.chunk` SSE events, and streams the result so the existing browser fetch readers in `_core/admin/views/agent/api.js` and `_core/onscreen_agent/api.js` keep working
+- token refresh logic and at-rest sealing live in `server/lib/auth/anthropic_oauth.js`; endpoints must not roll their own crypto or HTTP exchange against Anthropic
+- the streaming endpoint must not modify or duplicate the shared fetch proxy at `server/router/proxy.js`; injecting the bearer token through a generic proxy would widen its trust boundary unnecessarily
+
 Important notes:
 
 - `extensions_load` resolves module-owned `ext/...` request paths through the shared layered override system and supports grouped request batches

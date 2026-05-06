@@ -1,4 +1,10 @@
 import * as config from "/mod/_core/onscreen_agent/config.js";
+import {
+  ANTHROPIC_SUBSCRIPTION_CURATED_MODELS,
+  ANTHROPIC_SUBSCRIPTION_DEFAULT_MODEL,
+  isAnthropicSubscriptionCuratedModel,
+  normalizeSubscriptionModelId
+} from "/mod/_core/anthropic_oauth/request.js";
 import * as agentApi from "/mod/_core/onscreen_agent/api.js";
 import {
   installPromptItemAccess,
@@ -1622,6 +1628,32 @@ const model = {
 
   get isSettingsDraftUsingLocalProvider() {
     return config.normalizeOnscreenAgentLlmProvider(this.settingsDraft.provider) === config.ONSCREEN_AGENT_LLM_PROVIDER.LOCAL;
+  },
+
+  get isSettingsDraftUsingSubscriptionProvider() {
+    return (
+      config.normalizeOnscreenAgentLlmProvider(this.settingsDraft.provider) ===
+      config.ONSCREEN_AGENT_LLM_PROVIDER.SUBSCRIPTION
+    );
+  },
+
+  get isUsingSubscriptionProvider() {
+    return (
+      config.normalizeOnscreenAgentLlmProvider(this.settings.provider) ===
+      config.ONSCREEN_AGENT_LLM_PROVIDER.SUBSCRIPTION
+    );
+  },
+
+  get subscriptionCuratedModels() {
+    return ANTHROPIC_SUBSCRIPTION_CURATED_MODELS.map((entry) => ({ ...entry }));
+  },
+
+  get subscriptionModelChoice() {
+    const normalized = normalizeSubscriptionModelId(this.settingsDraft.model);
+    if (!normalized || !isAnthropicSubscriptionCuratedModel(normalized)) {
+      return ANTHROPIC_SUBSCRIPTION_DEFAULT_MODEL;
+    }
+    return normalized;
   },
 
   get huggingfaceSavedModels() {
@@ -4433,6 +4465,28 @@ const model = {
         });
       });
     }
+
+    if (this.isSettingsDraftUsingSubscriptionProvider) {
+      const currentModel = String(this.settingsDraft.model || "").trim().toLowerCase();
+      const looksClaude = currentModel.includes("claude") || currentModel.startsWith("anthropic/");
+      if (!looksClaude) {
+        this.settingsDraft = {
+          ...this.settingsDraft,
+          model: ANTHROPIC_SUBSCRIPTION_DEFAULT_MODEL
+        };
+      }
+    }
+  },
+
+  setSubscriptionModelChoice(value) {
+    const choice = String(value || "").trim();
+    if (!choice) {
+      return;
+    }
+    this.settingsDraft = {
+      ...this.settingsDraft,
+      model: choice
+    };
   },
 
   setSettingsPromptBudgetRatio(key, value) {

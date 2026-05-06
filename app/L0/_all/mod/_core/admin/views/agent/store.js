@@ -4,6 +4,12 @@ import {
   installPromptItemAccess,
   rebalancePromptBudgetRatios
 } from "/mod/_core/agent_prompt/prompt-items.js";
+import {
+  ANTHROPIC_SUBSCRIPTION_CURATED_MODELS,
+  ANTHROPIC_SUBSCRIPTION_DEFAULT_MODEL,
+  isAnthropicSubscriptionCuratedModel,
+  normalizeSubscriptionModelId
+} from "/mod/_core/anthropic_oauth/request.js";
 import * as execution from "/mod/_core/admin/views/agent/execution.js";
 import * as llmParams from "/mod/_core/admin/views/agent/llm-params.js";
 import * as prompt from "/mod/_core/admin/views/agent/prompt.js";
@@ -482,6 +488,32 @@ const model = {
 
   get isSettingsDraftUsingLocalProvider() {
     return config.normalizeAdminChatLlmProvider(this.settingsDraft.provider) === config.ADMIN_CHAT_LLM_PROVIDER.LOCAL;
+  },
+
+  get isSettingsDraftUsingSubscriptionProvider() {
+    return (
+      config.normalizeAdminChatLlmProvider(this.settingsDraft.provider) ===
+      config.ADMIN_CHAT_LLM_PROVIDER.SUBSCRIPTION
+    );
+  },
+
+  get isUsingSubscriptionProvider() {
+    return (
+      config.normalizeAdminChatLlmProvider(this.settings.provider) ===
+      config.ADMIN_CHAT_LLM_PROVIDER.SUBSCRIPTION
+    );
+  },
+
+  get subscriptionCuratedModels() {
+    return ANTHROPIC_SUBSCRIPTION_CURATED_MODELS.map((entry) => ({ ...entry }));
+  },
+
+  get subscriptionModelChoice() {
+    const normalized = normalizeSubscriptionModelId(this.settingsDraft.model);
+    if (!normalized || !isAnthropicSubscriptionCuratedModel(normalized)) {
+      return ANTHROPIC_SUBSCRIPTION_DEFAULT_MODEL;
+    }
+    return normalized;
   },
 
   get huggingfaceSavedModels() {
@@ -1667,6 +1699,28 @@ const model = {
         this.reportError("warming the local-provider settings draft", error);
       });
     }
+
+    if (this.isSettingsDraftUsingSubscriptionProvider) {
+      const currentModel = String(this.settingsDraft.model || "").trim().toLowerCase();
+      const looksClaude = currentModel.includes("claude") || currentModel.startsWith("anthropic/");
+      if (!looksClaude) {
+        this.settingsDraft = {
+          ...this.settingsDraft,
+          model: ANTHROPIC_SUBSCRIPTION_DEFAULT_MODEL
+        };
+      }
+    }
+  },
+
+  setSubscriptionModelChoice(value) {
+    const choice = String(value || "").trim();
+    if (!choice) {
+      return;
+    }
+    this.settingsDraft = {
+      ...this.settingsDraft,
+      model: choice
+    };
   },
 
   setSettingsPromptBudgetRatio(key, value) {

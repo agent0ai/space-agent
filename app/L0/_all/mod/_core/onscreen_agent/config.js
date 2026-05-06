@@ -6,7 +6,8 @@ export const ONSCREEN_AGENT_UI_STATE_STORAGE_KEY = "space.onscreenAgent.uiState"
 export const DEFAULT_ONSCREEN_AGENT_MAX_TOKENS = 120_000;
 export const ONSCREEN_AGENT_LLM_PROVIDER = Object.freeze({
   API: "api",
-  LOCAL: "local"
+  LOCAL: "local",
+  SUBSCRIPTION: "subscription"
 });
 export const ONSCREEN_AGENT_LOCAL_PROVIDER = Object.freeze({
   HUGGINGFACE: "huggingface"
@@ -36,9 +37,13 @@ function normalizeOnscreenAgentSettingText(value) {
 }
 
 export function normalizeOnscreenAgentLlmProvider(value) {
-  return value === ONSCREEN_AGENT_LLM_PROVIDER.LOCAL
-    ? ONSCREEN_AGENT_LLM_PROVIDER.LOCAL
-    : ONSCREEN_AGENT_LLM_PROVIDER.API;
+  if (value === ONSCREEN_AGENT_LLM_PROVIDER.LOCAL) {
+    return ONSCREEN_AGENT_LLM_PROVIDER.LOCAL;
+  }
+  if (value === ONSCREEN_AGENT_LLM_PROVIDER.SUBSCRIPTION) {
+    return ONSCREEN_AGENT_LLM_PROVIDER.SUBSCRIPTION;
+  }
+  return ONSCREEN_AGENT_LLM_PROVIDER.API;
 }
 
 export function normalizeOnscreenAgentLocalProvider(value) {

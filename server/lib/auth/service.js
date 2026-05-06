@@ -33,10 +33,11 @@ import {
   readUserCryptoServerShare,
   USER_CRYPTO_STATUS_READY
 } from "./user_crypto.js";
-import { LOGIN_CHALLENGE_AREA } from "../../runtime/state_areas.js";
+import { ANTHROPIC_OAUTH_STATE_AREA, LOGIN_CHALLENGE_AREA } from "../../runtime/state_areas.js";
 
 const SESSION_COOKIE_NAME = "space_session";
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
+const ANTHROPIC_OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 const NONCE_PATTERN = /^[A-Za-z0-9_-]{16,200}$/u;
 const REMOTE_ADDRESS_MAX_LENGTH = 256;
 const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{16,200}$/u;
@@ -999,9 +1000,44 @@ export function createAuthService(options = {}) {
     throw new Error("Authentication required.");
   }
 
+  async function storeAnthropicOauthState(stateToken, value) {
+    const normalizedStateToken = String(stateToken || "").trim();
+    if (!normalizedStateToken) {
+      throw new Error("Anthropic OAuth state token is required.");
+    }
+    const payload =
+      value && typeof value === "object" && !Array.isArray(value) ? { ...value } : {};
+    await stateSystem.setEntry(
+      ANTHROPIC_OAUTH_STATE_AREA,
+      normalizedStateToken,
+      {
+        ...payload,
+        stateToken: normalizedStateToken
+      },
+      {
+        expiresInMs: ANTHROPIC_OAUTH_STATE_TTL_MS,
+        replicate: false
+      }
+    );
+  }
+
+  async function consumeAnthropicOauthState(stateToken) {
+    const normalizedStateToken = String(stateToken || "").trim();
+    if (!normalizedStateToken) {
+      return null;
+    }
+    const entry = await stateSystem.takeEntry(ANTHROPIC_OAUTH_STATE_AREA, normalizedStateToken);
+    const value =
+      entry?.value && typeof entry.value === "object" && !Array.isArray(entry.value)
+        ? entry.value
+        : null;
+    return value ? { ...value } : null;
+  }
+
   return {
     changePassword,
     completeLogin,
+    consumeAnthropicOauthState,
     createClearedSessionCookieHeader,
     createLoginChallenge,
     createSessionCookieHeader,
@@ -1012,7 +1048,8 @@ export function createAuthService(options = {}) {
     initialize,
     issueSessionForUser,
     revokeSession,
-    resolveUserFromCookies
+    resolveUserFromCookies,
+    storeAnthropicOauthState
   };
 }
 

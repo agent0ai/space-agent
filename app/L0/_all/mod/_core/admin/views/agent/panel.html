@@ -3,7 +3,9 @@
     <link rel="stylesheet" href="/mod/_core/visual/index.css" />
     <link rel="stylesheet" href="/mod/_core/admin/views/agent/agent.css" />
     <link rel="stylesheet" href="/mod/_core/huggingface/huggingface.css" />
+    <link rel="stylesheet" href="/mod/_core/anthropic_oauth/anthropic-oauth.css" />
     <script type="module" src="/mod/_core/admin/views/agent/store.js"></script>
+    <script type="module" src="/mod/_core/anthropic_oauth/connect-block.js"></script>
   </head>
   <body>
     <div x-data class="admin-agent-root agent-thread-surface">
@@ -186,7 +188,15 @@
                       :class="{ 'is-active': $store.adminAgent.isSettingsDraftUsingApiProvider }"
                       @click="$store.adminAgent.setSettingsProvider('api')"
                     >
-                      <span>API</span>
+                      <span>API key</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="secondary-button dialog-segmented-button"
+                      :class="{ 'is-active': $store.adminAgent.isSettingsDraftUsingSubscriptionProvider }"
+                      @click="$store.adminAgent.setSettingsProvider('subscription')"
+                    >
+                      <span>Claude subscription</span>
                     </button>
                     <button
                       type="button"
@@ -210,6 +220,23 @@
                       <span>API Key</span>
                       <input type="password" x-model="$store.adminAgent.settingsDraft.apiKey" />
                     </label>
+                  </div>
+                  <div x-show="$store.adminAgent.isSettingsDraftUsingSubscriptionProvider" x-cloak class="admin-agent-subscription-settings">
+                    <label class="field">
+                      <span>Claude Model</span>
+                      <select
+                        :value="$store.adminAgent.subscriptionModelChoice"
+                        @change="$store.adminAgent.setSubscriptionModelChoice($event.target.value)"
+                      >
+                        <template x-for="entry in $store.adminAgent.subscriptionCuratedModels" :key="entry.value">
+                          <option :value="entry.value" x-text="entry.label"></option>
+                        </template>
+                      </select>
+                      <p class="field-note">
+                        Pick a Claude model. Anthropic resolves the alias to the latest dated release, so newer models work without a Space Agent update. Effort, thinking, and other Claude defaults are handled by the subscription.
+                      </p>
+                    </label>
+                    <x-component path="/mod/_core/anthropic_oauth/connect-block.html" mode="admin"></x-component>
                   </div>
                   <div x-show="$store.adminAgent.isSettingsDraftUsingLocalProvider" x-cloak class="admin-agent-local-settings">
                     <div class="admin-agent-local-provider-panel">
@@ -284,7 +311,7 @@
                       System, history, and transient rebalance to 100% of <code>max tokens</code>. Single history message is a percentage of the history budget.
                     </p>
                   </div>
-                  <label class="field">
+                  <label class="field" x-show="!$store.adminAgent.isSettingsDraftUsingSubscriptionProvider" x-cloak>
                     <span>Params</span>
                     <textarea
                       rows="6"
