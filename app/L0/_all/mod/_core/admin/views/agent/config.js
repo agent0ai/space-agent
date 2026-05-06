@@ -5,7 +5,8 @@ export const ADMIN_CHAT_HISTORY_PATH = "~/hist/admin-chat.json";
 export const DEFAULT_ADMIN_CHAT_MAX_TOKENS = 120_000;
 export const ADMIN_CHAT_LLM_PROVIDER = {
   API: "api",
-  LOCAL: "local"
+  LOCAL: "local",
+  SUBSCRIPTION: "subscription"
 };
 
 export const ADMIN_CHAT_LOCAL_PROVIDER = {
@@ -26,9 +27,13 @@ export const DEFAULT_ADMIN_CHAT_SETTINGS = {
 };
 
 export function normalizeAdminChatLlmProvider(value) {
-  return value === ADMIN_CHAT_LLM_PROVIDER.LOCAL
-    ? ADMIN_CHAT_LLM_PROVIDER.LOCAL
-    : ADMIN_CHAT_LLM_PROVIDER.API;
+  if (value === ADMIN_CHAT_LLM_PROVIDER.LOCAL) {
+    return ADMIN_CHAT_LLM_PROVIDER.LOCAL;
+  }
+  if (value === ADMIN_CHAT_LLM_PROVIDER.SUBSCRIPTION) {
+    return ADMIN_CHAT_LLM_PROVIDER.SUBSCRIPTION;
+  }
+  return ADMIN_CHAT_LLM_PROVIDER.API;
 }
 
 export function normalizeAdminChatLocalProvider(value) {

@@ -51,6 +51,7 @@ Actions and forms:
 
 - `actions/buttons.css` owns shared `primary-button`, `secondary-button`, and `confirm-button` treatments plus composer-attachment chip styling
 - `forms/dialog.css` plus `forms/dialog.js` own the shared native `<dialog>` presentation and open or close helpers
+- `forms/dialog.css` owns the shared `.field` form-row primitive used by every dialog: it styles `.field input`, `.field textarea`, and `.field select` with the same border, radius, padding, and focus ring so dialog form rows stay visually consistent without each feature module re-implementing input chrome
 - `forms/dialog.css` also owns reusable prompt-budget field styling for dialog-based model settings, including the segmented preview bar plus the multi-slider control grid used by the first-party agent surfaces
 - authenticated app feature dialogs are standardized on feature-owned native `<dialog class="chat-dialog">` markup that lives in the owning feature HTML, opens through `forms/dialog.js`, and composes `dialog-card` or `dialog-card-shell` content wrappers from `forms/dialog.css`
 - `forms/dialog.css` also owns the reusable fixed-chrome dialog shell classes for long modals: `dialog-card-shell` keeps the header and footer static, `dialog-scroll-body` and `dialog-scroll-frame` own the interior scrolling region, and `dialog-actions-split` plus `dialog-actions-group` and `dialog-action-button-fixed` cover compact split footer rows without feature-local inline layout

@@ -1,0 +1,115 @@
+<div
+  class="anthropic-oauth-connect-block"
+  x-data="anthropicOauthConnectBlock()"
+  x-init="init()"
+>
+  <template x-if="!allowed">
+    <p class="field-note anthropic-oauth-disabled-note">
+      Claude subscription OAuth is disabled in this system. Use an API key instead.
+    </p>
+  </template>
+
+  <template x-if="allowed && connected">
+    <div class="anthropic-oauth-status-block">
+      <div class="anthropic-oauth-status-header">
+        <p class="anthropic-oauth-status-label">Connected to Claude</p>
+        <span class="anthropic-oauth-status-badge" :class="statusBadgeTone">
+          active
+        </span>
+      </div>
+      <p class="anthropic-oauth-status-account">
+        <span x-text="accountLabel || 'subscription account'"></span>
+      </p>
+      <template x-if="status.organizationName">
+        <p class="anthropic-oauth-status-org" x-text="status.organizationName"></p>
+      </template>
+      <p class="field-note anthropic-oauth-status-note">
+        Stays connected until you disconnect or change your Anthropic password. Space Agent refreshes the access token automatically in the background.
+      </p>
+      <div class="anthropic-oauth-status-actions">
+        <button
+          type="button"
+          class="secondary-button"
+          :disabled="isDisconnecting"
+          @click="disconnect()"
+          x-text="isDisconnecting ? 'Disconnecting...' : 'Disconnect'"
+        ></button>
+      </div>
+    </div>
+  </template>
+
+  <template x-if="allowed && !connected">
+    <div class="anthropic-oauth-connect-flow">
+      <p class="field-note anthropic-oauth-connect-intro">
+        Sign in with your Claude subscription to use it for chat without an API key.
+      </p>
+
+      <div class="anthropic-oauth-connect-step">
+        <p class="anthropic-oauth-step-label">
+          <template x-if="shouldShowPasteField">
+            <span>1. Authorize on Claude</span>
+          </template>
+          <template x-if="!shouldShowPasteField">
+            <span>Authorize on Claude</span>
+          </template>
+        </p>
+        <button
+          type="button"
+          class="primary-button anthropic-oauth-connect-button"
+          :disabled="isConnecting || isSubmittingCode"
+          @click="startConnect()"
+          x-text="connectButtonLabel"
+        ></button>
+        <template x-if="isRedirectMode && !shouldShowPasteField">
+          <p class="field-note">
+            A new window opens on claude.ai. Approve there and Space Agent finishes the connect automatically.
+          </p>
+        </template>
+        <template x-if="isPasteMode && !shouldShowPasteField">
+          <p class="field-note">
+            A new window opens on claude.ai. After you approve, Claude shows you a one-time authorization code.
+          </p>
+        </template>
+        <template x-if="isRedirectMode && shouldShowPasteField">
+          <p class="field-note">
+            The popup closed without finishing the connect. You can either click the button above to try again or paste the code Claude showed you below.
+          </p>
+        </template>
+      </div>
+
+      <template x-if="shouldShowPasteField">
+        <div class="anthropic-oauth-connect-step">
+          <p class="anthropic-oauth-step-label">2. Paste the code Claude showed you</p>
+          <label class="field anthropic-oauth-code-field">
+            <span class="anthropic-oauth-code-label">Authorization code</span>
+            <input
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Paste the code Claude showed you"
+              :value="codeInput"
+              :disabled="!isCodePending || isSubmittingCode"
+              @input="setCodeInput($event.target.value)"
+            />
+            <p class="field-note">
+              Anthropic shows the code on its hosted page after you approve. Copy it, paste it here, then click <strong>Finish connecting</strong>.
+            </p>
+          </label>
+          <div class="anthropic-oauth-submit-row">
+            <button
+              type="button"
+              class="confirm-button"
+              :disabled="!isCodePending || isSubmittingCode || !codeInput.trim()"
+              @click="submitCode()"
+              x-text="isSubmittingCode ? 'Connecting...' : 'Finish connecting'"
+            ></button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </template>
+
+  <template x-if="lastError">
+    <p class="field-note anthropic-oauth-error-copy" x-text="lastError"></p>
+  </template>
+</div>

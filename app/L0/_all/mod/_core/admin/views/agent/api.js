@@ -457,12 +457,17 @@ export const prepareAdminAgentApiRequest = globalThis.space.extend(
 );
 
 async function streamAdminAgentApiCompletion({ promptContext, settings, systemPrompt, messages, onDelta, signal }) {
-  if (!settings.apiEndpoint.trim()) {
-    throw new Error("Set an API endpoint before sending a message.");
-  }
+  const provider = config.normalizeAdminChatLlmProvider(settings?.provider);
+  const isSubscription = provider === config.ADMIN_CHAT_LLM_PROVIDER.SUBSCRIPTION;
 
-  if (!settings.apiKey.trim()) {
-    throw new Error("Set an API key before sending a message.");
+  if (!isSubscription) {
+    if (!settings.apiEndpoint.trim()) {
+      throw new Error("Set an API endpoint before sending a message.");
+    }
+
+    if (!settings.apiKey.trim()) {
+      throw new Error("Set an API key before sending a message.");
+    }
   }
 
   if (!settings.model.trim()) {

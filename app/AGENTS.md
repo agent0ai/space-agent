@@ -53,6 +53,7 @@ Current module-local docs in the app tree:
 - `app/L0/_all/mod/_core/onscreen_agent/AGENTS.md`
 - `app/L0/_all/mod/_core/onscreen_menu/AGENTS.md`
 - `app/L0/_all/mod/_core/open_router/AGENTS.md`
+- `app/L0/_all/mod/_core/anthropic_oauth/AGENTS.md`
 - `app/L1/_all/mod/metrics/posthog/AGENTS.md`
 - `app/L0/_admin/mod/_core/overlay_agent/AGENTS.md`
 
@@ -133,6 +134,7 @@ Current major first-party modules under `app/L0/_all/mod/_core/`:
 - `onscreen_agent/`: floating routed overlay agent and the first-party user-facing chat runtime
 - `onscreen_menu/`: reserved routed shell header bar, Home shortcut to the empty default route, left and right shell-control seams, and `_core/onscreen_menu/items` dropdown action seam
 - `open_router/`: headless OpenRouter request-policy module that extends the admin and onscreen API transport seams instead of hardcoding provider-specific headers into the chat runtimes
+- `anthropic_oauth/`: optional Claude subscription LLM provider; small headless helper plus a reusable connect block embedded under a third tab in the admin and onscreen settings dialogs, plus the per-surface request hooks that redirect API-mode requests to the authenticated `/api/anthropic_subscription_completions` endpoint when the user opted into subscription mode
 - `web_browsing/`: browser-surface module that contributes a Browser dropdown action, mounts draggable, minimizable, resizable popup browser windows, and defines placement-generic `<x-browser>` elements that can also live inside widgets or other screen DOM; the same element uses an iframe fallback in browser sessions and a DOM-backed desktop `<webview>` in the packaged host, supports optional `controls="true"` address-bar chrome, registers every surface under a unique `browser-N` id exposed through the numeric-id `space.browser` runtime, includes in-app interception of `_blank` or `window.open(...)` requests back into new modals, persists only popup-window geometry across reloads, tracks direct surface focus for prompt-time browser content, and gates app-side browser diagnostics through a shared browser log level that defaults to `error`
 - `skillset/`: first-party shared skill packs plus browser helper scripts and shared browser-side skill discovery helpers used by the onscreen and admin agents
 - `webllm/`: unlisted routed browser-only WebLLM test surface with a module-local worker, vendored browser runtime, compact searchable prebuilt model loading, expert-only compiled custom model loading, and simple throughput reporting
