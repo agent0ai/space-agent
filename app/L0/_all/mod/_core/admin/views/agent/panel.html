@@ -210,6 +210,13 @@
                       <span>API Key</span>
                       <input type="password" x-model="$store.adminAgent.settingsDraft.apiKey" />
                     </label>
+                    <label class="field">
+                      <span>Authorization Bearer Token</span>
+                      <input type="password" x-model="$store.adminAgent.settingsDraft.bearerToken" />
+                      <p class="field-note">
+                        Optional. When set, sent as <code>Authorization: Bearer</code> header instead of the API key.
+                      </p>
+                    </label>
                   </div>
                   <div x-show="$store.adminAgent.isSettingsDraftUsingLocalProvider" x-cloak class="admin-agent-local-settings">
                     <div class="admin-agent-local-provider-panel">

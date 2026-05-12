@@ -138,11 +138,16 @@ async function normalizeStoredConfig(runtime, parsedConfig) {
     runtime,
     storedConfig.api_key || storedConfig.apiKey || config.DEFAULT_ADMIN_CHAT_SETTINGS.apiKey || ""
   );
+  const storedBearerToken = await decodeStoredApiKey(
+    runtime,
+    storedConfig.bearer_token || storedConfig.bearerToken || config.DEFAULT_ADMIN_CHAT_SETTINGS.bearerToken || ""
+  );
 
   return {
     settings: {
       apiEndpoint: String(storedConfig.api_endpoint || storedConfig.apiEndpoint || config.DEFAULT_ADMIN_CHAT_SETTINGS.apiEndpoint || "").trim(),
       apiKey: storedApiKey.value,
+      bearerToken: storedBearerToken.value,
       huggingfaceDtype: String(
         storedConfig.huggingface_dtype || storedConfig.huggingfaceDtype || config.DEFAULT_ADMIN_CHAT_SETTINGS.huggingfaceDtype || ""
       ).trim(),
@@ -156,7 +161,9 @@ async function normalizeStoredConfig(runtime, parsedConfig) {
       promptBudgetRatios: normalizeStoredPromptBudgetRatios(storedConfig),
       provider,
       storedApiKeyLocked: storedApiKey.locked,
-      storedApiKeyValue: storedApiKey.storedValue
+      storedApiKeyValue: storedApiKey.storedValue,
+      storedBearerTokenLocked: storedBearerToken.locked,
+      storedBearerTokenValue: storedBearerToken.storedValue
     },
     systemPrompt: String(
       storedConfig.custom_system_prompt ||
@@ -173,6 +180,11 @@ async function buildStoredConfigPayload(runtime, { settings, systemPrompt }) {
   const payload = {
     api_endpoint: String(settings?.apiEndpoint || config.DEFAULT_ADMIN_CHAT_SETTINGS.apiEndpoint || "").trim(),
     api_key: await encodeStoredApiKey(runtime, settings),
+    bearer_token: await encodeStoredApiKey(runtime, {
+      apiKey: settings?.bearerToken,
+      storedApiKeyValue: settings?.storedBearerTokenValue,
+      storedApiKeyLocked: settings?.storedBearerTokenLocked
+    }),
     huggingface_dtype: String(settings?.huggingfaceDtype || config.DEFAULT_ADMIN_CHAT_SETTINGS.huggingfaceDtype || "").trim(),
     huggingface_model: String(settings?.huggingfaceModel || config.DEFAULT_ADMIN_CHAT_SETTINGS.huggingfaceModel || "").trim(),
     local_provider: config.normalizeAdminChatLocalProvider(settings?.localProvider),
@@ -220,6 +232,8 @@ export async function saveAdminChatConfig(nextConfig) {
     if (nextConfig?.settings && typeof nextConfig.settings === "object") {
       nextConfig.settings.storedApiKeyLocked = false;
       nextConfig.settings.storedApiKeyValue = String(payload.api_key || "").trim();
+      nextConfig.settings.storedBearerTokenLocked = false;
+      nextConfig.settings.storedBearerTokenValue = String(payload.bearer_token || "").trim();
     }
   } catch (error) {
     throw new Error(`Unable to save admin chat config: ${error.message}`);
