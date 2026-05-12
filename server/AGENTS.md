@@ -248,6 +248,7 @@ Parent and child split rules:
 - `/server/lib/customware/AGENTS.md` - server/lib/customware/ owns the layered app filesystem and module model.
 - `/server/lib/file_watch/AGENTS.md` - server/lib/file_watch/ owns the config-driven watchdog and the derived live indexes built from the logical app tree.
 - `/server/lib/git/AGENTS.md` - server/lib/git/ owns the Git backend abstraction used by source-checkout update flows and Git-backed module installs.
+- `/server/lib/openai_codex/AGENTS.md` - server/lib/openai_codex/ owns backend helpers for the OpenAI Codex OAuth device-code flow and single-writer refresh-token rotation.
 - `/server/lib/share/AGENTS.md` - server/lib/share/ owns the backend-hosted space-share helper.
 - `/server/lib/tmp/AGENTS.md` - server/lib/tmp/ owns transient server-side file storage under server/tmp/.
 - `/server/pages/AGENTS.md` - server/pages/ contains the server-owned HTML shells and public shell assets.

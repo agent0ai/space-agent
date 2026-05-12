@@ -60,6 +60,7 @@ Manual loads follow the same placement rule as the onscreen agent: `history` pla
 The admin settings modal now starts with a provider switch:
 
 - `API`: the existing endpoint, model, API key, params, and max-token settings
+- `Codex`: an OAuth-authenticated path that uses an existing OpenAI ChatGPT Plus subscription instead of an API key. See `app/L0/_all/mod/_core/openai_codex/AGENTS.md` for the request rewrite, token storage, and proxy-routing contract
 - `Local`: a browser-local Hugging Face path that uses Transformers.js on WebGPU
 
 Below those provider-specific sections, the shared settings area also exposes `max_tokens`, prompt-budget ratios for `system`, `history`, and `transient`, plus the separate single-history-message ratio used by the shared trimming path. Those values are persisted in `prompt_budget_ratios` and feed the same prompt-budget builder used by the onscreen agent: prepared entries and prompt items reuse cached token counts, single live history messages are capped first, contributor-level trims must each be at least `250` tokens, and `system` or `transient` falls back to one combined section-body trim when smaller contributor cuts would otherwise be required.

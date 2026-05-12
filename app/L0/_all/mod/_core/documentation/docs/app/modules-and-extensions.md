@@ -14,6 +14,7 @@ This doc covers how browser code is delivered and composed.
 - `app/L0/_all/mod/_core/visual/AGENTS.md`
 - `app/L0/_all/mod/_core/login_hooks/AGENTS.md`
 - `app/L0/_all/mod/_core/open_router/AGENTS.md`
+- `app/L0/_all/mod/_core/openai_codex/AGENTS.md`
 - `app/L0/_all/mod/_core/onscreen_menu/AGENTS.md`
 - `app/L0/_all/mod/_core/promptinclude/AGENTS.md`
 - `app/L0/_all/mod/_core/router/AGENTS.md`
@@ -128,6 +129,7 @@ Rules:
 - `_core/login_hooks` is another headless helper module: it extends `_core/framework/initializer.js/initialize/end`, checks for the client-owned `~/meta/login_hooks.json` marker, dispatches `_core/login_hooks/first_login` once when that marker is absent, and dispatches `_core/login_hooks/any_login` when the authenticated shell was reached directly from `/login`; `_core/spaces` currently consumes `_core/login_hooks/first_login` through `ext/js/_core/login_hooks/first_login/big-bang-space.js` to copy or reuse the module-owned `Big Bang` onboarding space and rewrite the root-shell default route before dashboard loads
 - `_core/user_crypto` is a headless runtime helper module: it extends `_core/framework/initializer.js/initialize/end`, reads `space.api.userSelfInfo()` for the current backend `sessionId` plus `userCrypto` state, restores the unlocked browser key from per-tab session storage when available and otherwise from the encrypted `localStorage` blob through `/api/user_crypto_session_key`, uses that same endpoint to backfill the persisted local blob from an already-unlocked tab, stores that blob under one fixed key, logs concise `console.warn(...)` messages when cache or bootstrap restore paths fail but the module can still continue fail-soft, and signs the browser out when the backend reports that the user still needs a first-login `userCrypto` provisioning run at `/login` or when the persisted blob is stale for the current session
 - `_core/open_router` is a headless provider-policy module: it extends `_core/onscreen_agent/api.js/prepareOnscreenAgentApiRequest/end` and `_core/admin/views/agent/api.js/prepareAdminAgentApiRequest/end`, detects when API mode targets an OpenRouter upstream endpoint, and applies the OpenRouter-specific request headers there instead of hardcoding them inside the chat runtimes
+- `_core/openai_codex` is a headless provider module for the OpenAI Codex (ChatGPT Plus) subscription. It extends the same `prepareOnscreenAgentApiRequest/end` and `prepareAdminAgentApiRequest/end` seams, detects when the active settings select the Codex provider, ensures a fresh access token through the server-side refresh endpoint, rewrites the chat-completions body into the Codex Responses API shape, and routes the call through `space.proxy.buildUrl(...)` because `chatgpt.com` does not advertise CORS for direct browser fetches. Token persistence stays on the storage side via the shared `token_envelope` helpers, and a small `token_manager` coalesces concurrent refresh attempts
 
 Uncached HTML `<x-extension>` lookups are grouped before they hit `/api/extensions_load`:
 

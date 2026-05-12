@@ -5,7 +5,7 @@ function getUserCryptoRuntime(runtime) {
 }
 
 function isSingleUserAppRuntime(runtime) {
-  return Boolean(runtime?.params?.SINGLE_USER_APP);
+  return Boolean(runtime?.config?.get?.("SINGLE_USER_APP", false));
 }
 
 // Serialize an in-memory Codex tokens object into the JSON string used as the
