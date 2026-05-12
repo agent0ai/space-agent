@@ -196,3 +196,36 @@ test("system part falls back to section-body compression when no contributor can
   assert.match(plan.sectionContributor.originalValueText, /\n\n/u);
   assert.equal(plan.sectionContributor.tokenCount > 0, true);
 });
+
+test("buildPromptLongMessagePlaceholder pads removedChars to a fixed byte width across orders of magnitude", () => {
+  // Prefix prompt-cache backends (llama.cpp `--prompt-cache`, qwen serve,
+  // vLLM prefix cache, etc.) key cache hits on a byte-stable prompt prefix.
+  // The placeholder appears inside every trimmed message and changes every
+  // turn as the trimmer recalculates how many characters to drop. Without
+  // padding, the counter `<<N characters removed ...>>` changes byte length
+  // each turn (3 -> 4 digits when N crosses 1000), shifting every byte after
+  // the placeholder and forcing a full prompt re-prefill instead of a warm-
+  // cache continuation. Lock the placeholder length to be byte-stable
+  // regardless of the counter's magnitude so the cache prefix stays valid
+  // across turns.
+  const placeholderSmall = buildPromptLongMessagePlaceholder({ id: 1, removedChars: 9 });
+  const placeholderMedium = buildPromptLongMessagePlaceholder({ id: 1, removedChars: 4096 });
+  const placeholderLarge = buildPromptLongMessagePlaceholder({ id: 1, removedChars: 500_000 });
+  const placeholderHuge = buildPromptLongMessagePlaceholder({ id: 1, removedChars: 1_000_000_000 });
+
+  assert.equal(placeholderSmall.length, placeholderMedium.length);
+  assert.equal(placeholderSmall.length, placeholderLarge.length);
+  assert.equal(placeholderSmall.length, placeholderHuge.length);
+});
+
+test("buildPromptLongMessagePlaceholder keeps the counter readable as a decimal number with leading zeros", () => {
+  const placeholder = buildPromptLongMessagePlaceholder({ id: 7, removedChars: 42 });
+
+  // The counter should still be parseable as a positive integer after the
+  // leading-zero pad so anything that inspects it (logs, debug overlays,
+  // future tooling) does not need to special-case the format.
+  const match = placeholder.match(/<<(\d+) characters removed/u);
+
+  assert.ok(match, "placeholder should start with `<<<digits> characters removed`");
+  assert.equal(Number(match[1]), 42);
+});
