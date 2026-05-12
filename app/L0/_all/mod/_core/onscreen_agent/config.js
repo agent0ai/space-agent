@@ -21,6 +21,7 @@ export const ONSCREEN_AGENT_HIDDEN_EDGE = Object.freeze({
 export const DEFAULT_ONSCREEN_AGENT_SETTINGS = {
   apiEndpoint: "https://openrouter.ai/api/v1/chat/completions",
   apiKey: "",
+  bearerToken: "",
   huggingfaceDtype: "q4",
   huggingfaceModel: "",
   localProvider: ONSCREEN_AGENT_LOCAL_PROVIDER.HUGGINGFACE,
