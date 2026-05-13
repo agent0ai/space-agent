@@ -348,7 +348,7 @@ function createRequestHandler(options) {
           return;
         }
 
-        await proxyExternalRequest(req, res, requestUrl);
+        await proxyExternalRequest(req, res, requestUrl, { runtimeParams });
         return;
       }
 

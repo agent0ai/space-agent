@@ -189,6 +189,7 @@ Current params:
 - `GIT_BACKEND`
 - `GIT_URL`
 - `USER_FOLDER_SIZE_LIMIT_BYTES`
+- `PROXY_REQUEST_TIMEOUT_SECONDS`
 
 Important fields per param:
 
@@ -215,6 +216,7 @@ Only params with `frontend_exposed: true` are injected into page-shell meta tags
 - `GIT_BACKEND`: selects the backend used by server-owned Git flows such as local history and Git-backed module installs; defaults to `auto`, which keeps the normal `native -> isomorphic` fallback order, while concrete values force one backend for local testing or troubleshooting
 - `GIT_URL`: optional Git repository URL used by `node space update` and `node space supervise`; if unset they fall back to the local `origin` remote URL and only then to the canonical repo URL
 - `USER_FOLDER_SIZE_LIMIT_BYTES`: optional per-user `L2/<user>/` folder cap in bytes; `0` disables it, and positive values make app-file mutations reject projected growth over the cap while still allowing mutations that reduce an already-over-limit folder
+- `PROXY_REQUEST_TIMEOUT_SECONDS`: upstream-fetch timeout used by the `/api/proxy` handler in `server/router/proxy.js`; defaults to `900` (15 minutes) so long upstream prompt-prefill phases on local LLM servers are not cut off by the runtime fetch implementation's tight `headersTimeout`; `0` disables the proxy-imposed timeout entirely and leaves the call to lower-layer wall-clock limits; positive values apply as a wall-clock abort from the moment the proxy starts the upstream request
 - `user` and `group` commands flush pending local-history commits before returning when `CUSTOMWARE_GIT_HISTORY` is enabled because those commands are short-lived processes
 - `node space set CUSTOMWARE_PATH=<path>` should be run before creating users or groups when writable state should live outside the source checkout, because `user` and `group` commands resolve that stored parameter before deciding where `L1` and `L2` files belong
 - `node space supervise` requires `CUSTOMWARE_PATH` and uses it as the stable writable state boundary across source-release swaps

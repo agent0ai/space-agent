@@ -42,6 +42,39 @@ const PROXY_RESPONSE_TARGET_HEADER = "x-space-proxy-target-url";
 const PROXY_RESPONSE_FINAL_HEADER = "x-space-proxy-final-url";
 const PROXY_RESPONSE_REDIRECTED_HEADER = "x-space-proxy-redirected";
 
+// Default upstream-fetch timeout for `/api/proxy` calls, in seconds. The
+// runtime fetch implementation (undici) imposes its own `headersTimeout` of
+// 300 seconds by default, which is too tight for upstream services that
+// stall before producing response headers — most importantly long
+// prompt-prefill phases on local LLM servers (llama.cpp, qwen serve, vLLM)
+// where the upstream stays silent for minutes during PP on long-context
+// conversations. Raise the default to 15 minutes so cold-cache replies are
+// not cut off by the proxy itself; operators can shorten it with
+// `PROXY_REQUEST_TIMEOUT_SECONDS=N` or disable the timeout entirely with
+// `PROXY_REQUEST_TIMEOUT_SECONDS=0`.
+const PROXY_REQUEST_TIMEOUT_PARAM_NAME = "PROXY_REQUEST_TIMEOUT_SECONDS";
+const PROXY_REQUEST_TIMEOUT_DEFAULT_SECONDS = 900;
+
+function resolveProxyRequestTimeoutMs(runtimeParams) {
+  if (!runtimeParams || typeof runtimeParams.get !== "function") {
+    return PROXY_REQUEST_TIMEOUT_DEFAULT_SECONDS * 1000;
+  }
+
+  const rawValue = runtimeParams.get(PROXY_REQUEST_TIMEOUT_PARAM_NAME);
+
+  if (rawValue === undefined || rawValue === null || rawValue === "") {
+    return PROXY_REQUEST_TIMEOUT_DEFAULT_SECONDS * 1000;
+  }
+
+  const numericValue = Number(rawValue);
+
+  if (!Number.isFinite(numericValue) || numericValue < 0) {
+    return PROXY_REQUEST_TIMEOUT_DEFAULT_SECONDS * 1000;
+  }
+
+  return Math.floor(numericValue * 1000);
+}
+
 function getTargetUrl(requestUrl, headers) {
   return requestUrl.searchParams.get("url") || headers[PROXY_TARGET_HEADER];
 }
@@ -115,7 +148,7 @@ async function pipeUpstreamBodyToResponse(res, upstreamResponse) {
   });
 }
 
-async function proxyExternalRequest(req, res, requestUrl) {
+async function proxyExternalRequest(req, res, requestUrl, options = {}) {
   const targetUrlValue = getTargetUrl(requestUrl, req.headers);
 
   if (!targetUrlValue) {
@@ -145,6 +178,18 @@ async function proxyExternalRequest(req, res, requestUrl) {
   const method = String(req.method || "GET").toUpperCase();
   const upstreamHeaders = createUpstreamHeaders(req.headers);
   const body = requestCanHaveBody(method) ? await readRequestBody(req) : undefined;
+
+  // Resolve the request-scoped abort signal. The optional caller-supplied
+  // timeout overrides undici's tight `headersTimeout` default so upstream
+  // services that stall before producing response headers (typically LLM
+  // servers during long prompt-prefill on warm-cache-miss requests) do not
+  // get cut off mid-PP. A configured timeout of 0 disables the timeout
+  // entirely; any other positive value applies as a wall-clock abort.
+  const timeoutMs = resolveProxyRequestTimeoutMs(options.runtimeParams);
+  const fetchSignal = timeoutMs > 0 && typeof AbortSignal?.timeout === "function"
+    ? AbortSignal.timeout(timeoutMs)
+    : undefined;
+
   let upstreamResponse;
 
   try {
@@ -152,9 +197,22 @@ async function proxyExternalRequest(req, res, requestUrl) {
       method,
       headers: upstreamHeaders,
       body,
-      redirect: "follow"
+      redirect: "follow",
+      signal: fetchSignal
     });
   } catch (error) {
+    const isTimeoutError = error?.name === "TimeoutError" || error?.code === "UND_ERR_HEADERS_TIMEOUT";
+
+    if (isTimeoutError) {
+      sendProxyError(
+        res,
+        504,
+        `Upstream did not respond within the configured proxy timeout of ${Math.round(timeoutMs / 1000)}s. ` +
+          `Increase ${PROXY_REQUEST_TIMEOUT_PARAM_NAME} (or set it to 0 to disable) for slower upstreams.`
+      );
+      return;
+    }
+
     sendProxyError(res, 502, `Upstream fetch failed: ${error.message}`);
     return;
   }
@@ -165,4 +223,9 @@ async function proxyExternalRequest(req, res, requestUrl) {
   await pipeUpstreamBodyToResponse(res, upstreamResponse);
 }
 
-export { proxyExternalRequest };
+export {
+  PROXY_REQUEST_TIMEOUT_DEFAULT_SECONDS,
+  PROXY_REQUEST_TIMEOUT_PARAM_NAME,
+  proxyExternalRequest,
+  resolveProxyRequestTimeoutMs
+};
