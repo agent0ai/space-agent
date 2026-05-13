@@ -12,6 +12,7 @@ import {
   trimPromptLongMessage
 } from "/mod/_core/agent_prompt/prompt-items.js";
 import { createAgentPromptInstance } from "/mod/_core/agent_prompt/prompt-runtime.js";
+import { quantizeRemovedChars } from "/mod/_core/agent_prompt/trim-quantum.js";
 import { buildMessagePromptParts, MESSAGE_PROMPT_PART_BLOCK } from "/mod/_core/onscreen_agent/attachments.js";
 import * as llmParams from "/mod/_core/onscreen_agent/llm-params.js";
 import * as skills from "/mod/_core/onscreen_agent/skills.js";
@@ -777,12 +778,14 @@ function trimPromptContributorByOverflow(contributor, overflowTokens) {
       removedChars: estimatedRemovedChars
     })
   );
-  const nextRemovedChars = contributor.removedChars + estimatePromptCharsForTokenRemoval(
-    contributor.originalValueText,
-    normalizedOverflowTokens + placeholderTokenCount,
-    {
-      tokenCount: originalValueTokenCount
-    }
+  const nextRemovedChars = quantizeRemovedChars(
+    contributor.removedChars + estimatePromptCharsForTokenRemoval(
+      contributor.originalValueText,
+      normalizedOverflowTokens + placeholderTokenCount,
+      {
+        tokenCount: originalValueTokenCount
+      }
+    )
   );
   let trimmedValue = trimPromptLongMessage(contributor.originalValueText, {
     id: contributor.id,
@@ -793,12 +796,14 @@ function trimPromptContributorByOverflow(contributor, overflowTokens) {
 
   if (trimmedValueTokenCount > targetTokenCount) {
     const additionalOverflowTokens = trimmedValueTokenCount - targetTokenCount;
-    const recalibratedRemovedChars = trimmedValue.removedChars + estimatePromptCharsForTokenRemoval(
-      contributor.originalValueText,
-      additionalOverflowTokens,
-      {
-        tokenCount: originalValueTokenCount
-      }
+    const recalibratedRemovedChars = quantizeRemovedChars(
+      trimmedValue.removedChars + estimatePromptCharsForTokenRemoval(
+        contributor.originalValueText,
+        additionalOverflowTokens,
+        {
+          tokenCount: originalValueTokenCount
+        }
+      )
     );
 
     trimmedValue = trimPromptLongMessage(contributor.originalValueText, {
