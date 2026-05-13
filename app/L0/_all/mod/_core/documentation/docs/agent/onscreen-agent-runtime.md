@@ -52,6 +52,8 @@ Important config fields:
 
 `prompt_budget_ratios` drives the shared prompt-budget builder: `system`, `history`, and `transient` split the configured `max_tokens`, while `singleMessage` caps any one live history message as a percentage of the history budget before part-level trimming runs. Prepared prompt entries and prompt items now carry cached token metadata so rebuilds can reuse counts for the same bodies. Part-level trimming then uses one shared planner pass: contributor trims must each be at least `250` tokens, and when that is not possible for `system` or `transient`, the runtime trims one combined section body instead of applying tiny contributor cuts.
 
+The default split (`system: 30, history: 40, transient: 30`) reserves equal headroom for skill catalogs and transient runtime context, but it also caps the history sub-budget at 40% of `max_tokens`. On models with very large context windows (for example a local backend with `max_tokens: 256000`), this can trigger middle-of-history trimming long before the total prompt approaches the model's real ceiling — the history sub-budget hits its 40% slice first while system and transient still have plenty of headroom. If the overlay rarely loads heavy custom system prompts or transient sections and the goal is to keep more raw conversation history before trimming starts, raise `history` against `system` and `transient`, for example `history: 70, system: 15, transient: 15`. The three values must still total `100`.
+
 Important browser UI state fields:
 
 - `agent_x`, `agent_y`
