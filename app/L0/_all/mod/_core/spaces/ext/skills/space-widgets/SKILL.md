@@ -1,4 +1,4 @@
----
+_---
 name: Space Widgets
 description: Create, patch, inspect, and remove widgets in the current space
 metadata:
@@ -75,16 +75,20 @@ staged turns
 - If you receive an error from patchWidget() that is not a problem in the underlying code, consider fixing the widget with a renderWidget() call
 - If you receive an error from a renderWidget() or patchWidget() call.  Summarize the error and attempt to rerun with the error fixed.  Repeat up to 3 times before giving up
 - Start every execution block with one short sentence saying the immediate step
-- Put that sentence on its own line. Then put `_____javascript` alone on the next line
-- A prompt to change, fix, or modify the widget implies that the code changed should be applied by patching or rendering.
+- Put that sentence on its own line. Then put `_____javascript` alone on the next line separated from other text by newlines
+- If the prompt asks you to change, fix, or modify the widget, you should wrap any output code in a patch and render instruction and output in a solitary `_____javascript` block.  Do not merely state the fix.
+- If the response to an error correction emits corrected code, use this code to patch or render the widget.
 - Do not execute silently
-- Do not send only a staging sentence such as Checking widget source, loading widget source, patching the widget, or rendering the widget. If you announce a widget read, list, patch, reload, or render step, the same message must execute it
+- Do not send only a staging sentence such as checking widget source, loading widget source, patching the widget, rendering the widget, or fixing the widget. If you announce a widget read, list, patch, reload, render, or fix step, the same message must execute it
 - Do not send only a code change without applying it to the widget unless the user specifically asks for the change not to be applied.
 - After a successful patch or render that satisfies the request, stop and answer normally. Do not keep making more visual tweaks unless the user asked for another iteration or the runtime reported failure
 - After a successful patch or render, the next assistant turn should usually be the final user-facing answer. Do not output another promise line such as Updating... or Applying... without execution
 - Never output raw javascript code in user-facing answers unless the user specifically requests to see code; otherwise all code should be in a solitary `_____javascript` block
-- Make sure that `_____javascript` `_____framework` and `_____transient` always contains a newline before and after to separate it into a separate line.  Never embed these strings in the middle of another line.
+- Never output `_____javascript` or `_____framework` or `_____transient` unless you output a newline before the string to separate the string into a separate line.
+- Never output `_____javascript` or `_____transient` unless you output a newline after the string to separate the string into a separate line.
+- Avoid outputing `_____javascript` or `_____framework` in the same line.  Insert a newline before `_____javascript` to prevent the two tags from appearing in the same line.
 - Any widget modifying requests must result in a patchWidget or renderWidget call- no raw code snippets
+- Any widget modifying requests that returns a successful response must call patchWidget or renderWidget to apply the code changes - no successful response without a code change
 
 examples
 Checking widget catalog
@@ -117,11 +121,23 @@ _____javascript
 return await space.current.patchWidget("snake-game", ...)
 
 bad
-```javascript
+javascript
 return await space.current.renderWidget({
+
+replace with
+_____javascript
+return await space.current.renderWidget({
+
 
 bad
 Checking the current widget source
+
+bad
+Checking the current widget source_____javascript
+
+replace with
+Checking the current widget source
+_____javascript
 
 bad
 _____javascript
@@ -130,11 +146,24 @@ return await space.current.readWidget("snake-game")
 bad
 _____javascriptreturn await space
 
+replace with
+_____javascript
+return await space
+
 bad
 _____javascriptreturn await space.current.renderWidget({
 
+replace with
+_____javascript
+return await space.current.renderWidget({
+
 bad
-_____framework output string
+_____framework execution success↓_____javascript return await
+
+replace with
+_____framework execution success↓
+_____javascript
+return await
 
 bad
 Which widget should I change?
@@ -155,8 +184,16 @@ return await space.current.patchWidget("snake-game", ...)
 bad
 return await space.current.patchWidget("snake-game", ...)
 
+replace with
+_____javascript
+return await space.current.patchWidget("snake-game", ...)
+
 bad
-return await space.current.renderWidget(...)
+return await space.current.renderWidget({
+
+replace with
+_____javascript
+return await space.current.renderWidget({
 
 bad
 Updating the snake widget background now
