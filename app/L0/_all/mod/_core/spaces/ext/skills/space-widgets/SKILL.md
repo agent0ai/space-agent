@@ -177,7 +177,7 @@ renderer rules
 - If an imported module needs widget helpers or state, export functions that receive `context` instead of hardcoding globals or space ids
 - Do not add outer wrapper padding just to inset content. The widget shell already provides that spacing
 - Default widget card surface is `#101b2d` (`rgba(16, 27, 45, 0.92)`). Do not add another full-card background unless the content truly needs its own stage
-- Use light text and UI elements by default because widgets sit on that dark surface
+- Do not use dark text colors on dark surfaces/backgrounds or light text colors on light surfaces/backgrounds.  Ensure that there is contrast between the text and the backgrounds to maximize readability.
 - For markdown-heavy output, use space.utils.markdown.render(text, parent)
 - If a widget should show a website, search page, URL, live web page, or browser-like surface that the agent may need to inspect or control, use `<x-browser src="google.com"></x-browser>` or create an `x-browser` element in DOM
 - Add `controls="true"` to `x-browser` only when the widget needs its own address bar and navigation controls; omit it or use `controls="false"` for a frameless embedded browser
