@@ -60,7 +60,7 @@
             :value="$store.huggingface.modelInput"
             @input="$store.huggingface.setModelInput($event.target.value)"
             :disabled="$store.huggingface.isGenerating"
-            placeholder="onnx-community/gemma-4-E4B-it-ONNX or https://huggingface.co/..."
+            placeholder="onnx-community/Qwen3-0.6B-ONNX or https://huggingface.co/..."
           />
         </label>
 
@@ -228,7 +228,7 @@
           type="text"
           :value="$store.adminAgent.settingsDraft.huggingfaceModel"
           @input="$store.adminAgent.handleSettingsHuggingFaceModelInput($event.target.value)"
-          placeholder="onnx-community/gemma-4-E4B-it-ONNX"
+          placeholder="onnx-community/Qwen3-0.6B-ONNX"
         />
       </label>
 
@@ -342,7 +342,7 @@
           type="text"
           :value="$store.onscreenAgent.settingsDraft.huggingfaceModel"
           @input="$store.onscreenAgent.handleSettingsHuggingFaceModelInput($event.target.value)"
-          placeholder="onnx-community/gemma-4-E4B-it-ONNX"
+          placeholder="onnx-community/Qwen3-0.6B-ONNX"
         />
       </label>
 

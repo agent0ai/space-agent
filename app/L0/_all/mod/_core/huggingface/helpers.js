@@ -1,6 +1,7 @@
 export const DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant.";
 export const DEFAULT_DTYPE = "q4";
-export const DEFAULT_MODEL_INPUT = "onnx-community/gemma-4-E4B-it-ONNX";
+export const LEGACY_DEFAULT_MODEL_INPUT = "onnx-community/gemma-4-E4B-it-ONNX";
+export const DEFAULT_MODEL_INPUT = "onnx-community/Qwen3-0.6B-ONNX";
 export const DEFAULT_MAX_NEW_TOKENS = 16384;
 export const COMPATIBLE_MODELS_URL = "https://huggingface.co/onnx-community/models";
 export const HUGGINGFACE_SAVED_MODELS_STORAGE_KEY = "space.huggingface.saved-models";
@@ -209,9 +210,23 @@ export function readSavedModelEntries() {
       return [];
     }
 
-    return parsedValue
+    const nextEntries = parsedValue
       .map((entry) => createSavedModelEntry(entry))
+      .filter((entry) => entry?.modelId !== LEGACY_DEFAULT_MODEL_INPUT)
       .filter(Boolean);
+
+    if (nextEntries.length !== parsedValue.length) {
+      try {
+        globalThis.localStorage?.setItem(
+          HUGGINGFACE_SAVED_MODELS_STORAGE_KEY,
+          JSON.stringify(nextEntries)
+        );
+      } catch {
+        // Ignore storage write failures and still return the sanitized list.
+      }
+    }
+
+    return nextEntries;
   } catch {
     return [];
   }

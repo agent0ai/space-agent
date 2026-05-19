@@ -44,7 +44,7 @@ The page owns:
 - a simple testing chat with system prompt, user messages, streamed assistant replies, stop, and clear-chat
 - compact response metrics inline under each assistant reply
 
-When admin or onscreen chat local settings have no selected model and the browser has saved Hugging Face models, the shared sidebar preselects the browser-wide last successfully loaded saved model from local storage. If that entry was discarded, it falls back to the first saved model. When the browser has no saved local Hugging Face models and no persisted auto-reload target, the routed testing-page model input prefills `onnx-community/gemma-4-E4B-it-ONNX` as the empty-state suggestion; admin and onscreen chat local settings reuse that same default only when there is no preferred saved-model selection. The default generation cap is `16384` max new tokens unless the user changes it.
+When admin or onscreen chat local settings have no selected model and the browser has saved Hugging Face models, the shared sidebar preselects the browser-wide last successfully loaded saved model from local storage. If that entry was discarded, it falls back to the first saved model. When the browser has no saved local Hugging Face models and no persisted auto-reload target, the routed testing-page model input prefills `onnx-community/Qwen3-0.6B-ONNX` as the empty-state suggestion; admin and onscreen chat local settings reuse that same default only when there is no preferred saved-model selection. The default generation cap is `16384` max new tokens unless the user changes it.
 
 This is not a general agent surface. It does not expose tool execution, queueing, attachments, persisted conversations, or backend orchestration.
 

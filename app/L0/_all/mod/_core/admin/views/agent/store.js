@@ -803,17 +803,6 @@ const model = {
       return false;
     }
 
-    const preferredSavedModel = huggingfaceManager.refreshPreferredSavedModelSelection();
-
-    if (preferredSavedModel?.modelId && preferredSavedModel?.dtype) {
-      this.settingsDraft = {
-        ...this.settingsDraft,
-        huggingfaceDtype: preferredSavedModel.dtype,
-        huggingfaceModel: preferredSavedModel.modelId
-      };
-      return true;
-    }
-
     const snapshot = huggingfaceManager.getSnapshot();
     const hasSavedModels = Array.isArray(snapshot.savedModels) && snapshot.savedModels.length > 0;
     const activeModelId = normalizeHuggingFaceModelInput(snapshot.activeModelId || "");
@@ -1633,21 +1622,31 @@ const model = {
   },
 
   openSettingsDialog() {
+    const provider = config.normalizeAdminChatLlmProvider(this.settings.provider);
+
     this.settingsDraft = {
       ...this.settings,
       promptBudgetRatios: clonePromptBudgetRatios(this.settings.promptBudgetRatios)
     };
     this.syncHuggingFaceFromManager();
-    this.prefillSettingsDraftDefaultHuggingFaceModel();
 
-    if (!String(this.settingsDraft.huggingfaceDtype || "").trim()) {
-      this.settingsDraft.huggingfaceDtype = DTYPE_OPTIONS[0]?.value || config.DEFAULT_ADMIN_CHAT_SETTINGS.huggingfaceDtype;
+    if (provider === config.ADMIN_CHAT_LLM_PROVIDER.LOCAL) {
+      this.prefillSettingsDraftDefaultHuggingFaceModel();
+
+      if (!String(this.settingsDraft.huggingfaceDtype || "").trim()) {
+        this.settingsDraft.huggingfaceDtype = DTYPE_OPTIONS[0]?.value || config.DEFAULT_ADMIN_CHAT_SETTINGS.huggingfaceDtype;
+      }
+    } else {
+      this.settingsDraft.huggingfaceModel = "";
+      this.settingsDraft.huggingfaceDtype = "";
     }
 
-    void this.warmSettingsDraftLocalProvider()
-      .catch((error) => {
-        this.reportError("warming the local-provider settings draft", error);
-      });
+    if (provider === config.ADMIN_CHAT_LLM_PROVIDER.LOCAL) {
+      void this.warmSettingsDraftLocalProvider()
+        .catch((error) => {
+          this.reportError("warming the local-provider settings draft", error);
+        });
+    }
     openDialog(this.refs.settingsDialog);
   },
 
@@ -1656,9 +1655,17 @@ const model = {
   },
 
   setSettingsProvider(provider) {
+    const nextProvider = config.normalizeAdminChatLlmProvider(provider);
+
     this.settingsDraft = {
       ...this.settingsDraft,
-      provider: config.normalizeAdminChatLlmProvider(provider)
+      huggingfaceDtype: nextProvider === config.ADMIN_CHAT_LLM_PROVIDER.LOCAL
+        ? this.settingsDraft.huggingfaceDtype
+        : "",
+      huggingfaceModel: nextProvider === config.ADMIN_CHAT_LLM_PROVIDER.LOCAL
+        ? this.settingsDraft.huggingfaceModel
+        : "",
+      provider: nextProvider
     };
 
     if (this.isSettingsDraftUsingLocalProvider) {
@@ -1877,8 +1884,12 @@ const model = {
     this.settings = {
       apiEndpoint: (this.settingsDraft.apiEndpoint || "").trim(),
       apiKey: (this.settingsDraft.apiKey || "").trim(),
-      huggingfaceDtype: (this.settingsDraft.huggingfaceDtype || "").trim(),
-      huggingfaceModel: normalizeHuggingFaceModelInput(this.settingsDraft.huggingfaceModel || ""),
+      huggingfaceDtype: provider === config.ADMIN_CHAT_LLM_PROVIDER.LOCAL
+        ? (this.settingsDraft.huggingfaceDtype || "").trim()
+        : "",
+      huggingfaceModel: provider === config.ADMIN_CHAT_LLM_PROVIDER.LOCAL
+        ? normalizeHuggingFaceModelInput(this.settingsDraft.huggingfaceModel || "")
+        : "",
       localProvider,
       maxTokens,
       model: (this.settingsDraft.model || "").trim(),

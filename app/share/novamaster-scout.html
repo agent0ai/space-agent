@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NovaMaster Scout</title>
+<style>
+:root {
+  --glass: rgba(18,18,24,0.85);
+  --glass-border: rgba(255,255,255,0.06);
+  --text: #e4e4e7;
+  --text-dim: #71717a;
+  --green: #22c55e;
+  --yellow: #eab308;
+  --red: #ef4444;
+  --blue: #3b82f6;
+  --radius: 12px;
+  --gap: 14px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif;
+  background: #0a0a0f;
+  color: var(--text);
+  min-height: 100vh;
+  padding: 20px;
+}
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+}
+.header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; }
+.header .badge {
+  background: rgba(34,197,94,0.12); color: var(--green);
+  padding: 4px 12px; border-radius: 20px; font-size: 0.8rem;
+  font-weight: 500; border: 1px solid rgba(34,197,94,0.2);
+}
+.refresh-row { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+#refreshBtn {
+  background: rgba(59,130,246,0.15); color: var(--blue);
+  border: 1px solid rgba(59,130,246,0.25); padding: 8px 18px;
+  border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 500;
+  transition: all 0.2s;
+}
+#refreshBtn:hover { background: rgba(59,130,246,0.25); }
+#lastUpdate { color: var(--text-dim); font-size: 0.78rem; }
+.grid { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.card {
+  background: var(--glass); border: 1px solid var(--glass-border);
+  border-radius: var(--radius); padding: 18px; backdrop-filter: blur(20px);
+  transition: border-color 0.3s, transform 0.2s;
+}
+.card:hover { border-color: rgba(255,255,255,0.1); transform: translateY(-2px); }
+.card.error-card { border-color: rgba(239,68,68,0.3); }
+.card-name { font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; }
+.card-url { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 10px; word-break: break-all; }
+.status-row { display: flex; align-items: center; gap: 8px; }
+.status-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  animation: pulse 2s infinite;
+}
+.status-dot.online { background: var(--green); box-shadow: 0 0 8px rgba(34,197,94,0.4); }
+.status-dot.offline { background: var(--red); box-shadow: 0 0 8px rgba(239,68,68,0.4); animation: none; }
+.status-dot.checking { background: var(--yellow); box-shadow: 0 0 8px rgba(234,179,8,0.4); }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.status-label { font-size: 0.82rem; font-weight: 500; }
+.status-label.online { color: var(--green); }
+.status-label.offline { color: var(--red); }
+.status-label.checking { color: var(--yellow); }
+.card-detail { font-size: 0.75rem; color: var(--text-dim); margin-top: 6px; }
+.cors-note {
+  background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.15);
+  border-radius: 8px; padding: 10px 14px; margin-top: 16px;
+  font-size: 0.75rem; color: var(--yellow); display: none;
+}
+.cors-note code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; }
+.summary-row { display: flex; gap: var(--gap); margin-top: 24px; flex-wrap: wrap; }
+.summary-chip {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+  padding: 10px 16px; border-radius: 10px; font-size: 0.82rem;
+  display: flex; align-items: center; gap: 8px;
+}
+.summary-chip .count { font-weight: 700; font-size: 1.2rem; }
+.footer { margin-top: 30px; font-size: 0.7rem; color: var(--text-dim); text-align: center; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>&#x1f6f0;&#xfe0f; NovaMaster Scout</h1>
+    <span style="font-size:0.78rem;color:var(--text-dim)">Real-time stack health monitor</span>
+  </div>
+  <div class="badge" id="overallBadge">&#x25cf; checking</div>
+</div>
+<div class="refresh-row">
+  <button id="refreshBtn" onclick="pollAll()">&#x21bb; Refresh</button>
+  <span id="lastUpdate">&mdash;</span>
+</div>
+<div class="grid" id="grid"></div>
+<div class="cors-note" id="corsNote">
+  &#x26a0;&#xfe0f; Cross-origin (CORS) may block health checks from browser. Serve via <code>python3 -m http.server 8080</code> or open via Space Agent for best results.
+</div>
+<div class="summary-row">
+  <div class="summary-chip"><span class="count" id="onlineCount">0</span> online</div>
+  <div class="summary-chip"><span class="count" id="offlineCount">0</span> offline</div>
+  <div class="summary-chip"><span class="count" id="corsCount">0</span> CORS</div>
+</div>
+<div class="footer">NovaMaster Scout &middot; Space Agent ready &middot; Auto-refresh 30s</div>
+
+<script>
+var ENDPOINTS = [
+  { name: "Nova Eventbus", url: "http://127.0.0.1:5670/health", port: 5670 },
+  { name: "Hermes Bridge", url: "http://127.0.0.1:9120/api/health", port: 9120 },
+  { name: "n8n Automation", url: "http://127.0.0.1:8095/healthz", port: 8095 },
+  { name: "ClawMem API", url: "http://127.0.0.1:8644/health", port: 8644 },
+  { name: "ComfyUI", url: "http://127.0.0.1:8188/system_stats", port: 8188 },
+  { name: "Space Agent", url: "http://127.0.0.1:3003", port: 3003 },
+  { name: "OpenPets Bridge", url: "http://127.0.0.1:4931/health", port: 4931 },
+  { name: "Qdrant", url: "http://127.0.0.1:6333/health", port: 6333 }
+];
+
+function checkEndpoint(ep) {
+  return new Promise(function(resolve) {
+    var xhr = new XMLHttpRequest();
+    var timedOut = false;
+    var timeout = setTimeout(function() {
+      timedOut = true;
+      xhr.abort();
+      resolve({ online: false, status: 0, detail: "Timeout (4s)" });
+    }, 4000);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4) {
+        clearTimeout(timeout);
+        if (timedOut) return;
+        if (xhr.status === 0) {
+          resolve({ online: false, status: 0, detail: "CORS blocked" });
+        } else {
+          resolve({ online: xhr.status >= 200 && xhr.status < 500, status: xhr.status, detail: "" });
+        }
+      }
+    };
+    try {
+      xhr.open("GET", ep.url, true);
+      xhr.timeout = 4000;
+      xhr.send();
+    } catch(e) {
+      clearTimeout(timeout);
+      resolve({ online: false, status: 0, detail: e.message });
+    }
+  });
+}
+
+function cardHTML(ep, result) {
+  var cls = result.online ? "online" : "offline";
+  var dotCls = result.online ? "online" : "offline";
+  var cardCls = result.online ? "" : "error-card";
+  var detailHtml = "";
+  if (result.detail) {
+    detailHtml = '<div class="card-detail">' + result.detail + '</div>';
+  } else if (result.status) {
+    detailHtml = '<div class="card-detail">HTTP ' + result.status + '</div>';
+  }
+  return '<div class="card ' + cardCls + '">' +
+    '<div class="card-name">' + ep.name + '</div>' +
+    '<div class="card-url">:' + ep.port + '</div>' +
+    '<div class="status-row">' +
+    '<div class="status-dot ' + dotCls + '"></div>' +
+    '<span class="status-label ' + cls + '">' + (result.online ? "ONLINE" : "OFFLINE") + '</span>' +
+    '</div>' + detailHtml + '</div>';
+}
+
+function pollAll() {
+  var grid = document.getElementById("grid");
+  var html = "";
+  for (var i = 0; i < ENDPOINTS.length; i++) {
+    html += '<div class="card"><div class="card-name">' + ENDPOINTS[i].name + '</div><div class="card-url">:' + ENDPOINTS[i].port + '</div><div class="status-row"><div class="status-dot checking"></div><span class="status-label checking">CHECKING</span></div></div>';
+  }
+  grid.innerHTML = html;
+
+  var promises = [];
+  for (var i = 0; i < ENDPOINTS.length; i++) {
+    promises.push(checkEndpoint(ENDPOINTS[i]));
+  }
+  Promise.all(promises).then(function(results) {
+    var onlineCount = 0;
+    var corsCount = 0;
+    var newHtml = "";
+    for (var i = 0; i < results.length; i++) {
+      if (results[i].online) onlineCount++;
+      if (results[i].detail === "CORS blocked") corsCount++;
+      newHtml += cardHTML(ENDPOINTS[i], results[i]);
+    }
+    grid.innerHTML = newHtml;
+    var offlineCount = results.length - onlineCount;
+    document.getElementById("onlineCount").textContent = onlineCount;
+    document.getElementById("offlineCount").textContent = offlineCount;
+    document.getElementById("corsCount").textContent = corsCount;
+    document.getElementById("lastUpdate").textContent = "Last: " + new Date().toLocaleTimeString();
+
+    var corsNote = document.getElementById("corsNote");
+    corsNote.style.display = (corsCount > 0 && onlineCount === 0) ? "block" : "none";
+
+    var badge = document.getElementById("overallBadge");
+    if (offlineCount === 0) {
+      badge.textContent = "\u25cf ALL ONLINE";
+      badge.style.background = "rgba(34,197,94,0.12)";
+      badge.style.color = "var(--green)";
+      badge.style.borderColor = "rgba(34,197,94,0.2)";
+    } else if (onlineCount === 0) {
+      badge.textContent = "\u25cf ALL OFFLINE";
+      badge.style.background = "rgba(239,68,68,0.12)";
+      badge.style.color = "var(--red)";
+      badge.style.borderColor = "rgba(239,68,68,0.2)";
+    } else {
+      badge.textContent = "\u25cf " + offlineCount + " OFFLINE";
+      badge.style.background = "rgba(234,179,8,0.12)";
+      badge.style.color = "var(--yellow)";
+      badge.style.borderColor = "rgba(234,179,8,0.2)";
+    }
+  });
+}
+
+pollAll();
+setInterval(pollAll, 30000);
+</script>
+</body>
+</html>
