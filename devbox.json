@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.12.0/.schema/devbox.schema.json",
+  "packages": [
+    "nodejs_22"
+  ],
+  "shell": {
+    "init_hook": [
+      "echo 'Welcome to the space-agent devbox environment!'"
+    ],
+    "scripts": {
+      "install": "npm install",
+      "start": "node space serve",
+      "dev": "node server/dev_server.js"
+    }
+  }
+}

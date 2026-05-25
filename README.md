@@ -105,6 +105,49 @@ Grab the latest build from [GitHub Releases](https://github.com/agent0ai/space-a
 
 <a id="host"></a>
 
+#### With Nix (flakes)
+
+```bash
+nix run github:agent0ai/space-agent
+```
+
+Or install permanently:
+
+```bash
+nix profile install github:agent0ai/space-agent
+```
+
+#### With Devbox
+
+```bash
+# Install devbox first (if not already installed)
+curl -fsSL https://get.jetify.dev/devbox | bash
+
+# Clone the repository
+git clone https://github.com/agent0ai/space-agent.git
+cd space-agent
+
+# Initialize the environment
+devbox shell
+
+# Install dependencies
+devbox run install
+
+# create yourself an admin
+node space user create admin --password "change-me-now" --full-name "Admin" --groups _admin
+
+# start the server
+node space serve
+```
+
+Or install devbox via Homebrew:
+
+```bash
+brew install jetify-com/devbox/devbox
+```
+
+#### From source
+
 ```bash
 git clone https://github.com/agent0ai/space-agent.git
 cd space-agent
