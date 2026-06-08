@@ -202,6 +202,10 @@ async function normalizeStoredConfig(runtime, parsedConfig) {
     runtime,
     storedConfig.api_key || storedConfig.apiKey || config.DEFAULT_ONSCREEN_AGENT_SETTINGS.apiKey || ""
   );
+  const storedBearerToken = await decodeStoredApiKey(
+    runtime,
+    storedConfig.bearer_token || storedConfig.bearerToken || config.DEFAULT_ONSCREEN_AGENT_SETTINGS.bearerToken || ""
+  );
   const legacyDisplayMode =
     storedConfig.collapsed === true
       ? DISPLAY_MODE_COMPACT
@@ -213,6 +217,7 @@ async function normalizeStoredConfig(runtime, parsedConfig) {
     settings: {
       apiEndpoint: String(storedConfig.api_endpoint || storedConfig.apiEndpoint || config.DEFAULT_ONSCREEN_AGENT_SETTINGS.apiEndpoint || "").trim(),
       apiKey: storedApiKey.value,
+      bearerToken: storedBearerToken.value,
       huggingfaceDtype: String(
         storedConfig.huggingface_dtype ||
           storedConfig.huggingfaceDtype ||
@@ -237,7 +242,9 @@ async function normalizeStoredConfig(runtime, parsedConfig) {
           config.DEFAULT_ONSCREEN_AGENT_SETTINGS.supportsVision
       ),
       storedApiKeyLocked: storedApiKey.locked,
-      storedApiKeyValue: storedApiKey.storedValue
+      storedApiKeyValue: storedApiKey.storedValue,
+      storedBearerTokenLocked: storedBearerToken.locked,
+      storedBearerTokenValue: storedBearerToken.storedValue
     },
     systemPrompt: String(
       storedConfig.custom_system_prompt ||
@@ -283,6 +290,11 @@ async function buildStoredConfigPayload(runtime, { settings, systemPrompt }) {
   const payload = {
     api_endpoint: String(settings?.apiEndpoint || config.DEFAULT_ONSCREEN_AGENT_SETTINGS.apiEndpoint || "").trim(),
     api_key: await encodeStoredApiKey(runtime, settings),
+    bearer_token: await encodeStoredApiKey(runtime, {
+      apiKey: settings?.bearerToken,
+      storedApiKeyValue: settings?.storedBearerTokenValue,
+      storedApiKeyLocked: settings?.storedBearerTokenLocked
+    }),
     huggingface_dtype: String(settings?.huggingfaceDtype || config.DEFAULT_ONSCREEN_AGENT_SETTINGS.huggingfaceDtype || "").trim(),
     huggingface_model: String(settings?.huggingfaceModel || config.DEFAULT_ONSCREEN_AGENT_SETTINGS.huggingfaceModel || "").trim(),
     local_provider: config.normalizeOnscreenAgentLocalProvider(settings?.localProvider),
@@ -452,6 +464,8 @@ export async function saveOnscreenAgentConfig(nextConfig) {
     if (nextConfig?.settings && typeof nextConfig.settings === "object") {
       nextConfig.settings.storedApiKeyLocked = false;
       nextConfig.settings.storedApiKeyValue = String(payload.api_key || "").trim();
+      nextConfig.settings.storedBearerTokenLocked = false;
+      nextConfig.settings.storedBearerTokenValue = String(payload.bearer_token || "").trim();
     }
   } catch (error) {
     throw new Error(`Unable to save onscreen agent config: ${error.message}`);

@@ -1877,6 +1877,7 @@ const model = {
     this.settings = {
       apiEndpoint: (this.settingsDraft.apiEndpoint || "").trim(),
       apiKey: (this.settingsDraft.apiKey || "").trim(),
+      bearerToken: (this.settingsDraft.bearerToken || "").trim(),
       huggingfaceDtype: (this.settingsDraft.huggingfaceDtype || "").trim(),
       huggingfaceModel: normalizeHuggingFaceModelInput(this.settingsDraft.huggingfaceModel || ""),
       localProvider,
@@ -1886,7 +1887,9 @@ const model = {
       promptBudgetRatios: clonePromptBudgetRatios(this.settingsDraft.promptBudgetRatios),
       provider,
       storedApiKeyLocked: this.settings.storedApiKeyLocked === true,
-      storedApiKeyValue: String(this.settings.storedApiKeyValue || "")
+      storedApiKeyValue: String(this.settings.storedApiKeyValue || ""),
+      storedBearerTokenLocked: this.settings.storedBearerTokenLocked === true,
+      storedBearerTokenValue: String(this.settings.storedBearerTokenValue || "")
     };
 
     try {

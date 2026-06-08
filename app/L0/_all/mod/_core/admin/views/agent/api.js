@@ -11,12 +11,14 @@ import {
   prepareChatMessagesForVisionTransport
 } from "/mod/_core/agent-chat/visual-data.js";
 
-function createHeaders(apiKey) {
+function createHeaders(apiKey, bearerToken) {
   const headers = {
     "Content-Type": "application/json"
   };
 
-  if (apiKey) {
+  if (bearerToken) {
+    headers.Authorization = `Bearer ${bearerToken}`;
+  } else if (apiKey) {
     headers.Authorization = `Bearer ${apiKey}`;
   }
 
@@ -469,7 +471,10 @@ export const prepareAdminAgentApiRequest = globalThis.space.extend(
 
     return {
       apiEndpoint,
-      headers: createHeaders(String(effectiveSettings?.apiKey || "").trim()),
+      headers: createHeaders(
+        String(effectiveSettings?.apiKey || "").trim(),
+        String(effectiveSettings?.bearerToken || "").trim()
+      ),
       messages: Array.isArray(messages) ? messages : [],
       method: "POST",
       promptContext: normalizedPromptContext,
@@ -488,8 +493,8 @@ async function streamAdminAgentApiCompletion({ promptContext, settings, systemPr
     throw new Error("Set an API endpoint before sending a message.");
   }
 
-  if (!settings.apiKey.trim()) {
-    throw new Error("Set an API key before sending a message.");
+  if (!settings.apiKey.trim() && !(settings.bearerToken || "").trim()) {
+    throw new Error("Set an API key or authorization bearer token before sending a message.");
   }
 
   if (!settings.model.trim()) {

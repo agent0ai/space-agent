@@ -15,6 +15,7 @@ export const ADMIN_CHAT_LOCAL_PROVIDER = {
 export const DEFAULT_ADMIN_CHAT_SETTINGS = {
   apiEndpoint: "https://openrouter.ai/api/v1/chat/completions",
   apiKey: "",
+  bearerToken: "",
   huggingfaceDtype: "q4",
   huggingfaceModel: "",
   localProvider: ADMIN_CHAT_LOCAL_PROVIDER.HUGGINGFACE,

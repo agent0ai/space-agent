@@ -360,6 +360,13 @@
                         <span>API Key</span>
                         <input type="password" x-model="$store.onscreenAgent.settingsDraft.apiKey" />
                       </label>
+                      <label class="field">
+                        <span>Authorization Bearer Token</span>
+                        <input type="password" x-model="$store.onscreenAgent.settingsDraft.bearerToken" />
+                        <p class="field-note">
+                          Optional. When set, sent as <code>Authorization: Bearer</code> header instead of the API key.
+                        </p>
+                      </label>
                     </div>
                     <div x-show="$store.onscreenAgent.isSettingsDraftUsingLocalProvider" x-cloak class="onscreen-agent-local-settings">
                       <div class="onscreen-agent-local-provider-panel">
