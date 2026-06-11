@@ -139,7 +139,9 @@ patch vs rewrite
 - from and to are inclusive zero-based renderer line numbers
 - Omit to to insert before from
 - Omit content on a ranged line edit to delete
-- Common line aliases like line, startLine/endLine, range, text, and replace are tolerated, but prefer the canonical shapes above
+- Common coordinate aliases like line, startLine/endLine, and range are tolerated, but prefer the canonical shapes above
+- Common content aliases like text, replace, value, replaceWith, replacement, and newText are tolerated, but prefer canonical content
+- Other field names on an edit object are rejected fast with a list of accepted aliases. Do not invent fields like path, replaceText, or body — they are unrecognized and the edit will be refused before any line is touched
 - Do not mix exact find edits and line edits in the same call
 - Do not overlap edits
 - The runtime applies edits from higher line numbers down to lower ones
