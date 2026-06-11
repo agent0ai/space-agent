@@ -440,11 +440,23 @@ function createFileWriteRequest(pathOrFiles, content, encoding) {
   };
 }
 
-function createFileDeleteRequest(pathOrPaths) {
+function createFileDeleteRequest(pathOrPaths, options) {
+  const optionsObject = isPlainObject(options) ? options : {};
+  // `ifExists: true` requests idempotent delete semantics: paths that no
+  // longer exist on disk return `200` with the path listed under `skipped`
+  // instead of `404`. Useful for cache-cleanup callers (thumbnail pruning,
+  // stale layout files) that previously had to wrap each call in
+  // try/catch + isNotFoundError. Per RFC 7231 DELETE is idempotent, but we
+  // only opt into idempotency at the call site so strict callers
+  // (user-initiated file-explorer delete) keep their authoritative 404.
+  const ifExistsFlag = optionsObject.ifExists === true;
+  const ifExistsBody = ifExistsFlag ? { ifExists: true } : {};
+
   if (Array.isArray(pathOrPaths)) {
     return {
       method: "POST",
       body: {
+        ...ifExistsBody,
         paths: pathOrPaths
       }
     };
@@ -454,6 +466,8 @@ function createFileDeleteRequest(pathOrPaths) {
     return {
       method: "POST",
       body: {
+        ...ifExistsBody,
+        ...(typeof pathOrPaths.ifExists === "boolean" ? { ifExists: pathOrPaths.ifExists } : {}),
         paths: pathOrPaths.paths
       }
     };
@@ -463,6 +477,8 @@ function createFileDeleteRequest(pathOrPaths) {
     return {
       method: "POST",
       body: {
+        ...ifExistsBody,
+        ...(typeof pathOrPaths.ifExists === "boolean" ? { ifExists: pathOrPaths.ifExists } : {}),
         path: pathOrPaths.path
       }
     };
@@ -471,6 +487,7 @@ function createFileDeleteRequest(pathOrPaths) {
   return {
     method: "POST",
     body: {
+      ...ifExistsBody,
       path: pathOrPaths
     }
   };
@@ -1033,11 +1050,20 @@ export function createApiClient(options = {}) {
    * `L2/alice/old-folder/`, and the `~` or `~/...` shorthand for the current
    * user's `L2/<username>/...` path. Directory deletes are recursive.
    *
+   * Pass `{ ifExists: true }` (either on the input object for the
+   * `{path}` / `{paths}` forms or as a second positional argument for
+   * the bare-path / array forms) to opt into idempotent semantics: paths
+   * that do not exist return `200` and appear under `skipped` on the
+   * result instead of throwing `404`. Without `ifExists` the call stays
+   * strict so callers that need authoritative 404 (file-explorer UI,
+   * single-source-of-truth cleanups) keep their existing behaviour.
+   *
    * @param {string | FileDeleteInput[] | FileDeleteBatchOptions | FileDeleteInput} pathOrPaths
+   * @param {{ ifExists?: boolean }} [options]
    * @returns {Promise<FileApiResult | PathBatchApiResult>}
    */
-  async function fileDelete(pathOrPaths) {
-    return call("file_delete", createFileDeleteRequest(pathOrPaths));
+  async function fileDelete(pathOrPaths, options) {
+    return call("file_delete", createFileDeleteRequest(pathOrPaths, options));
   }
 
   /**

@@ -1010,18 +1010,12 @@ function createHtmlRendererSource(htmlSource) {
 
 async function deleteAppPathIfExists(path) {
   const runtime = ensureSpaceRuntime();
-
-  try {
-    await runtime.api.fileDelete(path);
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      return false;
-    }
-
-    throw error;
-  }
-
-  return true;
+  // Idempotent delete: server returns 200 with the path under `skipped`
+  // when the file is already gone. The `skipped` field is what tells us
+  // whether anything was actually removed, so callers that branch on
+  // "did we delete something" still get a meaningful boolean.
+  const result = await runtime.api.fileDelete(path, { ifExists: true });
+  return Array.isArray(result?.skipped) ? result.skipped.length === 0 : true;
 }
 
 function normalizeLegacyFunctionSource(sourceText) {

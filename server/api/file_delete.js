@@ -24,11 +24,18 @@ async function handleDelete(context) {
     headers: context.headers,
     requestUrl: context.requestUrl
   });
+  // `ifExists: true` opts into RFC 7231 idempotent DELETE semantics:
+  // missing paths resolve to a 200 response with the path listed under
+  // `skipped` instead of throwing 404. Strict callers (default) keep
+  // their authoritative 404 so user-initiated deletes can still surface
+  // a "this resource is gone" diagnostic to the UI.
+  const ifExists = payload.ifExists === true;
 
   try {
     await context.ensureUserFileIndex?.(context.user?.username);
     return await runTrackedMutation(context, async () => {
       const options = {
+        ifExists,
         maxLayer,
         path: readPath(context),
         paths: payload.paths,
