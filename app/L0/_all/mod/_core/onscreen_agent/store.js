@@ -322,12 +322,18 @@ function normalizeTransientSection(section, fallbackKey = "") {
     return null;
   }
 
-  return {
+  const normalized = {
     content,
     heading: heading || key,
     key,
     order
   };
+
+  if (section?.trimAllowed === false) {
+    normalized.trimAllowed = false;
+  }
+
+  return normalized;
 }
 
 function cloneTransientSection(section) {

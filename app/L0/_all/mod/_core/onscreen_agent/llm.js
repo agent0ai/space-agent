@@ -443,12 +443,18 @@ function normalizeTransientSection(section, fallbackKey = "") {
     return null;
   }
 
-  return {
+  const normalized = {
     content,
     heading: heading || key,
     key,
     order
   };
+
+  if (section?.trimAllowed === false) {
+    normalized.trimAllowed = false;
+  }
+
+  return normalized;
 }
 
 function normalizeTransientSections(sections) {
@@ -477,13 +483,19 @@ function createTransientPromptItem(section = {}, fallbackKey = "") {
     return null;
   }
 
-  return normalizePromptItemDefinition(normalizedSection.key, {
+  const definition = {
     heading: normalizedSection.heading,
     key: normalizedSection.key,
     order: normalizedSection.order,
     trimPriority: Number.isFinite(section?.trimPriority) ? Number(section.trimPriority) : 0,
     value: normalizedSection.content
-  });
+  };
+
+  if (normalizedSection.trimAllowed === false || section?.trimAllowed === false) {
+    definition.trimAllowed = false;
+  }
+
+  return normalizePromptItemDefinition(normalizedSection.key, definition);
 }
 
 function normalizeTransientItems(items = {}) {
