@@ -103,6 +103,12 @@ Direct app-file fetches:
 - read permission checks are delegated to `createAppAccessController(...)`
 - `.git` metadata paths are blocked even when they live inside a readable writable-layer owner root
 
+Proxy:
+
+- `proxy.js` owns the outbound `/api/proxy` fetch transport plus header allow-listing for the upstream and response sides
+- the proxy applies a configurable wall-clock timeout to the upstream fetch via `PROXY_REQUEST_TIMEOUT_SECONDS` so long upstream prompt-prefill phases on local LLM servers are not cut off by the runtime fetch implementation's tight `headersTimeout` default; the param accepts `0` to disable the proxy-imposed timeout entirely, and timeout aborts surface to the client as `504 Gateway Timeout` with a hint to raise or disable the param
+- the proxy passes `runtimeParams` from the request context into `proxyExternalRequest(...)` so the timeout is resolved per-request and operators can change it at runtime via the params interface without restarting
+
 Responses:
 
 - `responses.js` owns JSON serialization, redirects, file responses, stream responses, and Web `Response` bridging
