@@ -14,6 +14,7 @@ This module owns:
 
 - `prompt-items.js`: shared prompt-budget ratio parsing, keyed prompt-item normalization and merge helpers, long-message trimming placeholders, and the `space.chat` prompt-item access installer used by onscreen and admin chat stores
 - `prompt-runtime.js`: shared `AgentPromptInstance` lifecycle, prompt-input cloning, prompt-history rebuild fallback, and the stable `createAgentPromptInstance(...)` / `hasPreparedPromptInput(...)` helpers used by agent surfaces
+- `trim-quantum.js`: shared cut-position quantization helper for long-message trimming so the byte position of every trimmed cut snaps to a stable grid across turns
 
 ## Local Contracts
 
@@ -26,6 +27,7 @@ Current shared runtime contract:
 - normalized prompt items should cache `valueTokenCount` alongside the normalized string value so repeated prompt builds can reuse tokenizer results for the same item body
 - prompt-budget ratios are stored as percentages of the configured model `maxTokens`, with `system`, `history`, and `transient` required to total 100 while `singleMessage` is a separate percentage of the history budget
 - long prompt contributors may be trimmed through the shared middle-replacement placeholder emitted by `trimPromptLongMessage(...)`; the placeholder must keep a stable `space.chat.readLongMessage({ id, from, to })` instruction so the active chat runtime can expose the removed text on demand during that turn
+- callers that plan a `removeChars` value for `trimPromptLongMessage(...)` from a live overflow budget should route the planned value through `quantizeRemovedChars(...)` first, so the byte position of the cut snaps to a stable grid across turns instead of drifting by tens of characters as the history grows; this keeps prefix prompt-cache backends (llama.cpp `--prompt-cache`, qwen serve, vLLM prefix cache, etc.) warm across consecutive turns of long-context conversations
 - part-level prompt-budget trimming should build a one-shot thresholded multi-contributor plan that trims only contributors whose planned cut is at least `250` tokens; system and transient consumers may then fall back to one combined section-body trim when contributor-level trims would all be smaller than that threshold
 - `installPromptItemAccess(...)` must keep full prompt-item text in runtime-only memory while publishing only redacted `space.chat.promptItems` metadata plus `readLongMessage(...)` on the live chat namespace
 - this module is prompt-builder-agnostic; callers must provide `buildPromptInput(context)` and may optionally provide `updatePromptHistory({ context, historyMessages, options, prompt, promptInput })`
