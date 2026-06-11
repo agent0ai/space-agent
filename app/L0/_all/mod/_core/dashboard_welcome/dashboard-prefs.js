@@ -29,11 +29,6 @@ function getRuntime() {
   return runtime;
 }
 
-function isMissingFileError(error) {
-  const message = String(error?.message || "");
-  return /\bstatus 404\b/u.test(message) || /File not found\./u.test(message) || /Path not found\./u.test(message);
-}
-
 function parseStoredBoolean(value) {
   if (value === true || value === false) {
     return value;
@@ -92,14 +87,13 @@ export function subscribeDashboardWelcomeHiddenChange(callback) {
 export async function loadDashboardPrefs() {
   const runtime = getRuntime();
 
+  // Idempotent read: a fresh user has no `~/conf/dashboard.yaml` yet. Use
+  // ifExists so the missing file returns content: null instead of throwing
+  // 404 (and triggering DevTools console noise on every space switch).
   try {
-    const result = await runtime.api.fileRead(DASHBOARD_CONFIG_PATH);
+    const result = await runtime.api.fileRead(DASHBOARD_CONFIG_PATH, "utf8", { ifExists: true });
     return normalizeDashboardPrefs(runtime.utils.yaml.parse(String(result?.content || "")));
   } catch (error) {
-    if (isMissingFileError(error)) {
-      return normalizeDashboardPrefs({});
-    }
-
     throw new Error(`Unable to load dashboard settings: ${error.message}`);
   }
 }

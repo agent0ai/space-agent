@@ -100,14 +100,12 @@ async function hasFirstLoginMarker(runtime, markerPath) {
     }
   }
 
+  // fileRead-fallback when fileInfo is not available. Idempotent read so a
+  // missing marker resolves cleanly without console-spamming a 404.
   try {
-    await runtime.api.fileRead(markerPath);
-    return true;
+    const result = await runtime.api.fileRead(markerPath, "utf8", { ifExists: true });
+    return typeof result?.content === "string";
   } catch (error) {
-    if (isMissingFileError(error)) {
-      return false;
-    }
-
     throw error;
   }
 }

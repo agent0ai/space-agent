@@ -18,22 +18,15 @@ function getRuntime() {
   return runtime;
 }
 
-function isMissingFileError(error) {
-  const message = String(error?.message || "");
-  return /\bstatus 404\b/u.test(message) || /File not found\./u.test(message) || /Path not found\./u.test(message);
-}
-
 export async function loadAgentPersonality() {
   const runtime = getRuntime();
 
+  // Idempotent read: this config is optional. Use ifExists so a missing
+  // file returns content: null instead of throwing 404.
   try {
-    const result = await runtime.api.fileRead(AGENT_PERSONALITY_PATH);
+    const result = await runtime.api.fileRead(AGENT_PERSONALITY_PATH, "utf8", { ifExists: true });
     return String(result?.content || "");
   } catch (error) {
-    if (isMissingFileError(error)) {
-      return "";
-    }
-
     throw new Error(`Unable to load agent personality: ${error.message}`);
   }
 }
