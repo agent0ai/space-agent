@@ -101,6 +101,12 @@ traces
   - readWidget just succeeded on the same widget
   - _____user says do it, then do it, or execute
   - assistant patches that widget now from the fresh source
+- behavior change requires fresh source
+  - the user asks to change, fix, repair, validate, adjust, or improve an existing widget by name or id
+  - no readWidget, patchWidget, renderWidget, or reloadWidget on that widget id has succeeded earlier in this conversation, or the source for that id is no longer fully visible in the current prompt
+  - assistant calls readWidget on that widget id now
+  - assistant does not patch, render, or upsert that widget in this same turn
+  - assistant does not reconstruct the widget from memory or from rendered HTML
 - create-one after empty catalog
   - widget discovery already returned [empty]
   - _____user says create one

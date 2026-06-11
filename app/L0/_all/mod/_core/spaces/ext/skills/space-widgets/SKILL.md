@@ -146,6 +146,14 @@ patch vs rewrite
 - If you build edits programmatically, parse the numbered renderer lines from readWidget() output or Current Widget `source↓`. Do not use widget.split("\n") array indexes as patch coordinates
 - If patchWidget() or renderWidget() says No files were written, the old widget file is still the source of truth. Fix and retry
 
+read before mutate
+- Before any patchWidget(), renderWidget(), or upsertWidget() on an existing widget id, the assistant must have a fresh source for that id
+- A source is fresh when it came from a readWidget(), patchWidget(), renderWidget(), or reloadWidget() success on that same id earlier in the live conversation
+- If the source for that id is no longer fully visible in the current prompt, or only the start and end of it are visible, call readWidget(id) first and patch on the next turn
+- Never reconstruct a widget from memory, from the rendered HTML returned by seeWidget(), or from a guess at the original source. seeWidget() is for visual verification only and is never authoritative for source
+- Treat a user complaint about widget behavior as a patch trigger, not a rewrite trigger. Read first, then patch the specific lines that change
+- renderWidget() on an existing widget id replaces the entire renderer. Use it only for new widget ids, for explicit user requests to start over from scratch, or when the framework explicitly requires a full rewrite
+
 example exact snippet patch
 _____javascript
 return await space.current.patchWidget("snake-game", {
