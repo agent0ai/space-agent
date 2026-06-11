@@ -1,5 +1,12 @@
 import * as config from "/mod/_core/onscreen_agent/config.js";
 import * as agentApi from "/mod/_core/onscreen_agent/api.js";
+import * as codexAuthFlow from "/mod/_core/openai_codex/auth_flow.js";
+import * as codexModels from "/mod/_core/openai_codex/models.js";
+import { discoverCodexModels } from "/mod/_core/openai_codex/models_discovery.js";
+import {
+  parseCodexTokens as parseCodexTokensDraft,
+  serializeCodexTokens as serializeCodexTokensDraft
+} from "/mod/_core/openai_codex/token_envelope.js";
 import {
   installPromptItemAccess,
   rebalancePromptBudgetRatios
@@ -32,6 +39,7 @@ import {
 } from "/mod/_core/onscreen_agent/attachments.js";
 
 const UI_STATE_PERSIST_DELAY_MS = 180;
+const CODEX_CATALOG_TTL_MS = 10 * 60 * 1000;
 const STARTUP_HINT_DELAY_MS = 2000;
 const STARTUP_HINT_VISIBLE_MS = 3000;
 const COMPACT_MODE_TOP_EDGE_THRESHOLD_EM = 10;
@@ -81,6 +89,62 @@ function normalizePromptBudgetSingleMessageRatio(
   }
 
   return Math.max(0, Math.min(100, Math.round(parsedValue)));
+}
+
+function createCodexLoginState() {
+  return {
+    deviceAuthId: "",
+    error: "",
+    status: codexAuthFlow.CODEX_AUTH_FLOW_STATUS.IDLE,
+    userCode: "",
+    verificationUrl: ""
+  };
+}
+
+// Merge the live Codex catalog (discovered from the Codex models endpoint)
+// with the static fallback shipped in `models.js`. The runtime catalog wins
+// when both have the same id so live descriptions and the live ordering are
+// preserved, and any static-only entries trail the runtime ones so a user
+// with a broken or empty discovery response still has something to pick.
+function mergeCodexModelCatalogs(runtimeCatalog, staticCatalog) {
+  const runtime = Array.isArray(runtimeCatalog) ? runtimeCatalog : [];
+  const staticList = Array.isArray(staticCatalog) ? staticCatalog : [];
+  const seen = new Set();
+  const merged = [];
+
+  for (const entry of runtime) {
+    if (!entry || typeof entry.id !== "string" || !entry.id) {
+      continue;
+    }
+
+    if (seen.has(entry.id)) {
+      continue;
+    }
+
+    seen.add(entry.id);
+    merged.push({
+      description: typeof entry.description === "string" ? entry.description : "",
+      id: entry.id
+    });
+  }
+
+  for (const entry of staticList) {
+    if (!entry || typeof entry.id !== "string" || !entry.id) {
+      continue;
+    }
+
+    if (seen.has(entry.id)) {
+      continue;
+    }
+
+    seen.add(entry.id);
+    merged.push({
+      description: typeof entry.description === "string" ? entry.description : "",
+      id: entry.id
+    });
+  }
+
+  return merged;
 }
 
 function clonePromptBudgetRatios(value = {}) {
@@ -820,6 +884,10 @@ function summarizeOnscreenAgentLlmSelection(settings, huggingfaceState) {
     return configuredModelId || activeModelId || "No model";
   }
 
+  if (provider === config.ONSCREEN_AGENT_LLM_PROVIDER.CODEX) {
+    return codexModels.normalizeCodexModelId(settings?.codexModel);
+  }
+
   return agentView.summarizeLlmConfig(settings?.apiEndpoint || "", settings?.model || "");
 }
 
@@ -1408,9 +1476,16 @@ const model = {
   uiBubbleText: "",
   uiStateOwner: "",
   uiStatePersistTimer: 0,
+  codexCatalogFetchedAt: 0,
+  codexCatalogPromise: null,
+  codexLoginAbortController: null,
+  codexLoginState: createCodexLoginState(),
+  codexRuntimeCatalog: [],
   settings: {
     apiEndpoint: "",
     apiKey: "",
+    codexModel: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.codexModel,
+    codexTokens: "",
     huggingfaceDtype: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.huggingfaceDtype,
     huggingfaceModel: "",
     localProvider: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.localProvider,
@@ -1418,11 +1493,15 @@ const model = {
     model: "",
     paramsText: "",
     promptBudgetRatios: { ...config.DEFAULT_ONSCREEN_AGENT_SETTINGS.promptBudgetRatios },
-    provider: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.provider
+    provider: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.provider,
+    storedCodexTokensLocked: false,
+    storedCodexTokensValue: ""
   },
   settingsDraft: {
     apiEndpoint: "",
     apiKey: "",
+    codexModel: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.codexModel,
+    codexTokens: "",
     huggingfaceDtype: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.huggingfaceDtype,
     huggingfaceModel: "",
     localProvider: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.localProvider,
@@ -1430,7 +1509,9 @@ const model = {
     model: "",
     paramsText: "",
     promptBudgetRatios: { ...config.DEFAULT_ONSCREEN_AGENT_SETTINGS.promptBudgetRatios },
-    provider: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.provider
+    provider: config.DEFAULT_ONSCREEN_AGENT_SETTINGS.provider,
+    storedCodexTokensLocked: false,
+    storedCodexTokensValue: ""
   },
   status: "Loading onscreen agent...",
   stopRequested: false,
@@ -1622,6 +1703,53 @@ const model = {
 
   get isSettingsDraftUsingLocalProvider() {
     return config.normalizeOnscreenAgentLlmProvider(this.settingsDraft.provider) === config.ONSCREEN_AGENT_LLM_PROVIDER.LOCAL;
+  },
+
+  get isSettingsDraftUsingCodexProvider() {
+    return config.normalizeOnscreenAgentLlmProvider(this.settingsDraft.provider) === config.ONSCREEN_AGENT_LLM_PROVIDER.CODEX;
+  },
+
+  get codexModelCatalog() {
+    return mergeCodexModelCatalogs(this.codexRuntimeCatalog, codexModels.CODEX_MODEL_CATALOG);
+  },
+
+  get isCodexSelectedModelInCatalog() {
+    const selected = typeof this.settingsDraft?.codexModel === "string"
+      ? this.settingsDraft.codexModel.trim()
+      : "";
+
+    if (!selected) {
+      return true;
+    }
+
+    return this.codexModelCatalog.some((entry) => entry.id === selected);
+  },
+
+  get isCodexLoginActive() {
+    return this.codexLoginState.status === codexAuthFlow.CODEX_AUTH_FLOW_STATUS.STARTING ||
+      this.codexLoginState.status === codexAuthFlow.CODEX_AUTH_FLOW_STATUS.PENDING;
+  },
+
+  get hasCodexTokens() {
+    const parsed = parseCodexTokensDraft(this.settingsDraft?.codexTokens);
+    return Boolean(parsed?.accessToken);
+  },
+
+  get codexVerificationUrl() {
+    return this.codexLoginState.verificationUrl || "";
+  },
+
+  get codexUserCode() {
+    return this.codexLoginState.userCode || "";
+  },
+
+  get codexLoginError() {
+    return this.codexLoginState.error || "";
+  },
+
+  get codexAccountIdSummary() {
+    const parsed = parseCodexTokensDraft(this.settingsDraft?.codexTokens);
+    return parsed?.accountId || "";
   },
 
   get huggingfaceSavedModels() {
@@ -4412,6 +4540,16 @@ const model = {
         preserveStatus: true
       });
     });
+
+    // Kick off live Codex catalog discovery so a signed-in user sees the
+    // models actually available to their account. Failures fall back to the
+    // shipped static catalog so the dropdown always has entries.
+    void this.refreshCodexModelCatalog().catch((error) => {
+      this.reportError("refreshing the Codex model catalog", error, {
+        preserveStatus: true
+      });
+    });
+
     openDialog(resolveDialogRef(this.refs, "settingsDialog", SETTINGS_DIALOG_ELEMENT_ID));
   },
 
@@ -4433,6 +4571,159 @@ const model = {
         });
       });
     }
+
+    if (this.isSettingsDraftUsingCodexProvider && !this.settingsDraft.codexModel) {
+      this.settingsDraft = {
+        ...this.settingsDraft,
+        codexModel: codexModels.CODEX_DEFAULT_MODEL_ID
+      };
+    }
+  },
+
+  async startCodexLogin() {
+    if (this.isCodexLoginActive) {
+      return;
+    }
+
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    this.codexLoginAbortController = controller;
+    this.codexLoginState = {
+      ...createCodexLoginState(),
+      status: codexAuthFlow.CODEX_AUTH_FLOW_STATUS.STARTING
+    };
+
+    try {
+      const tokens = await codexAuthFlow.runCodexDeviceAuthorizationFlow({
+        onStatusChange: (event) => {
+          this.codexLoginState = {
+            deviceAuthId: event.deviceAuthId || this.codexLoginState.deviceAuthId || "",
+            error: event.error || "",
+            status: event.status,
+            userCode: event.userCode || this.codexLoginState.userCode || "",
+            verificationUrl: event.verificationUrl || this.codexLoginState.verificationUrl || ""
+          };
+        },
+        signal: controller?.signal
+      });
+
+      this.settingsDraft = {
+        ...this.settingsDraft,
+        codexTokens: serializeCodexTokensDraft(tokens)
+      };
+      this.codexLoginState = createCodexLoginState();
+
+      // The signed-in user's catalog depends on the ChatGPT subscription
+      // attached to the newly issued access token. Force a re-discovery now
+      // so the model dropdown reflects the live list before the user picks.
+      void this.refreshCodexModelCatalog({ force: true }).catch(() => {});
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        this.codexLoginState = {
+          ...createCodexLoginState(),
+          error: error?.message || String(error),
+          status: codexAuthFlow.CODEX_AUTH_FLOW_STATUS.FAILED
+        };
+      } else {
+        this.codexLoginState = createCodexLoginState();
+      }
+    } finally {
+      this.codexLoginAbortController = null;
+    }
+  },
+
+  cancelCodexLogin() {
+    if (this.codexLoginAbortController) {
+      this.codexLoginAbortController.abort();
+    }
+
+    this.codexLoginState = createCodexLoginState();
+    this.codexLoginAbortController = null;
+  },
+
+  clearCodexLogin() {
+    this.settingsDraft = {
+      ...this.settingsDraft,
+      codexTokens: ""
+    };
+    this.codexLoginState = createCodexLoginState();
+  },
+
+  // Discover the live Codex model catalog. The runtime catalog is cached
+  // in-memory with a 10-minute TTL so opening the settings dialog repeatedly
+  // does not spam the Codex models endpoint. Concurrent callers coalesce
+  // through the shared in-flight promise. A failed discovery (network, CORS,
+  // missing tokens) resolves with an empty runtime catalog so the static
+  // fallback in `models.js` remains selectable.
+  async refreshCodexModelCatalog({ force = false } = {}) {
+    if (!force && this.codexCatalogPromise) {
+      return this.codexCatalogPromise;
+    }
+
+    if (!force && this.codexCatalogFetchedAt && (Date.now() - this.codexCatalogFetchedAt) < CODEX_CATALOG_TTL_MS) {
+      return this.codexRuntimeCatalog;
+    }
+
+    const tokens = parseCodexTokensDraft(this.settings?.codexTokens);
+    const accessToken = typeof tokens?.accessToken === "string" ? tokens.accessToken.trim() : "";
+
+    if (!accessToken) {
+      this.codexRuntimeCatalog = [];
+      this.codexCatalogFetchedAt = Date.now();
+      return this.codexRuntimeCatalog;
+    }
+
+    const accountId = typeof tokens?.accountId === "string" ? tokens.accountId.trim() : "";
+    const pending = (async () => {
+      try {
+        const catalog = await discoverCodexModels({
+          accessToken,
+          chatGPTAccountId: accountId
+        });
+        this.codexRuntimeCatalog = Array.isArray(catalog) ? catalog : [];
+      } catch {
+        this.codexRuntimeCatalog = [];
+      } finally {
+        this.codexCatalogFetchedAt = Date.now();
+        this.codexCatalogPromise = null;
+      }
+
+      return this.codexRuntimeCatalog;
+    })();
+
+    this.codexCatalogPromise = pending;
+    return pending;
+  },
+
+  // Called by the `prepareOnscreenAgentApiRequest` Codex hook after a server-
+  // side refresh rotated the stored refresh token. The hook delegates here
+  // instead of writing the config file directly so that encoding, lock-state
+  // bookkeeping, and persistence stay owned by `storage.js`.
+  async applyRefreshedCodexTokens(tokens) {
+    const serialized = serializeCodexTokensDraft(tokens);
+
+    if (!serialized) {
+      return;
+    }
+
+    this.settings = {
+      ...this.settings,
+      codexTokens: serialized
+    };
+
+    // If the settings dialog is currently mounted we also keep the draft in
+    // sync so a user reopening the dialog mid-session still sees the signed-
+    // in state backed by the freshly rotated refresh token.
+    const dialogElement = this.refs?.settingsDialog;
+    const isDialogOpen = Boolean(dialogElement && typeof dialogElement.hasAttribute === "function" && dialogElement.hasAttribute("open"));
+
+    if (isDialogOpen) {
+      this.settingsDraft = {
+        ...this.settingsDraft,
+        codexTokens: serialized
+      };
+    }
+
+    await this.persistConfig();
   },
 
   setSettingsPromptBudgetRatio(key, value) {
@@ -4604,6 +4895,8 @@ const model = {
     this.settings = {
       apiEndpoint: (this.settingsDraft.apiEndpoint || "").trim(),
       apiKey: (this.settingsDraft.apiKey || "").trim(),
+      codexModel: codexModels.normalizeCodexModelId(this.settingsDraft.codexModel),
+      codexTokens: typeof this.settingsDraft.codexTokens === "string" ? this.settingsDraft.codexTokens.trim() : "",
       huggingfaceDtype: (this.settingsDraft.huggingfaceDtype || "").trim(),
       huggingfaceModel: normalizeHuggingFaceModelInput(this.settingsDraft.huggingfaceModel || ""),
       localProvider,
@@ -4613,7 +4906,9 @@ const model = {
       promptBudgetRatios: clonePromptBudgetRatios(this.settingsDraft.promptBudgetRatios),
       provider,
       storedApiKeyLocked: this.settings.storedApiKeyLocked === true,
-      storedApiKeyValue: String(this.settings.storedApiKeyValue || "")
+      storedApiKeyValue: String(this.settings.storedApiKeyValue || ""),
+      storedCodexTokensLocked: this.settings.storedCodexTokensLocked === true,
+      storedCodexTokensValue: String(this.settings.storedCodexTokensValue || "")
     };
     this.systemPrompt = draftPrompt;
     this.systemPromptDraft = draftPrompt;
@@ -4625,9 +4920,13 @@ const model = {
         await this.refreshRuntimeSystemPrompt();
       }
       await this.persistConfig();
-      this.status = provider === config.ONSCREEN_AGENT_LLM_PROVIDER.LOCAL
-        ? `Local ${getConfiguredLocalProviderLabel(this.settings)} settings updated. Preparing the selected model in the background.`
-        : "API chat settings updated.";
+      if (provider === config.ONSCREEN_AGENT_LLM_PROVIDER.LOCAL) {
+        this.status = `Local ${getConfiguredLocalProviderLabel(this.settings)} settings updated. Preparing the selected model in the background.`;
+      } else if (provider === config.ONSCREEN_AGENT_LLM_PROVIDER.CODEX) {
+        this.status = "ChatGPT settings updated.";
+      } else {
+        this.status = "API chat settings updated.";
+      }
       this.closeSettingsDialog();
 
       if (provider === config.ONSCREEN_AGENT_LLM_PROVIDER.LOCAL) {

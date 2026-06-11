@@ -2,6 +2,12 @@ import * as config from "/mod/_core/onscreen_agent/config.js";
 import * as llmParams from "/mod/_core/onscreen_agent/llm-params.js";
 import { prepareOnscreenAgentCompletionRequest } from "/mod/_core/onscreen_agent/llm.js";
 import { getHuggingFaceManager } from "/mod/_core/huggingface/manager.js";
+import { CODEX_RESPONSES_ENDPOINT, applyCodexHeaders } from "/mod/_core/openai_codex/request.js";
+import { chatToResponsesRequest } from "/mod/_core/openai_codex/request_shape.js";
+import {
+  CODEX_STREAM_DONE_MARKER,
+  mapCodexEventToChatFrames
+} from "/mod/_core/openai_codex/sse_adapter.js";
 
 function extractTextContent(value) {
   if (typeof value === "string") {
@@ -186,6 +192,87 @@ async function readStreamingResponse(response, onDelta) {
   }
 }
 
+function parseCodexEventBlock(eventBlock, onDelta, meta) {
+  const lines = eventBlock.split(/\r?\n/u);
+
+  for (const line of lines) {
+    if (!line.startsWith("data:")) {
+      continue;
+    }
+
+    const value = line.slice(5).trim();
+
+    if (!value) {
+      continue;
+    }
+
+    let event;
+    try {
+      event = JSON.parse(value);
+    } catch {
+      continue;
+    }
+
+    // `mapCodexEventToChatFrames` throws on response.failed / error events,
+    // which bubbles up to the caller as a request failure. That is the
+    // intended behavior for terminal upstream errors mid-stream.
+    const frames = mapCodexEventToChatFrames(event);
+
+    for (const frame of frames) {
+      if (frame === CODEX_STREAM_DONE_MARKER) {
+        meta.sawDoneMarker = true;
+        return true;
+      }
+
+      const delta = extractStreamingDelta(frame);
+      noteCompletionPayload(meta, frame, delta);
+
+      if (delta) {
+        onDelta(delta);
+      }
+    }
+  }
+
+  return false;
+}
+
+async function readCodexStreamingResponse(response, onDelta) {
+  const meta = createCompletionResponseMeta("stream");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value || new Uint8Array(), {
+      stream: !done
+    });
+
+    let boundary = buffer.indexOf("\n\n");
+
+    while (boundary !== -1) {
+      const eventBlock = buffer.slice(0, boundary).trim();
+      buffer = buffer.slice(boundary + 2);
+
+      if (eventBlock && parseCodexEventBlock(eventBlock, onDelta, meta)) {
+        return finalizeCompletionResponseMeta(meta);
+      }
+
+      boundary = buffer.indexOf("\n\n");
+    }
+
+    if (done) {
+      const remaining = buffer.trim();
+
+      if (remaining) {
+        parseCodexEventBlock(remaining, onDelta, meta);
+      }
+
+      return finalizeCompletionResponseMeta(meta);
+    }
+  }
+}
+
 function normalizeCompletionMessagesForLocal(messages) {
   return (Array.isArray(messages) ? messages : [])
     .map((message) => {
@@ -357,6 +444,88 @@ export class OnscreenAgentApiLlmClient extends OnscreenAgentLlmClient {
   }
 }
 
+export class OnscreenAgentCodexLlmClient extends OnscreenAgentLlmClient {
+  validateSettings(settings = this.settings) {
+    // The Codex-provider path selects the model from `settings.codexModel`;
+    // `settings.model` is the API-tab field and may still hold the unrelated
+    // OpenRouter default (`anthropic/claude-sonnet-4.6`). The hook only falls
+    // back to `settings.model` if `codexModel` is empty, so require
+    // `codexModel` here and keep `settings.model` as a last-resort fallback
+    // that mirrors the admin-side validation.
+    if (!settings?.codexModel?.trim() && !settings?.model?.trim()) {
+      throw new Error("Choose a Codex model before sending a message.");
+    }
+
+    const tokens = parseCodexTokensFromSettings(settings);
+
+    if (!tokens?.accessToken) {
+      const error = new Error("Sign in with ChatGPT before sending a message.");
+      error.requiresCodexLogin = true;
+      throw error;
+    }
+  }
+
+  async resolveApiRequest(options = {}) {
+    const preparedRequest = await this.resolvePreparedRequest(options);
+    const effectiveSettings =
+      preparedRequest?.settings && typeof preparedRequest.settings === "object"
+        ? preparedRequest.settings
+        : this.settings;
+
+    return prepareOnscreenAgentApiRequest({
+      preparedRequest,
+      settings: effectiveSettings
+    });
+  }
+
+  async streamCompletion(options = {}) {
+    const onDelta = typeof options.onDelta === "function" ? options.onDelta : () => {};
+    const effectiveRequest = await this.resolveApiRequest(options);
+    const effectiveSettings =
+      effectiveRequest?.settings && typeof effectiveRequest.settings === "object"
+        ? effectiveRequest.settings
+        : this.settings;
+
+    this.validateSettings(effectiveSettings);
+
+    const response = await fetch(effectiveRequest.requestUrl, {
+      ...buildFetchRequestInit(effectiveRequest, options.signal)
+    });
+
+    if (!response.ok) {
+      await throwResponseError(response);
+    }
+
+    if (!response.body) {
+      throw new Error("Streaming response body is not available.");
+    }
+
+    return readCodexStreamingResponse(response, onDelta);
+  }
+}
+
+function parseCodexTokensFromSettings(settings = {}) {
+  const raw = settings?.codexTokens;
+
+  if (!raw) {
+    return null;
+  }
+
+  if (typeof raw === "object") {
+    return raw;
+  }
+
+  if (typeof raw !== "string") {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 export class OnscreenAgentLocalLlmClient extends OnscreenAgentLlmClient {
   validateSettings(settings = this.settings) {
     const selection = config.getOnscreenAgentLocalModelSelection(settings);
@@ -446,6 +615,12 @@ export function createOnscreenAgentLlmClient(settings = config.DEFAULT_ONSCREEN_
 
   if (provider === config.ONSCREEN_AGENT_LLM_PROVIDER.LOCAL) {
     return new OnscreenAgentLocalLlmClient({
+      settings
+    });
+  }
+
+  if (provider === config.ONSCREEN_AGENT_LLM_PROVIDER.CODEX) {
+    return new OnscreenAgentCodexLlmClient({
       settings
     });
   }

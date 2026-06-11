@@ -191,6 +191,14 @@
                     <button
                       type="button"
                       class="secondary-button dialog-segmented-button"
+                      :class="{ 'is-active': $store.adminAgent.isSettingsDraftUsingCodexProvider }"
+                      @click="$store.adminAgent.setSettingsProvider('openai-codex')"
+                    >
+                      <span>ChatGPT</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="secondary-button dialog-segmented-button"
                       :class="{ 'is-active': $store.adminAgent.isSettingsDraftUsingLocalProvider }"
                       @click="$store.adminAgent.setSettingsProvider('local')"
                     >
@@ -210,6 +218,61 @@
                       <span>API Key</span>
                       <input type="password" x-model="$store.adminAgent.settingsDraft.apiKey" />
                     </label>
+                  </div>
+                  <div x-show="$store.adminAgent.isSettingsDraftUsingCodexProvider" x-cloak class="admin-agent-codex-settings">
+                    <template x-if="!$store.adminAgent.isCodexLoginActive && !$store.adminAgent.hasCodexTokens">
+                      <div class="admin-agent-codex-login">
+                        <p class="field-note">
+                          Uses your existing ChatGPT Plus subscription via the official OpenAI Codex OAuth flow.
+                          Nothing is billed to the OpenAI platform API on top of your subscription.
+                        </p>
+                        <p class="field-note">
+                          This sign-in is local to the admin chat. Sign in separately in the overlay settings to enable Codex there too.
+                        </p>
+                        <button type="button" class="primary-button" @click="$store.adminAgent.startCodexLogin()">
+                          Sign in with ChatGPT
+                        </button>
+                        <p class="field-note" x-show="$store.adminAgent.codexLoginError" x-text="$store.adminAgent.codexLoginError"></p>
+                      </div>
+                    </template>
+                    <template x-if="$store.adminAgent.isCodexLoginActive">
+                      <div class="admin-agent-codex-login-pending">
+                        <p>
+                          Open
+                          <a :href="$store.adminAgent.codexVerificationUrl" target="_blank" rel="noopener noreferrer" x-text="$store.adminAgent.codexVerificationUrl"></a>
+                          and enter this code:
+                        </p>
+                        <p class="admin-agent-codex-user-code" x-text="$store.adminAgent.codexUserCode"></p>
+                        <button type="button" class="secondary-button" @click="$store.adminAgent.cancelCodexLogin()">
+                          Cancel
+                        </button>
+                      </div>
+                    </template>
+                    <template x-if="!$store.adminAgent.isCodexLoginActive && $store.adminAgent.hasCodexTokens">
+                      <div class="admin-agent-codex-signed-in">
+                        <p class="field-note">
+                          Signed in<span x-show="$store.adminAgent.codexAccountIdSummary">
+                            as <code x-text="$store.adminAgent.codexAccountIdSummary"></code></span>.
+                        </p>
+                        <label class="field">
+                          <span>Model</span>
+                          <select x-model="$store.adminAgent.settingsDraft.codexModel">
+                            <template x-for="entry in $store.adminAgent.codexModelCatalog" :key="entry.id">
+                              <option :value="entry.id" x-text="`${entry.id} — ${entry.description}`"></option>
+                            </template>
+                            <template x-if="!$store.adminAgent.isCodexSelectedModelInCatalog">
+                              <option :value="$store.adminAgent.settingsDraft.codexModel" x-text="$store.adminAgent.settingsDraft.codexModel"></option>
+                            </template>
+                          </select>
+                          <p class="field-note" x-show="!$store.adminAgent.isCodexSelectedModelInCatalog">
+                            ⚠ Not currently listed for your account. Pick another model if chats fail.
+                          </p>
+                        </label>
+                        <button type="button" class="secondary-button" @click="$store.adminAgent.clearCodexLogin()">
+                          Sign out
+                        </button>
+                      </div>
+                    </template>
                   </div>
                   <div x-show="$store.adminAgent.isSettingsDraftUsingLocalProvider" x-cloak class="admin-agent-local-settings">
                     <div class="admin-agent-local-provider-panel">

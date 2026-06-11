@@ -78,7 +78,8 @@ Prompt rules:
 
 Current behavior:
 
-- the LLM settings modal keeps one provider switch at the top with tabs named `API` and `Local`, and shows either the API settings fields or one `Local` section
+- the LLM settings modal keeps one provider switch at the top with three tabs named `API`, `ChatGPT`, and `Local`; API settings show endpoint, model, and API key fields, the `ChatGPT` tab owns the OpenAI Codex OAuth device-code login plus a model dropdown sourced from `/mod/_core/openai_codex/models.js`, and the `Local` section mounts the shared Hugging Face sidebar
+- the `ChatGPT` tab scope is local to the admin chat: users sign in separately in the overlay settings to enable Codex there too, and refresh tokens for admin are stored in `~/conf/admin-chat.yaml` under a `userCrypto:`-prefixed `codex_tokens` entry, independent of the overlay config
 - the `Local` section only supports the Hugging Face browser runtime
 - the toolbar LLM settings button summarizes the current selection with the configured model name only; it does not prepend provider labels such as `API`, `Local`, or `Hugging Face`
 - the local section mounts the standalone Hugging Face config sidebar component through `<x-component>`, so the admin modal and the routed testing harness share the same component file instead of maintaining duplicated local-provider markup

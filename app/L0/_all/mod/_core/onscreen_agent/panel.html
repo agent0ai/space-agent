@@ -341,6 +341,14 @@
                       <button
                         type="button"
                         class="secondary-button dialog-segmented-button"
+                        :class="{ 'is-active': $store.onscreenAgent.isSettingsDraftUsingCodexProvider }"
+                        @click="$store.onscreenAgent.setSettingsProvider('openai-codex')"
+                      >
+                        <span>ChatGPT</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="secondary-button dialog-segmented-button"
                         :class="{ 'is-active': $store.onscreenAgent.isSettingsDraftUsingLocalProvider }"
                         @click="$store.onscreenAgent.setSettingsProvider('local')"
                       >
@@ -360,6 +368,61 @@
                         <span>API Key</span>
                         <input type="password" x-model="$store.onscreenAgent.settingsDraft.apiKey" />
                       </label>
+                    </div>
+                    <div x-show="$store.onscreenAgent.isSettingsDraftUsingCodexProvider" x-cloak class="onscreen-agent-codex-settings">
+                      <template x-if="!$store.onscreenAgent.isCodexLoginActive && !$store.onscreenAgent.hasCodexTokens">
+                        <div class="onscreen-agent-codex-login">
+                          <p class="field-note">
+                            Uses your existing ChatGPT Plus subscription via the official OpenAI Codex OAuth flow.
+                            Nothing is billed to the OpenAI platform API on top of your subscription.
+                          </p>
+                          <p class="field-note">
+                            This sign-in is local to the overlay chat. Sign in separately in the admin chat settings to enable Codex there too.
+                          </p>
+                          <button type="button" class="primary-button" @click="$store.onscreenAgent.startCodexLogin()">
+                            Sign in with ChatGPT
+                          </button>
+                          <p class="field-note" x-show="$store.onscreenAgent.codexLoginError" x-text="$store.onscreenAgent.codexLoginError"></p>
+                        </div>
+                      </template>
+                      <template x-if="$store.onscreenAgent.isCodexLoginActive">
+                        <div class="onscreen-agent-codex-login-pending">
+                          <p>
+                            Open
+                            <a :href="$store.onscreenAgent.codexVerificationUrl" target="_blank" rel="noopener noreferrer" x-text="$store.onscreenAgent.codexVerificationUrl"></a>
+                            and enter this code:
+                          </p>
+                          <p class="onscreen-agent-codex-user-code" x-text="$store.onscreenAgent.codexUserCode"></p>
+                          <button type="button" class="secondary-button" @click="$store.onscreenAgent.cancelCodexLogin()">
+                            Cancel
+                          </button>
+                        </div>
+                      </template>
+                      <template x-if="!$store.onscreenAgent.isCodexLoginActive && $store.onscreenAgent.hasCodexTokens">
+                        <div class="onscreen-agent-codex-signed-in">
+                          <p class="field-note">
+                            Signed in<span x-show="$store.onscreenAgent.codexAccountIdSummary">
+                              as <code x-text="$store.onscreenAgent.codexAccountIdSummary"></code></span>.
+                          </p>
+                          <label class="field">
+                            <span>Model</span>
+                            <select x-model="$store.onscreenAgent.settingsDraft.codexModel">
+                              <template x-for="entry in $store.onscreenAgent.codexModelCatalog" :key="entry.id">
+                                <option :value="entry.id" x-text="`${entry.id} — ${entry.description}`"></option>
+                              </template>
+                              <template x-if="!$store.onscreenAgent.isCodexSelectedModelInCatalog">
+                                <option :value="$store.onscreenAgent.settingsDraft.codexModel" x-text="$store.onscreenAgent.settingsDraft.codexModel"></option>
+                              </template>
+                            </select>
+                            <p class="field-note" x-show="!$store.onscreenAgent.isCodexSelectedModelInCatalog">
+                              ⚠ Not currently listed for your account. Pick another model if chats fail.
+                            </p>
+                          </label>
+                          <button type="button" class="secondary-button" @click="$store.onscreenAgent.clearCodexLogin()">
+                            Sign out
+                          </button>
+                        </div>
+                      </template>
                     </div>
                     <div x-show="$store.onscreenAgent.isSettingsDraftUsingLocalProvider" x-cloak class="onscreen-agent-local-settings">
                       <div class="onscreen-agent-local-provider-panel">

@@ -340,6 +340,7 @@ When a module later grows multiple independently owned sub-areas, create or upda
 - `/app/L0/_all/mod/_core/onscreen_agent/AGENTS.md` - _core/onscreen_agent/ owns the floating routed overlay agent.
 - `/app/L0/_all/mod/_core/onscreen_menu/AGENTS.md` - _core/onscreen_menu/ owns the viewport-fixed routed header bar, page menu, and Home shortcut.
 - `/app/L0/_all/mod/_core/open_router/AGENTS.md` - _core/open_router/ owns OpenRouter-specific frontend request customization.
+- `/app/L0/_all/mod/_core/openai_codex/AGENTS.md` - _core/openai_codex/ owns the headless OpenAI Codex (ChatGPT Plus) OAuth provider used by the admin and onscreen agents.
 - `/app/L0/_all/mod/_core/panels/AGENTS.md` - _core/panels/ owns the panel-manifest index used by the dashboard.
 - `/app/L0/_all/mod/_core/promptinclude/AGENTS.md` - _core/promptinclude/ owns prompt-include discovery for the onscreen agent.
 - `/app/L0/_all/mod/_core/router/AGENTS.md` - _core/router/ owns the authenticated root app shell.
