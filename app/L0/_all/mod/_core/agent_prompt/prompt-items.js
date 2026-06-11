@@ -533,6 +533,18 @@ export function buildPromptOverflowTrimPlan(contributors = [], overflowTokens, o
   };
 }
 
+// Pad the removed-chars counter to a fixed width so the placeholder string has
+// a byte-stable length regardless of how many characters were trimmed. Each
+// time the trimmer runs the counter changes (because chars-needed drifts with
+// content and token budget), and without padding that changes the byte offset
+// of every token after the placeholder. For backends with prefix prompt-cache
+// reuse (llama.cpp `--prompt-cache`, qwen serve, vLLM prefix cache, etc.) the
+// drifting placeholder forces a full prompt re-prefill on every turn instead
+// of a warm-cache continuation — turning a 10s warm reply into multi-minute
+// full PP for long-context sessions. 10 digits cover up to ~10 billion
+// characters which is far above any realistic message length.
+const LONG_MESSAGE_REMOVED_CHARS_PAD_WIDTH = 10;
+
 export function buildPromptLongMessagePlaceholder({ id, removedChars } = {}) {
   const normalizedId = Number.isFinite(Number(id)) ? Math.max(1, Math.round(Number(id))) : 0;
   const normalizedRemovedChars = Number.isFinite(Number(removedChars))
@@ -543,7 +555,12 @@ export function buildPromptLongMessagePlaceholder({ id, removedChars } = {}) {
     return "";
   }
 
-  return `<<${normalizedRemovedChars} characters removed to optimize context, read with space.chat.readLongMessage({id: ${normalizedId}, from: 0, to:${LONG_MESSAGE_DEFAULT_TO}})>>`;
+  const paddedRemovedChars = String(normalizedRemovedChars).padStart(
+    LONG_MESSAGE_REMOVED_CHARS_PAD_WIDTH,
+    "0"
+  );
+
+  return `<<${paddedRemovedChars} characters removed to optimize context, read with space.chat.readLongMessage({id: ${normalizedId}, from: 0, to:${LONG_MESSAGE_DEFAULT_TO}})>>`;
 }
 
 export function trimPromptLongMessage(text, options = {}) {
