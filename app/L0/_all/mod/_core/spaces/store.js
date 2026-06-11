@@ -87,6 +87,21 @@ const GRID_EDGE_SCROLL_THRESHOLD = 72;
 const GRID_EDGE_SCROLL_SPEED = 8;
 const SPACE_META_PERSIST_DELAY_MS = 320;
 const CURRENT_WIDGET_TRANSIENT_KEY = "spaces/current-widget";
+// Operation label used by buildWidgetToolResult for patch operations. The
+// consecutive-patch loop guard compares against this exact string to decide
+// whether to increment or reset its counter, and getWidgetOperationStatusVerb
+// keys off the same value. Centralized here so a relabel only happens once.
+const PATCH_WIDGET_OPERATION_LABEL = "patchWidget(...)";
+// Threshold for the consecutive-patch loop guard: when the same widget id has
+// been patched this many times in a row without an intervening readWidget,
+// seeWidget, renderWidget, upsertWidget, reloadWidget, or removeWidget on
+// that widget, the patch status text gains a fragment suggesting a fresh
+// read or a state report. Three patches matches the existing skill
+// convention ("if the same error repeats twice on the same widget, stop
+// and call readWidget"); the guard is a soft hint only and never refuses
+// or throws.
+const CONSECUTIVE_PATCH_WARNING_THRESHOLD = 3;
+const consecutivePatchCountByWidgetKey = new Map();
 const EMPTY_CANVAS_SEEN_STORAGE_KEY_PREFIX = "space.spaces.emptyCanvasSeen";
 const EMPTY_CANVAS_SEEN_STORAGE_AREAS = Object.freeze(["sessionStorage", "localStorage"]);
 
@@ -702,6 +717,7 @@ function ensureSpacesRuntimeNamespace() {
       }
 
       clearCurrentWidgetTransientSection(result.widgetId);
+      clearWidgetOperationLoopGuard(targetSpaceId, result.widgetId);
 
       return result;
     },
@@ -723,7 +739,10 @@ function ensureSpacesRuntimeNamespace() {
         });
       }
 
-      result.widgetIds.forEach((widgetId) => clearCurrentWidgetTransientSection(widgetId));
+      result.widgetIds.forEach((widgetId) => {
+        clearCurrentWidgetTransientSection(widgetId);
+        clearWidgetOperationLoopGuard(targetSpaceId, widgetId);
+      });
 
       return result;
     },
@@ -758,7 +777,10 @@ function ensureSpacesRuntimeNamespace() {
         });
       }
 
-      result.widgetIds.forEach((widgetId) => clearCurrentWidgetTransientSection(widgetId));
+      result.widgetIds.forEach((widgetId) => {
+        clearCurrentWidgetTransientSection(widgetId);
+        clearWidgetOperationLoopGuard(targetSpaceId, widgetId);
+      });
 
       return result;
     },
@@ -1005,7 +1027,7 @@ function getWidgetRenderCheckForSpace(spaceId, widgetId) {
 
 function getWidgetOperationStatusVerb(operationLabel) {
   switch (String(operationLabel || "").trim()) {
-    case "patchWidget(...)":
+    case PATCH_WIDGET_OPERATION_LABEL:
       return "patched";
     case "reloadWidget(...)":
       return "reloaded";
@@ -1017,21 +1039,93 @@ function getWidgetOperationStatusVerb(operationLabel) {
   }
 }
 
+function buildConsecutivePatchKey(spaceId, widgetId) {
+  const normalizedSpaceId = normalizeOptionalSpaceId(spaceId);
+  const normalizedWidgetId = normalizeOptionalWidgetId(widgetId);
+
+  if (!normalizedSpaceId || !normalizedWidgetId) {
+    return "";
+  }
+
+  return `${normalizedSpaceId}|${normalizedWidgetId}`;
+}
+
+function recordWidgetOperationForLoopGuard(spaceId, widgetId, operationLabel) {
+  const key = buildConsecutivePatchKey(spaceId, widgetId);
+
+  if (!key) {
+    return 0;
+  }
+
+  // Any non-patch widget operation on this id resets the streak. Patches on a
+  // different widget id leave this id's counter alone (the user may genuinely
+  // be juggling several widgets in one chat). The counter advances on patch
+  // *attempts* including no-op edit arrays — a series of empty patches without
+  // a readWidget is itself the pattern this guard is meant to flag.
+  if (operationLabel !== PATCH_WIDGET_OPERATION_LABEL) {
+    consecutivePatchCountByWidgetKey.delete(key);
+    return 0;
+  }
+
+  const previous = consecutivePatchCountByWidgetKey.get(key) || 0;
+  const next = previous + 1;
+  consecutivePatchCountByWidgetKey.set(key, next);
+  return next;
+}
+
+function clearWidgetOperationLoopGuard(spaceId, widgetId) {
+  const key = buildConsecutivePatchKey(spaceId, widgetId);
+
+  if (!key) {
+    return;
+  }
+
+  consecutivePatchCountByWidgetKey.delete(key);
+}
+
+function formatOrdinalSuffix(value) {
+  const integer = Math.trunc(Math.abs(Number(value)));
+  const lastTwo = integer % 100;
+  if (lastTwo >= 11 && lastTwo <= 13) {
+    return "th";
+  }
+  switch (integer % 10) {
+    case 1:
+      return "st";
+    case 2:
+      return "nd";
+    case 3:
+      return "rd";
+    default:
+      return "th";
+  }
+}
+
+function formatConsecutivePatchWarning(consecutivePatchCount) {
+  if (!Number.isFinite(consecutivePatchCount) || consecutivePatchCount < CONSECUTIVE_PATCH_WARNING_THRESHOLD) {
+    return "";
+  }
+
+  return `${consecutivePatchCount}${formatOrdinalSuffix(consecutivePatchCount)} consecutive patch on this widget without a fresh readWidget — verify visually or report current state instead of patching again`;
+}
+
 function formatWidgetOperationStatusText(widgetId, operationLabel, widgetRender, options = {}) {
   const check = cloneWidgetRenderCheck(widgetRender, widgetId);
   const verb = getWidgetOperationStatusVerb(operationLabel);
   const targetLabel = widgetId ? `Widget "${widgetId}"` : "Widget";
   const suffix = options.transientUpdated ? "loaded to TRANSIENT." : "done.";
+  const loopWarning = formatConsecutivePatchWarning(options.consecutivePatchCount);
+  const loopWarningSuffix = loopWarning ? `, ${loopWarning}` : "";
 
   if (check.status === "error") {
-    return `${targetLabel} ${verb}, render failed, ${suffix}`;
+    return `${targetLabel} ${verb}, render failed, ${suffix}${loopWarningSuffix ? ` Note: ${loopWarning}.` : ""}`;
   }
 
   if (check.status === "ok") {
-    return `${targetLabel} ${verb}, rendered ok, ${suffix}`;
+    return `${targetLabel} ${verb}, rendered ok, ${suffix}${loopWarningSuffix ? ` Note: ${loopWarning}.` : ""}`;
   }
 
-  return `${targetLabel} ${verb}, not live-tested, ${suffix}`;
+  return `${targetLabel} ${verb}, not live-tested, ${suffix}${loopWarningSuffix ? ` Note: ${loopWarning}.` : ""}`;
 }
 
 function extractWidgetIdFromWidgetText(widgetText) {
@@ -1271,7 +1365,13 @@ async function buildWidgetToolResult(
         widgetText
       })
     : false;
+  const consecutivePatchCount = recordWidgetOperationForLoopGuard(
+    normalizedSpaceId,
+    normalizedWidgetId,
+    operationLabel
+  );
   const widgetStatusText = formatWidgetOperationStatusText(normalizedWidgetId, operationLabel, widgetRender, {
+    consecutivePatchCount,
     transientUpdated
   });
 
@@ -1665,6 +1765,13 @@ function createCurrentSpaceRuntime(namespace) {
           widgetName
         });
         const widgetId = extractWidgetIdFromWidgetText(widgetText) || normalizeOptionalWidgetId(widgetName);
+
+        // A successful read of the widget source is treated as the agent
+        // acknowledging the on-disk state, so the consecutive-patch streak
+        // for this id resets. The next patchWidget call therefore counts
+        // from 1 again.
+        clearWidgetOperationLoopGuard(spaceId, widgetId);
+
         return emitWidgetReadToolResult(widgetText, widgetId);
       })();
     },
@@ -1682,6 +1789,13 @@ function createCurrentSpaceRuntime(namespace) {
         if (!widgetCard?.renderTarget) {
           throw new Error(`Widget "${widgetId}" is not mounted in the current space.`);
         }
+
+        // A successful seeWidget is the visual verification the loop-guard
+        // warning asks the agent to perform. It is not authoritative for
+        // patch source, but it is the corrective action we want to reward,
+        // so the consecutive-patch streak resets here as well as on
+        // readWidget. See loop-guard helper for full streak rules.
+        clearWidgetOperationLoopGuard(currentRuntimeSpace.id, widgetId);
 
         const widgetHtml = buildWidgetInstanceHtmlResult(widgetCard.renderTarget.innerHTML, Boolean(full));
         return emitWidgetSeeToolResult(widgetHtml, widgetId, Boolean(full));
