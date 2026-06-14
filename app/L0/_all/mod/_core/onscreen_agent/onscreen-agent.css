@@ -1104,3 +1104,59 @@
     max-width: calc(100% - 46px);
   }
 }
+
+/* ── Mic button ─────────────────────────────────────────────────────────── */
+.onscreen-agent-mic-button.is-recording {
+  color: var(--space-danger, #f87171);
+  background: color-mix(in srgb, var(--space-danger, #f87171) 12%, transparent);
+  animation: onscreen-agent-mic-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes onscreen-agent-mic-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* ── Emoji button active state ───────────────────────────────────────────── */
+.onscreen-agent-emoji-button.is-active {
+  color: var(--space-accent, var(--chat-send-background, #818cf8));
+  background: color-mix(in srgb, var(--space-accent, #818cf8) 12%, transparent);
+}
+
+/* ── Emoji picker popover ────────────────────────────────────────────────── */
+.onscreen-agent-emoji-picker {
+  position: fixed;
+  background: var(--space-surface-2, var(--chat-surface, #1e1e2e));
+  border: 1px solid var(--space-border, rgba(255, 255, 255, 0.13));
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+  z-index: var(--space-popover-z, 9000);
+  width: 268px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.onscreen-agent-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+}
+
+.onscreen-agent-emoji-item {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  padding: 5px 3px;
+  border-radius: 6px;
+  transition: background 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.onscreen-agent-emoji-item:hover {
+  background: var(--space-surface-hover, rgba(255, 255, 255, 0.1));
+}
