@@ -1441,6 +1441,16 @@ const model = {
   hiddenEdge: "",
   shouldCenterInitialPosition: false,
 
+  // Emoji picker state
+  emojiPickerAnchor: null,
+  emojiPickerPosition: { left: 12, maxHeight: 320, top: 12 },
+  isEmojiPickerVisible: false,
+
+  // STT / mic state
+  isRecording: false,
+  sttSupported: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+  _sttRecognition: null,
+
   get composerPlaceholder() {
     const statusText = typeof this.status === "string" ? this.status.trim() : "";
 
@@ -1518,6 +1528,46 @@ const model = {
       pointerEvents: this.isComposerActionMenuVisible ? "auto" : "none",
       visibility: this.isComposerActionMenuVisible ? "visible" : "hidden"
     };
+  },
+
+  get isEmojiPickerOpen() {
+    return Boolean(this.emojiPickerAnchor);
+  },
+
+  get emojiPickerStyle() {
+    return {
+      left: `${this.emojiPickerPosition.left}px`,
+      maxHeight: `${this.emojiPickerPosition.maxHeight}px`,
+      top: `${this.emojiPickerPosition.top}px`,
+      pointerEvents: this.isEmojiPickerVisible ? "auto" : "none",
+      visibility: this.isEmojiPickerVisible ? "visible" : "hidden"
+    };
+  },
+
+  get emojiList() {
+    return [
+      // Smileys & emotion
+      "😀", "😂", "🥲", "😊", "😍", "🤩", "😎", "😏", "🤔", "😮",
+      "😴", "🥹", "😭", "😤", "😡", "🤯", "🥺", "😈", "👀", "🫡",
+      "😅", "😬", "🤐", "😐", "🙃", "😇", "🤗", "🫠", "😶", "🫤",
+      // Hearts & affection
+      "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💕", "💞",
+      "💓", "💗", "💖", "💝", "🫶", "❤️‍🔥",
+      // Gestures & people
+      "👍", "👎", "👏", "🙌", "🤝", "🫂", "💪", "✌️", "🤙", "👌",
+      "🫰", "👋", "🙏", "🤜", "🤛", "☝️", "🫵",
+      // Nature & animals
+      "🌟", "✨", "🌈", "🌸", "🌺", "🍀", "🌻", "🌙", "☀️", "🌊",
+      "🌿", "🦋", "🐈", "🦊", "🐻", "🌵", "🐝", "🦄", "🐉", "🌴",
+      // Food & drink
+      "🍕", "🍔", "🍣", "🍜", "🍦", "🎂", "☕", "🍺", "🥂", "🍷",
+      "🧃", "🍓", "🍩", "🧁", "🌮",
+      // Objects & activities
+      "💻", "📱", "🎮", "🎵", "🎸", "🏆", "🎯", "🎲", "📚", "💡",
+      "🔥", "💫", "🎉", "🎊", "🛸", "⚡", "🎤", "🎨", "🚀", "🌐",
+      // Symbols
+      "✅", "❌", "⚠️", "💯", "🆗", "🔔", "💬", "💤", "♾️", "🔑"
+    ];
   },
 
   get isComposerInputDisabled() {
@@ -4168,6 +4218,126 @@ const model = {
     this.composerActionMenuRenderToken += 1;
     this.isComposerActionMenuVisible = false;
     this.composerActionMenuPosition = createComposerActionMenuPosition();
+  },
+
+  closeEmojiPicker() {
+    this.emojiPickerAnchor = null;
+    this.isEmojiPickerVisible = false;
+    this.emojiPickerPosition = { left: 12, maxHeight: 320, top: 12 };
+  },
+
+  openEmojiPicker(anchor) {
+    this.emojiPickerAnchor = anchor || null;
+    this.isEmojiPickerVisible = false;
+    const capturedAnchor = this.emojiPickerAnchor;
+
+    globalThis.requestAnimationFrame(() => {
+      if (!this.isEmojiPickerOpen || this.emojiPickerAnchor !== capturedAnchor) {
+        return;
+      }
+
+      this.positionEmojiPicker();
+
+      globalThis.requestAnimationFrame(() => {
+        if (!this.isEmojiPickerOpen || this.emojiPickerAnchor !== capturedAnchor) {
+          return;
+        }
+
+        this.positionEmojiPicker();
+        this.isEmojiPickerVisible = true;
+      });
+    });
+  },
+
+  positionEmojiPicker() {
+    const picker = document.getElementById("onscreen-agent-emoji-picker");
+
+    if (!this.isEmojiPickerOpen || !picker || !this.emojiPickerAnchor) {
+      return;
+    }
+
+    this.emojiPickerPosition = positionPopover(picker, this.emojiPickerAnchor, {
+      align: "end",
+      placement: "top"
+    });
+  },
+
+  toggleEmojiPicker(event) {
+    const anchor = event?.currentTarget || null;
+
+    if (this.emojiPickerAnchor === anchor) {
+      this.closeEmojiPicker();
+      return;
+    }
+
+    this.openEmojiPicker(anchor);
+  },
+
+  insertEmoji(emoji) {
+    const input = this.refs.input;
+    const start = input ? (input.selectionStart ?? this.draft.length) : this.draft.length;
+    const end = input ? (input.selectionEnd ?? this.draft.length) : this.draft.length;
+    const nextDraft = this.draft.slice(0, start) + emoji + this.draft.slice(end);
+
+    this.syncDraft(nextDraft);
+    this.closeEmojiPicker();
+
+    globalThis.requestAnimationFrame(() => {
+      if (!input) {
+        return;
+      }
+
+      input.focus();
+      const nextCursor = start + emoji.length; // .length = UTF-16 units, matches selectionRange
+      input.setSelectionRange(nextCursor, nextCursor);
+    });
+  },
+
+  handleMicClick() {
+    if (this.isRecording) {
+      this._sttRecognition?.stop();
+      this.isRecording = false;
+      return;
+    }
+
+    const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognitionClass) {
+      return;
+    }
+
+    const recognition = new SpeechRecognitionClass();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = navigator.language || "en-US";
+
+    recognition.onresult = (event) => {
+      const transcript = String(event?.results?.[0]?.[0]?.transcript || "").trim();
+
+      if (!transcript) {
+        return;
+      }
+
+      const separator = this.draft && !this.draft.endsWith(" ") ? " " : "";
+      this.syncDraft(this.draft + separator + transcript);
+    };
+
+    recognition.onend = () => {
+      this.isRecording = false;
+    };
+
+    recognition.onerror = () => {
+      this.isRecording = false;
+    };
+
+    this._sttRecognition = recognition;
+
+    try {
+      recognition.start();
+      this.isRecording = true;
+    } catch {
+      this._sttRecognition = null;
+    }
   },
 
   openComposerActionMenu(anchor) {

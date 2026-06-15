@@ -19,7 +19,7 @@
             'is-edge-hidden-bottom': $store.onscreenAgent.hiddenEdge === 'bottom',
             'is-edge-hidden-left': $store.onscreenAgent.hiddenEdge === 'left',
             'is-edge-hidden-right': $store.onscreenAgent.hiddenEdge === 'right',
-            'is-edge-hidden-top': $store.onscreenAgent.hiddenEdge === 'top',
+            'is-edge-hidden-top': $store.onscreenAgent.hiddenEdge === 'top',h
             'is-full': $store.onscreenAgent.isFullMode,
             'is-history-below': $store.onscreenAgent.isHistoryBelow,
             'is-mode-collapsing': $store.onscreenAgent.isModeTransitionCollapsing,
@@ -144,7 +144,7 @@
                     class="composer-attachment-input"
                     @change="$store.onscreenAgent.handleAttachmentInput($event)"
                   />
-                  <div class="onscreen-agent-composer-input-wrap">
+                  <div class="onscreen-agent-composer-input-wrap" @click.self="$refs.input.focus()">
                     <textarea
                       x-ref="input"
                       name="message"
@@ -193,6 +193,33 @@
                       title="Attach files"
                     >
                       <x-icon>attach_file</x-icon>
+                    </button>
+                    <button
+                      x-show="$store.onscreenAgent.isFullMode"
+                      type="button"
+                      class="onscreen-agent-inline-button onscreen-agent-emoji-button"
+                      :class="{ 'is-active': $store.onscreenAgent.isEmojiPickerOpen }"
+                      :disabled="$store.onscreenAgent.isComposerInputDisabled"
+                      :aria-expanded="String($store.onscreenAgent.isEmojiPickerOpen)"
+                      aria-controls="onscreen-agent-emoji-picker"
+                      aria-haspopup="true"
+                      @click="$store.onscreenAgent.toggleEmojiPicker($event)"
+                      aria-label="Insert emoji"
+                      title="Insert emoji"
+                    >
+                      <x-icon>emoji_emotions</x-icon>
+                    </button>
+                    <button
+                      x-show="$store.onscreenAgent.isFullMode && $store.onscreenAgent.sttSupported"
+                      type="button"
+                      class="onscreen-agent-inline-button onscreen-agent-mic-button"
+                      :class="{ 'is-recording': $store.onscreenAgent.isRecording }"
+                      :disabled="$store.onscreenAgent.isComposerInputDisabled"
+                      @click="$store.onscreenAgent.handleMicClick()"
+                      :aria-label="$store.onscreenAgent.isRecording ? 'Stop voice input' : 'Start voice input'"
+                      :title="$store.onscreenAgent.isRecording ? 'Stop voice input' : 'Start voice input'"
+                    >
+                      <x-icon x-text="$store.onscreenAgent.isRecording ? 'mic_off' : 'mic'"></x-icon>
                     </button>
                     <button
                       x-show="$store.onscreenAgent.isCompactMode"
@@ -309,6 +336,31 @@
                     <span class="space-popover-action-label" x-text="action.label"></span>
                   </button>
                 </template>
+              </div>
+            </div>
+          </template>
+
+          <template x-teleport="body">
+            <div class="space-popover-layer onscreen-agent-popover-layer" x-show="$store.onscreenAgent.isEmojiPickerOpen" x-cloak>
+              <div
+                id="onscreen-agent-emoji-picker"
+                class="onscreen-agent-emoji-picker"
+                x-show="$store.onscreenAgent.isEmojiPickerOpen"
+                :style="$store.onscreenAgent.emojiPickerStyle"
+                @click.outside="$store.onscreenAgent.closeEmojiPicker()"
+                @keydown.escape.window="$store.onscreenAgent.closeEmojiPicker()"
+              >
+                <div class="onscreen-agent-emoji-grid">
+                  <template x-for="emoji in $store.onscreenAgent.emojiList" :key="emoji">
+                    <button
+                      type="button"
+                      class="onscreen-agent-emoji-item"
+                      @click="$store.onscreenAgent.insertEmoji(emoji)"
+                      :title="emoji"
+                      x-text="emoji"
+                    ></button>
+                  </template>
+                </div>
               </div>
             </div>
           </template>
