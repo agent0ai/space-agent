@@ -19,7 +19,7 @@
             'is-edge-hidden-bottom': $store.onscreenAgent.hiddenEdge === 'bottom',
             'is-edge-hidden-left': $store.onscreenAgent.hiddenEdge === 'left',
             'is-edge-hidden-right': $store.onscreenAgent.hiddenEdge === 'right',
-            'is-edge-hidden-top': $store.onscreenAgent.hiddenEdge === 'top',
+            'is-edge-hidden-top': $store.onscreenAgent.hiddenEdge === 'top',h
             'is-full': $store.onscreenAgent.isFullMode,
             'is-history-below': $store.onscreenAgent.isHistoryBelow,
             'is-mode-collapsing': $store.onscreenAgent.isModeTransitionCollapsing,
@@ -144,7 +144,7 @@
                     class="composer-attachment-input"
                     @change="$store.onscreenAgent.handleAttachmentInput($event)"
                   />
-                  <div class="onscreen-agent-composer-input-wrap">
+                  <div class="onscreen-agent-composer-input-wrap" @click.self="$refs.input.focus()">
                     <textarea
                       x-ref="input"
                       name="message"
