@@ -641,6 +641,7 @@
 .onscreen-agent-composer-input-wrap {
   position: relative;
   min-width: 0;
+  cursor: text;
 }
 
 .onscreen-agent-set-api-key-overlay {
