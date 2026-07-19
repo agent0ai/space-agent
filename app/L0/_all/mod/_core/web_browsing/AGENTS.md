@@ -37,6 +37,8 @@ This module owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 - this module must mount only through `_core/onscreen_menu/items` and `page/router/overlay/end`; do not hardcode it into `_core/onscreen_menu/` or `_core/router/`
 - the routed menu action is owned here through `_core/onscreen_menu/items` with `data-order="250"`
 - the routed menu action must open a new floating browser window each time it is clicked without changing the current route
@@ -90,9 +92,19 @@ This module owns:
 - in browser runtime it should show the exact text `Embedded browser only works in native desktop apps for now.` above a latest-release button that reuses the login screen's `Download native App` label plus platform logos and opens `https://github.com/agent0ai/space-agent/releases/latest` in a new window
 - in packaged app runtime it should instead show the active-development browser notice with the exact text `Embedded browser is in active development and may still have some limitations.` plus the short secondary hint `Use the address bar above to open a page, or tell Space Agent what to do.` with an extra blank-line worth of separation above that hint
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep browser-overlay behavior self-contained here unless a stable menu or router seam changes
 - prefer extending this module's store and component pair over adding ad hoc globals or shell patches
 - keep the browser surface generic enough that later browsing logic can replace only the inner browsing engine or injection transport without rewriting the floating-window chrome
 - if the overlay seam, menu-item order, browser id scheme, `<x-browser>` contract, toolbar contract, injected-runtime transport, `data-space-inject` contract, packaged-desktop browser bridge rules, or browser-frame bridge envelope or message types change, update this file, `/app/AGENTS.md`, `/packaging/AGENTS.md`, and the matching docs under `_core/documentation/docs/`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

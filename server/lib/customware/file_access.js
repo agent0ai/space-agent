@@ -14,6 +14,10 @@ import {
   resolveProjectAbsolutePath
 } from "./layout.js";
 import {
+  getFileIndexShardValue,
+  listStateAreaIds
+} from "./module_state.js";
+import {
   applyUserFolderQuotaPlan,
   createUserFolderQuotaPlan,
   getIndexedProjectPathSize,
@@ -23,6 +27,7 @@ import {
 import { createEmptyGroupIndex } from "./overrides.js";
 import { globToRegExp, normalizePathSegment } from "../utils/app_files.js";
 import { isProjectPathWithinMaxLayer, normalizeMaxLayer } from "./layer_limit.js";
+import { FILE_INDEX_AREA } from "../../runtime/state_areas.js";
 
 function createHttpError(message, statusCode) {
   const error = new Error(message);
@@ -239,7 +244,113 @@ function createReadableOwnerScopes(options = {}) {
   return ownerScopes;
 }
 
-function createWritableOwnerScopes(options = {}) {
+function getFileIndexShardIdForOwnerRoot(rootPath = "") {
+  const normalizedRootPath = String(rootPath || "");
+  const match = normalizedRootPath.match(/^\/app\/(L0|L1|L2)\/([^/]+)\/$/u);
+
+  if (!match) {
+    return "";
+  }
+
+  if (match[1] === "L0") {
+    return "L0";
+  }
+
+  return `${match[1]}/${match[2]}`;
+}
+
+function isOwnerRootWithinMaxLayer(rootPath, maxLayer) {
+  return isProjectPathWithinMaxLayer(rootPath, maxLayer);
+}
+
+function toAppRelativeProjectPath(projectPath) {
+  const normalizedProjectPath = String(projectPath || "");
+  return normalizedProjectPath.startsWith("/app/")
+    ? normalizedProjectPath.slice("/app/".length)
+    : toAppRelativePath(normalizedProjectPath);
+}
+
+function isReservedIndexedProjectPath(projectPath) {
+  const normalizedProjectPath = String(projectPath || "");
+  return normalizedProjectPath.includes("/.git/") || normalizedProjectPath.endsWith("/.git/");
+}
+
+function hasFileIndexStateSystem(stateSystem) {
+  return Boolean(
+    stateSystem &&
+      typeof stateSystem === "object" &&
+      !Array.isArray(stateSystem) &&
+      typeof stateSystem.getValue === "function"
+  );
+}
+
+function createReadableOwnerScopesFromGroupIndex(options = {}) {
+  const seenRootPaths = new Set();
+
+  return createReadableOwnerScopes(options).filter((ownerScope) => {
+    if (!isOwnerRootWithinMaxLayer(ownerScope.rootPath, options.maxLayer)) {
+      return false;
+    }
+
+    if (seenRootPaths.has(ownerScope.rootPath)) {
+      return false;
+    }
+
+    seenRootPaths.add(ownerScope.rootPath);
+    return true;
+  });
+}
+
+function createWritableOwnerScopesFromState(options = {}) {
+  const accessController = createAppAccessController({
+    groupIndex: options.groupIndex,
+    runtimeParams: options.runtimeParams,
+    username: options.username
+  });
+  const maxLayer = normalizeMaxLayer(options.maxLayer);
+  const ownerRootPaths = [];
+
+  function addOwnerRootPath(rootPath) {
+    if (!rootPath || ownerRootPaths.includes(rootPath)) {
+      return;
+    }
+
+    if (!isOwnerRootWithinMaxLayer(rootPath, maxLayer)) {
+      return;
+    }
+
+    ownerRootPaths.push(rootPath);
+  }
+
+  if (hasFileIndexStateSystem(options.stateSystem) && accessController.isAdmin) {
+    for (const shardId of listStateAreaIds(options.stateSystem, FILE_INDEX_AREA)) {
+      if (!shardId.startsWith("L1/") && !shardId.startsWith("L2/")) {
+        continue;
+      }
+
+      addOwnerRootPath(`/app/${shardId}/`);
+    }
+  } else {
+    [...accessController.managedGroups]
+      .sort((left, right) => left.localeCompare(right))
+      .forEach((groupId) => {
+        addOwnerRootPath(`/app/L1/${groupId}/`);
+      });
+
+    if (accessController.username) {
+      addOwnerRootPath(`/app/L2/${accessController.username}/`);
+    }
+  }
+
+  return ownerRootPaths
+    .sort((left, right) => left.localeCompare(right))
+    .map((rootPath, rank) => ({
+      rank,
+      rootPath
+    }));
+}
+
+function createWritableOwnerScopesFromWatchdog(options = {}) {
   const accessController = createAppAccessController({
     groupIndex: options.groupIndex,
     runtimeParams: options.runtimeParams,
@@ -256,7 +367,10 @@ function createWritableOwnerScopes(options = {}) {
 
     const ownerProjectPath = `/app/${pathInfo.layer}/${pathInfo.ownerId}/`;
 
-    if (accessController.canWriteProjectPath(ownerProjectPath)) {
+    if (
+      isOwnerRootWithinMaxLayer(ownerProjectPath, options.maxLayer) &&
+      accessController.canWriteProjectPath(ownerProjectPath)
+    ) {
       ownerRootPaths.add(ownerProjectPath);
     }
   }
@@ -271,6 +385,93 @@ function createWritableOwnerScopes(options = {}) {
 
 function findOwnerScope(projectPath, ownerScopes) {
   return ownerScopes.find((ownerScope) => projectPath.startsWith(ownerScope.rootPath)) || null;
+}
+
+function addPatternMatchesForPath(output, compiledPatterns, projectPath, relativePath) {
+  const appRelativePath = toAppRelativeProjectPath(projectPath);
+
+  for (const compiledPattern of compiledPatterns) {
+    if (compiledPattern.matcher.test(relativePath)) {
+      output[compiledPattern.sourcePattern].push(appRelativePath);
+    }
+  }
+}
+
+function getSortedShardProjectPaths(stateSystem, shardId, shardPathCache) {
+  const normalizedShardId = String(shardId || "").trim();
+
+  if (!normalizedShardId) {
+    return [];
+  }
+
+  if (shardPathCache.has(normalizedShardId)) {
+    return shardPathCache.get(normalizedShardId);
+  }
+
+  const shardValue = getFileIndexShardValue(stateSystem, normalizedShardId);
+  const projectPaths = Object.keys(shardValue).sort((left, right) => left.localeCompare(right));
+  shardPathCache.set(normalizedShardId, projectPaths);
+  return projectPaths;
+}
+
+function listAppPathsByPatternsFromFileIndex(options = {}) {
+  const {
+    accessMode,
+    compiledPatterns,
+    groupIndex,
+    maxLayer,
+    output,
+    stateSystem
+  } = options;
+  const ownerScopes =
+    accessMode === "write"
+      ? createWritableOwnerScopesFromState({
+          groupIndex,
+          maxLayer,
+          runtimeParams: options.runtimeParams,
+          stateSystem,
+          username: options.username
+        })
+      : createReadableOwnerScopesFromGroupIndex({
+          groupIndex,
+          maxLayer,
+          runtimeParams: options.runtimeParams,
+          username: options.username
+        });
+
+  if (ownerScopes.length === 0) {
+    return output;
+  }
+
+  const shardPathCache = new Map();
+
+  for (const ownerScope of ownerScopes) {
+    const shardId = getFileIndexShardIdForOwnerRoot(ownerScope.rootPath);
+
+    if (!shardId) {
+      continue;
+    }
+
+    for (const projectPath of getSortedShardProjectPaths(stateSystem, shardId, shardPathCache)) {
+      if (isReservedIndexedProjectPath(projectPath)) {
+        continue;
+      }
+
+      if (!projectPath.startsWith(ownerScope.rootPath)) {
+        continue;
+      }
+
+      const relativePath = projectPath.slice(ownerScope.rootPath.length);
+
+      if (!relativePath) {
+        continue;
+      }
+
+      addPatternMatchesForPath(output, compiledPatterns, projectPath, relativePath);
+    }
+  }
+
+  return output;
 }
 
 function createAppAccessController(options = {}) {
@@ -1667,16 +1868,36 @@ function listAppPathsByPatterns(options = {}) {
     return output;
   }
 
-  const ownerScopes = accessMode === "write" ? createWritableOwnerScopes({
-    groupIndex: getGroupIndex(options.watchdog, options.runtimeParams),
-    runtimeParams: options.runtimeParams,
-    username: options.username,
-    watchdog: options.watchdog
-  }) : createReadableOwnerScopes({
-    groupIndex: getGroupIndex(options.watchdog, options.runtimeParams),
-    runtimeParams: options.runtimeParams,
-    username: options.username
-  });
+  const groupIndex = getGroupIndex(options.watchdog, options.runtimeParams);
+
+  if (hasFileIndexStateSystem(options.stateSystem)) {
+    return listAppPathsByPatternsFromFileIndex({
+      accessMode,
+      compiledPatterns,
+      groupIndex,
+      maxLayer,
+      output,
+      runtimeParams: options.runtimeParams,
+      stateSystem: options.stateSystem,
+      username: options.username
+    });
+  }
+
+  const ownerScopes =
+    accessMode === "write"
+      ? createWritableOwnerScopesFromWatchdog({
+          groupIndex,
+          maxLayer,
+          runtimeParams: options.runtimeParams,
+          username: options.username,
+          watchdog: options.watchdog
+        })
+      : createReadableOwnerScopesFromGroupIndex({
+          groupIndex,
+          maxLayer,
+          runtimeParams: options.runtimeParams,
+          username: options.username
+        });
 
   if (ownerScopes.length === 0) {
     return output;
@@ -1719,13 +1940,12 @@ function listAppPathsByPatterns(options = {}) {
     const pathEntries = pathBuckets.get(ownerScope.rank) || [];
 
     for (const pathEntry of pathEntries) {
-      const appRelativePath = toAppRelativePath(pathEntry.projectPath);
-
-      for (const compiledPattern of compiledPatterns) {
-        if (compiledPattern.matcher.test(pathEntry.relativePath)) {
-          output[compiledPattern.sourcePattern].push(appRelativePath);
-        }
-      }
+      addPatternMatchesForPath(
+        output,
+        compiledPatterns,
+        pathEntry.projectPath,
+        pathEntry.relativePath
+      );
     }
   }
 

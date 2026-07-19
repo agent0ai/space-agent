@@ -48,6 +48,7 @@ function readFilePath(context) {
 
 async function handleDiff(context) {
   try {
+    await context.ensureUserFileIndex?.(context.user?.username);
     return await getLayerHistoryCommitDiff({
       commitHash: readCommitHash(context),
       filePath: readFilePath(context),

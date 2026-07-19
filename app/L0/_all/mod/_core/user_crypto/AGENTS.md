@@ -17,6 +17,8 @@ This scope owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 - the exported runtime surface is `space.utils.userCrypto`
 - the module keeps the active tab's unlock state in `sessionStorage`, keyed by backend `sessionId` plus username
 - the module may also keep one encrypted copy of that same cache entry in `localStorage` under a fixed origin-scoped key; the browser never stores the plaintext session-derived wrapping key at rest, and only the authenticated `user_crypto_session_key` endpoint may derive it from the current backend `sessionId` plus the server-held session secret
@@ -35,9 +37,19 @@ This scope owns:
 - the browser session cache is keyed by backend session id plus username so multiple concurrent logins can keep separate unlocked session state without clobbering each other
 - `clearSession()` must remove the current session's per-tab cache, the encrypted origin-scoped localStorage blob, and any login-bootstrap recovery secret before the caller navigates away or drops auth
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep this module headless and runtime-focused
 - keep actual crypto primitives in the shared browser helper served from `server/pages/res/user-crypto.js` so `/login` and authenticated app modules use the same envelope format and wrap derivation, and keep that helper compatible with browsers that expose partial `Buffer` polyfills without Node's `base64url` codec alias
 - keep failure handling soft for callers and explicit in console output
 - if the runtime namespace, session-cache format, bootstrap behavior, or `userCrypto:` envelope format changes, update this file, `/app/AGENTS.md`, `/app/L0/_all/mod/_core/framework/AGENTS.md`, and the matching docs under `_core/documentation/docs/`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

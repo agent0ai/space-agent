@@ -53,6 +53,7 @@ function readOperation(context) {
 
 async function handlePreview(context) {
   try {
+    await context.ensureUserFileIndex?.(context.user?.username);
     return await getLayerHistoryOperationPreview({
       commitHash: readCommitHash(context),
       filePath: readFilePath(context),

@@ -145,7 +145,7 @@ function createEntriesHash(entries) {
   return createHash("sha256").update(JSON.stringify(entries)).digest("hex");
 }
 
-function handleDebugPathIndex(context) {
+async function handleDebugPathIndex(context) {
   const payload = readPayload(context);
   const requestedPaths = listRequestedProjectPaths(payload, context.user?.username);
   const requestedPrefixes = listRequestedPrefixes(payload, context.user?.username);
@@ -168,6 +168,8 @@ function handleDebugPathIndex(context) {
     ensureReadableProjectPath(projectPath, accessController);
   }
 
+  await context.ensureUserFileIndex?.(context.user?.username);
+
   const pathIndex =
     context.watchdog && typeof context.watchdog.getIndex === "function"
       ? context.watchdog.getIndex("path_index") || Object.create(null)
@@ -183,10 +185,10 @@ function handleDebugPathIndex(context) {
   };
 }
 
-export function get(context) {
+export async function get(context) {
   return handleDebugPathIndex(context);
 }
 
-export function post(context) {
+export async function post(context) {
   return handleDebugPathIndex(context);
 }

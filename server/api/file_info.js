@@ -12,7 +12,7 @@ function readPath(context) {
   return String(payload.path || context.params.path || "");
 }
 
-function handleInfo(context) {
+async function handleInfo(context) {
   const maxLayer = resolveRequestMaxLayer({
     body: readPayload(context),
     headers: context.headers,
@@ -20,6 +20,7 @@ function handleInfo(context) {
   });
 
   try {
+    await context.ensureUserFileIndex?.(context.user?.username);
     return getAppPathInfo({
       maxLayer,
       path: readPath(context),
@@ -33,10 +34,10 @@ function handleInfo(context) {
   }
 }
 
-export function get(context) {
+export async function get(context) {
   return handleInfo(context);
 }
 
-export function post(context) {
+export async function post(context) {
   return handleInfo(context);
 }

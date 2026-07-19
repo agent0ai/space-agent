@@ -8,43 +8,6 @@ It mounts into `/admin`, keeps admin UI assets on `L0`, provides the split admin
 
 Documentation is top priority for this module. After any change under `_core/admin/`, update this file, any affected deeper admin docs, and any affected parent docs in the same session.
 
-## Documentation Hierarchy
-
-`_core/admin/AGENTS.md` owns the admin-wide shell, tabs, shared admin runtime, and the map of deeper admin surfaces.
-
-Current deeper admin docs:
-
-- `app/L0/_all/mod/_core/admin/views/agent/AGENTS.md`
-- `app/L0/_all/mod/_core/admin/views/files/AGENTS.md`
-- `app/L0/_all/mod/_core/admin/views/time_travel/AGENTS.md`
-- `app/L0/_all/mod/_core/admin/views/modules/AGENTS.md`
-
-Update rules:
-
-- update the nearest view doc when that view's files, API usage, state model, or CSS contract changes
-- update this file when the admin shell, tabs, shared admin runtime, skill loading, or view ownership map changes
-- add new deeper docs only for sub-areas with independent runtime, UI, or API contracts
-
-## How To Document Admin Child Docs
-
-Admin view docs should follow one consistent shape:
-
-- `Purpose`
-- `Ownership`
-- `Runtime And API Contract` or equivalent concrete contract sections
-- `UI And State Contract`
-- `Development Guidance`
-
-Required coverage for an admin view:
-
-- which HTML, JS, store, CSS, and asset files make up the view
-- which admin or shared APIs it calls and what app paths or backend endpoints it reads or mutates
-- which state is transient, persisted in session or local storage, or derived from server responses
-- which shell hooks, tabs, iframes, dialogs, or quick actions connect it to the broader admin surface
-- which styling is local versus inherited from `_core/visual`, `_core/framework`, or admin shell assets
-
-This file keeps shell-wide behavior and skill loading. Child view docs own the concrete UI, store, and API contracts of each view.
-
 ## Ownership
 
 This module owns:
@@ -62,8 +25,11 @@ This module owns:
 Inactive area:
 
 - `views/documentation/` exists on disk but is not currently mounted by the admin shell; do not document it as an active admin surface until the shell actually wires it in
+- Direct child DOX docs listed below own their narrower subtrees.
 
-## Shell Contract
+## Local Contracts
+
+### Shell Contract
 
 The admin module is mounted only through the page-specific `page/admin/body/start` anchor.
 
@@ -83,7 +49,7 @@ Current shell responsibilities:
 
 `/admin` runs with `maxLayer=0`, so all module and extension fetches for the admin UI stay firmware-backed even though app-file APIs still work across normal readable or writable layers. Standard same-origin `fetch("/mod/...")` requests from the browser runtime must carry that active max-layer value too so ad hoc module reads stay L0-clamped.
 
-## Admin Sub-Areas
+### Admin Sub-Areas
 
 High-level ownership:
 
@@ -93,7 +59,7 @@ High-level ownership:
 - `views/time_travel/` is the admin Time Travel tab adapter; reusable history state, repository discovery, diffs, travel, revert, and injected refresh or repository controls are owned by `_core/time_travel`
 - `views/modules/` is the firmware-backed module list and removal surface
 
-## Skills Contract
+### Skills Contract
 
 Admin agent skills use the same shared browser-side discovery and prompt-shaping contract as the onscreen agent.
 
@@ -106,9 +72,43 @@ Current rules:
 - keep skill folders stable and top-level if they should appear in the catalog
 - admin-owned skill files now live under `ext/skills/...` inside the owning module instead of a private `skills/` root
 
-## Development Guidance
+## Work Guidance
+
+### Child DOX Guidance
+
+Admin view docs should follow the DOX section spine:
+
+- `Purpose`
+- `Ownership`
+- `Local Contracts`
+- `Work Guidance`
+- `Verification`
+- `Child DOX Index`
+
+Required coverage for an admin view:
+
+- which HTML, JS, store, CSS, and asset files make up the view
+- which admin or shared APIs it calls and what app paths or backend endpoints it reads or mutates
+- which state is transient, persisted in session or local storage, or derived from server responses
+- which shell hooks, tabs, iframes, dialogs, or quick actions connect it to the broader admin surface
+- which styling is local versus inherited from `_core/visual`, `_core/framework`, or admin shell assets
+
+This file keeps shell-wide behavior and skill loading. Child view docs own the concrete UI, store, and API contracts of each view.
+
+### Local Work Rules
 
 - keep admin UI logic inside this module; do not spread admin-only behavior into unrelated modules
 - keep repo-owned app image assets under `_core/visual/res/`; do not store admin-module image files under `_core/admin/`
 - keep the admin shell firmware-backed; do not introduce writable-layer dependencies for the admin UI contract itself
 - if you add tabs, change the shell seam, change the app-menu admin handoff, or change how skills are discovered, update this file and `/app/AGENTS.md`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- `/app/L0/_all/mod/_core/admin/views/agent/AGENTS.md` - _core/admin/views/agent/ owns the admin-side agent surface.
+- `/app/L0/_all/mod/_core/admin/views/files/AGENTS.md` - _core/admin/views/files/ owns the admin Files tab adapter.
+- `/app/L0/_all/mod/_core/admin/views/modules/AGENTS.md` - _core/admin/views/modules/ owns the firmware-backed modules panel.
+- `/app/L0/_all/mod/_core/admin/views/time_travel/AGENTS.md` - _core/admin/views/time_travel/ owns the admin Time Travel tab adapter.

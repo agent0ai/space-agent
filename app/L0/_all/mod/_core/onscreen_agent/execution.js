@@ -1,11 +1,12 @@
 import { ONSCREEN_SKILL_LOAD_HOOK_KEY } from "./skills.js";
+import { ONSCREEN_AGENT_EXECUTION_SEPARATOR } from "./turn-boundary.js";
 import {
   appendExecutionTextBlock,
   formatExecutionLogArgs,
   formatExecutionTranscriptValue
 } from "/mod/_core/framework/js/execution-format.js";
 
-export const EXECUTION_SEPARATOR = "_____javascript";
+export const EXECUTION_SEPARATOR = ONSCREEN_AGENT_EXECUTION_SEPARATOR;
 
 const EXECUTION_CONTEXT_KEY = "__spaceOnscreenAgentExecutionContext";
 const SHARED_STATE_KEY = "__spaceOnscreenAgentSharedState";

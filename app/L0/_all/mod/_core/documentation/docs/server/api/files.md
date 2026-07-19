@@ -101,8 +101,8 @@ Use it when `space-serve-p` is the process consuming CPU under write-heavy clust
 
 - seed large temporary `L2/<user>/` trees before the write burst, including many synthetic user roots
 - drive concurrent `/api/file_write` requests through a single-process `--workers 1` baseline or multiple clustered workers
-- record initial startup and optional restart timings against the same seeded tree so large multi-user indexes can be compared against a 30-second startup window
-- pass `--watchdog false` to launch the same clustered runtime with `CUSTOMWARE_WATCHDOG=false`, which preserves startup indexing plus explicit worker mutation sync while disabling background `fs.watch`, config watching, and reconcile activity
+- record initial startup and optional restart timings against the same seeded tree so large multi-user storage can be compared against a 30-second startup window
+- pass `--watchdog false` to launch the same clustered runtime with `CUSTOMWARE_WATCHDOG=false`, which preserves L0/L1 startup indexing plus explicit worker mutation sync while disabling background `fs.watch`, config watching, and reconcile activity
 - report latency percentiles, throughput, and per-process CPU deltas for the clustered primary and workers
 - optionally capture the clustered primary CPU profile for the write window
 
@@ -110,17 +110,18 @@ The expected hot path is primary-owned:
 
 - workers mutate the filesystem locally, then publish the changed logical paths once through the clustered mutation channel
 - the clustered primary handles that request in `server/runtime/cluster.js`, calls `watchdog.applyProjectPathChanges(...)`, and republishes the resulting state delta
-- the watchdog now narrows that sync to the exact changed path plus only the nearest affected or still-missing ancestor directories, patches the affected `file_index` shard entries, and then lets `state_system.js` clone and compare the replicated shard payloads for publication
+- the watchdog now narrows that sync to the exact changed path plus only the nearest affected or still-missing ancestor directories, patches the affected `file_index` shard entries, returns the refreshed L2 shard only to the mutating worker, and publishes a tiny replicated L2 version marker so other workers know their local shard is stale
+- if a mutation removes a loaded L2 shard, that returned lazy shard is an empty tombstone so the mutating worker clears stale local entries immediately
 - ordinary file writes should stay exact-entry operations; subtree removal and recursive walks are reserved for directory sync, directory replacement, directory deletion, and full rescans
 - watcher cleanup belongs to deleted paths and directory syncs; ordinary file writes should not scan the directory-watcher map
 
 When throughput falls as seeded file count rises and the benchmark shows the primary near one full core while workers stay much lower, inspect that primary-side state rebuild path first. The main source files are `server/runtime/cluster.js`, `server/lib/file_watch/watchdog.js`, `server/lib/file_watch/state_shards.js`, and `server/runtime/state_system.js`.
 
-If `--watchdog false` produces nearly the same startup or write timings as `--watchdog true`, the bottleneck is not background watcher churn. It is usually the explicit primary-owned mutation path itself: parent-directory rescans inside `watchdog.js`, shard rebuild or patch work in `state_shards.js`, and replicated-state clone or compare work in `state_system.js`.
+If `--watchdog false` produces nearly the same write timings as `--watchdog true`, the bottleneck is not background watcher churn. It is usually the explicit primary-owned mutation path itself: parent-directory rescans inside `watchdog.js`, shard rebuild or patch work in `state_shards.js`, and replicated-state clone or compare work in `state_system.js`.
 
 Current optimization guidance:
 
-- if startup or restart is slow with many users, confirm `watchdog.js` is still using the one-pass full-reshard path rather than rebuilding each shard by rescanning the whole index
+- if startup or restart is slow with many users, confirm `watchdog.js` is not enumerating `L2/<user>` roots and that startup `indexedUsers` remains `0`; auth-only user state may load after login or cookie checks, while full L2 user shards should appear only after file/module requests or mutations for those users
 - if writes are still primary-bound after that, the remaining costs are usually directory subtree resync inside `watchdog.js` and full shard object clone or compare work in `state_system.js`, not `fs.watch`
 
 ## Clustered Read Pressure
@@ -134,11 +135,11 @@ Use it when module resolution, extension discovery, or indexed pattern listing i
 - drive concurrent `/api/file_paths` requests with module-style glob patterns such as panel YAML, skill `SKILL.md`, JS, and CSS discovery
 - run `--workers 1` as a single-process baseline or larger clustered worker counts for comparison
 - compare forced connection churn with `--connection close` against HTTP keep-alive reuse with `--connection keep-alive`
-- report throughput, latency percentiles, indexed path counts, returned match counts, worker distribution, startup timing, and per-process CPU deltas
+- report throughput, latency percentiles, indexed path counts, indexed startup user counts, returned match counts, worker distribution, startup timing, and per-process CPU deltas
 
 The two modes measure different costs:
 
-- `--mode mod` reads the relevant replicated `file_index` shards for the active user and groups, resolves the inherited module file, and streams it
+- `--mode mod` reads the relevant shared `file_index` shards for the active user and groups, resolves the inherited module file, and streams it
 - `--mode file-paths` lists indexed app paths by glob pattern, so it is the better probe for discovery calls that must filter large indexes by pattern and access rules
 
 ## User Folder Quotas
@@ -152,7 +153,7 @@ Current behavior:
 - `file_write`, `file_copy`, `file_move`, `file_delete`, and module removal through `file_access.js` check projected quota impact before mutation
 - if a user folder is at or below the limit, projected growth over the limit is rejected with `413`
 - if a user folder is already over the limit, only mutations with a negative net size delta for that folder are allowed
-- quota checks use cached per-user folder totals plus indexed per-operation deltas from `path_index` or `file_index` `sizeBytes` metadata, so normal writes do not rescan the entire `L2/<user>/` tree
+- quota checks use cached per-user folder totals plus indexed per-operation deltas from loaded `file_index` `sizeBytes` metadata, so normal writes do not rescan the entire `L2/<user>/` tree
 - other backend app-path mutation callers invalidate affected L2 cache entries through `recordAppPathMutations`, and Git history commits, rollback, and revert also invalidate affected entries because backend `.git` metadata can change outside the app-file mutation delta
 
 ## `file_paths`
@@ -168,6 +169,7 @@ Behavior summary:
 - returns matched logical project paths grouped by the original pattern
 - accepts `access: "write"` or `writableOnly: true` to limit matches to paths the user can write
 - accepts `gitRepositories: true`; with a pattern such as `**/.git/`, it returns matching local-history owner roots such as `L1/team/` or `L2/alice/`, not the reserved `.git` paths themselves
+- normal request-time pattern matching first ensures the current user's full L2 shard, then reads shared `file_index` shards so readable discovery scans only `L0`, readable `L1` group shards, and that demand-loaded `L2` shard instead of scanning every user's indexed paths
 
 It is the right tool for catalog discovery, not for raw filesystem walking.
 

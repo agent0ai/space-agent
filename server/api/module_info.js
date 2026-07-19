@@ -73,6 +73,7 @@ function readOwnerId(context) {
 
 export async function get(context) {
   try {
+    await context.ensureUserFileIndex?.(context.user?.username);
     return await readModuleInfo({
       includeOtherUsers: readIncludeOtherUsers(context),
       maxLayer: readMaxLayer(context),

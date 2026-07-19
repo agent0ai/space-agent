@@ -8,28 +8,6 @@ This subtree is the durable development reference for the shared browser-side ag
 
 Documentation is top priority for this subtree. After any change under `ext/skills/development/`, or any mirrored source-contract change, update this file and the affected skill files in the same session.
 
-## Documentation Hierarchy
-
-This parent doc owns the nested development-skill map, source-doc mirror rules, and update policy. The child `SKILL.md` files own the concrete guidance for one development area each.
-
-Current child skills:
-
-- `SKILL.md`: router skill that tells the agent which deeper development skills to load next
-- `frontend-runtime/SKILL.md`: editable browser-runtime, store, visual, and framework usage rules
-- `modules-routing/SKILL.md` plus `modules-routing/panel-tools.js`: module placement, routed view creation, router seam rules, panel-manifest guidance, and reusable panel-list or navigation helpers
-- `extensions-components/SKILL.md`: `ext/html/`, `ext/js/`, `x-extension`, and `x-component` contracts
-- `app-files-apis/SKILL.md`: frontend use of `space.api`, app-file paths, and permission-aware data access
-- `layers-ownership/SKILL.md`: `L0` or `L1` or `L2`, groups, users, and override order
-- `skills/SKILL.md`: authoring chat-agent skills under `ext/skills/`
-- `backend-reference/SKILL.md`: read-only backend architecture reference for frontend work
-
-Update rules:
-
-- update `SKILL.md` when the routing map, recommended load order, or allowed development scope changes
-- update the matching child skill when its mirrored source contract changes
-- keep the child skills consistent with the source docs listed below
-- remove stale guidance immediately when a source contract changes
-
 ## Ownership
 
 This subtree owns:
@@ -50,6 +28,8 @@ Source-doc mirror map:
 - `backend-reference/SKILL.md` mirrors `/server/AGENTS.md`, `/server/api/AGENTS.md`, `/server/lib/customware/AGENTS.md`, and `/server/lib/auth/AGENTS.md`
 
 ## Local Contracts
+
+### Local Contracts
 
 - the router skill must tell the agent to load one or more deeper skills before making development changes
 - the top-level `development` router skill must stay readable and auto-included through `metadata.loaded: true` plus `metadata.placement: system` so agents always see the development map before deciding which nested skill to load
@@ -73,7 +53,9 @@ Source-doc mirror map:
 - when a complex area grows, add another nested skill instead of bloating the router skill
 - if a mirrored contract changes in a source doc, update the affected development skills in the same session even if this subtree itself was not directly edited
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep the router skill short and directive
 - keep child skills concrete and task-oriented
@@ -81,3 +63,11 @@ Source-doc mirror map:
 - keep reusable helper scripts small and importable from stable `/mod/...` paths when a skill needs browser logic more than once
 - call out read-only backend boundaries explicitly wherever backend context appears
 - if framework, router, API, layer, permission, or auth rules change, update this subtree before finishing the session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

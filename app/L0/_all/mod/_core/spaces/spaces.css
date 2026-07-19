@@ -425,7 +425,7 @@
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior: none;
   cursor: auto;
 }
 

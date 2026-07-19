@@ -14,16 +14,28 @@ This surface owns:
 
 - `panel.html`: thin adapter that mounts `/mod/_core/file_explorer/component.html`
 
-## Runtime And API Contract
+## Local Contracts
+
+### Runtime And API Contract
 
 `panel.html` must stay a thin `<x-component>` wrapper. The admin shell still mounts it from `_core/admin/views/shell/shell.html`, but all file API calls, state, dialogs, and styles are owned by `_core/file_explorer/`.
 
-## UI And State Contract
+### UI And State Contract
 
 The admin tab receives the same reusable component as the routed Files page. Do not add admin-only file browser state or styling here unless the admin shell needs a wrapper-specific layout adjustment.
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep this adapter thin; file-explorer changes belong in `_core/file_explorer/`
 - update `_core/file_explorer/AGENTS.md` when the component API, state, route, menu item, or file API workflow changes
 - update this file only when the admin mount contract changes
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

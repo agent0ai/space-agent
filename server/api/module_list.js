@@ -20,6 +20,7 @@ function readListSearch(context) {
 
 export async function get(context) {
   try {
+    await context.ensureUserFileIndex?.(context.user?.username);
     return await listInstalledModules({
       area: readListArea(context),
       ownerId: readListOwnerId(context),

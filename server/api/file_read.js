@@ -21,7 +21,7 @@ function hasBatchRead(payload) {
   return Boolean(payload) && typeof payload === "object" && Array.isArray(payload.files);
 }
 
-function handleRead(context) {
+async function handleRead(context) {
   const payload = readPayload(context);
   const maxLayer = resolveRequestMaxLayer({
     body: payload,
@@ -30,6 +30,7 @@ function handleRead(context) {
   });
 
   try {
+    await context.ensureUserFileIndex?.(context.user?.username);
     const options = {
       encoding: readEncoding(context),
       maxLayer,
@@ -53,10 +54,10 @@ function handleRead(context) {
   }
 }
 
-export function get(context) {
+export async function get(context) {
   return handleRead(context);
 }
 
-export function post(context) {
+export async function post(context) {
   return handleRead(context);
 }

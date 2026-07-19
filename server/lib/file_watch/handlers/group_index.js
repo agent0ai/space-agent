@@ -15,10 +15,8 @@ export default class GroupIndexHandler extends WatchdogHandler {
   }
 
   rebuild(context) {
-    const pathIndex = context.getIndex("path_index") || {};
-
     this.state = buildGroupIndexSnapshot({
-      filePaths: Object.keys(pathIndex),
+      filePaths: context.getCurrentPaths(),
       projectRoot: this.projectRoot,
       runtimeParams: this.runtimeParams
     });

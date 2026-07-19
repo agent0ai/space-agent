@@ -20,7 +20,9 @@ Current files:
 - `user_index.js`: derived user and session index snapshot builder
 - `user_manage.js`: create user, delete user, set password, and create guest user helpers
 
-## Storage Contract
+## Local Contracts
+
+### Storage Contract
 
 Current user storage layout:
 
@@ -36,12 +38,13 @@ Current user storage layout:
 
 `user_files.js` is the canonical helper layer for those files. Do not write them through ad hoc path logic elsewhere.
 
-## Session And Login Contract
+### Session And Login Contract
 
 Current session rules:
 
 - the session cookie name is `space_session`
 - the cookie is `HttpOnly`, `SameSite=Strict`, scoped to `/`, and carries a 30-day max age
+- in multi-user runtime the cookie value carries a username hint plus the bearer token so request auth can load only that user's auth files; token-only legacy cookie values are cleared because resolving them would require scanning all L2 users
 - login uses the shared challenge and proof flow from `service.js`
 - `login_challenge` returns the password-proof inputs plus `userCrypto` state; legacy users with no `meta/user_crypto.json` record receive a one-time provisioning share inside that challenge
 - accounts that still have a wrapped user key record but no recoverable server share are treated as `invalidated`, not `missing`, so the browser does not silently reprovision over old ciphertext
@@ -54,7 +57,8 @@ Current session rules:
 - session revocation deletes the stored session entry and publishes the changed logical auth path through the shared mutation-commit flow
 - unsigned or expired session records are rejected even if they exist on disk
 - when `SINGLE_USER_APP` is enabled, request auth resolves every request to the implicit `user` principal and bypasses cookie-backed login entirely
-- in clustered runtime, cookie validation still runs on workers from replicated `user_index` and `session_index` shards, while one-time login challenges live in the primary-only `login_challenge/<token>` area of the unified state system
+- in clustered runtime, cookie validation runs on workers from replicated `user_index` and `session_index` shards after the hinted user's auth-only state has been loaded; it must not require a full `L2/<username>` file-index shard
+- file, module, extension, and direct app-file routes request the full user file-index shard separately when they need user-owned files beyond auth state
 
 Current password rules:
 
@@ -63,15 +67,16 @@ Current password rules:
 - authenticated self-service password changes validate the current password in `service.js`, then reuse the shared password-reset primitive so the sealed verifier and cleared sessions are published through the normal auth mutation path
 - when the current user has a ready `userCrypto` record, authenticated self-service password changes must also carry a browser-generated replacement `meta/user_crypto.json` record that rewraps the same user master key for the new password
 - admin or CLI password resets cannot rewrap that browser-owned key material, so they invalidate `meta/user_crypto.json` and delete the backend-only server share instead
-- the auth service rewrites legacy plaintext verifier files into sealed records during startup before the server begins handling requests; in clustered runtime this initialization stays on the primary so workers do not all rescan `L2`
+- the auth service rewrites legacy plaintext verifier files into sealed records when that user is loaded on demand; startup must not scan all L2 users just to migrate stale accounts
+- auth-file normalization uses the shared mutation-commit channel when it rewrites `meta/password.json` or `meta/logins.json`, so worker-side login requests still publish those changes through the primary
 - `createAuthService(...)` requires the shared state system; the auth runtime should not invent a second in-memory challenge path
 
 Current user-index rules:
 
 - `user_index.js` derives user records, sealed-password presence, and stored session graphs from `user.yaml`, `password.json`, and `logins.json`
-- request auth state should flow from the replicated derived index shards, while `service.js` remains the owner of password-record opening and session-signature validation
+- request auth state should flow from the replicated derived index shards for loaded users, while `service.js` remains the owner of password-record opening and session-signature validation
 
-## User-Management Contract
+### User-Management Contract
 
 `user_manage.js` currently owns:
 
@@ -92,7 +97,9 @@ Rules:
 - guest deletion removes the whole `L2/<username>/` root, deletes any backend-only `userCrypto` server share, and publishes that logical path through the shared mutation path so replicated user and session indexes drop the guest immediately
 - periodic guest cleanup policy belongs in `server/jobs/`; `user_manage.js` owns the deletion primitive, not the schedule or file-index policy
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep auth state and session rules centralized here
 - do not add direct cookie or session-file manipulation elsewhere when the auth service already owns the flow
@@ -101,3 +108,11 @@ Rules:
 - if user storage, session semantics, or login flow change, also update `app/L0/_all/mod/_core/skillset/ext/skills/development/` because the shared development skill mirrors this contract
 - if user storage, session semantics, or login flow change, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/server/`
 - if user storage, session semantics, or login flow change, update this file and the relevant router or API docs in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

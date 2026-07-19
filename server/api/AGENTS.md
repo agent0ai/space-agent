@@ -8,7 +8,14 @@ This folder should stay thin. Endpoints should validate input, call shared infra
 
 Documentation is top priority for this subtree. After any change under `server/api/`, update this file and any affected parent or helper docs in the same session.
 
-## Discovery Contract
+## Ownership
+
+- Owns the documentation and operating contract for `/server/api/`.
+- Direct child DOX docs listed below own their narrower subtrees.
+
+## Local Contracts
+
+### Discovery Contract
 
 API endpoint modules are discovered dynamically from `server/api/*.js` by `server/lib/api/registry.js`.
 
@@ -21,7 +28,7 @@ Current loader rules:
 - endpoints are authenticated by default
 - endpoints opt into public access only by exporting `allowAnonymous = true`
 
-## Endpoint Families
+### Endpoint Families
 
 Public auth and health endpoints:
 
@@ -36,11 +43,12 @@ Current rules:
 - these are the password-login, guest-bootstrap, session-check, and health anonymous endpoints; hosted-share endpoints are the other explicit anonymous family
 - normal password login uses the shared auth service challenge and proof flow unless runtime config disables that entry path through `LOGIN_ALLOWED=false`
 - `login_challenge` also reports `userCrypto` bootstrap state; when a legacy account has no `meta/user_crypto.json`, the challenge includes a one-time provisioning share so the browser can generate the missing wrapped record before final login
-- successful login sets the `space_session` cookie through the auth service, writes the durable session verifier into `L2/<username>/meta/logins.json`, and returns a backend `sessionId` plus the `userCrypto` unlock payload for the authenticated browser session
+- `login_challenge`, `login`, and cookie validation load only the target user's auth state (`user.yaml`, `meta/password.json`, and `meta/logins.json`) on demand; endpoint code must not restore startup-time all-user scans or full user-tree scans to make auth visible
+- successful login sets the username-hinted `space_session` cookie through the auth service, writes the durable session verifier into `L2/<username>/meta/logins.json`, and returns a backend `sessionId` plus the `userCrypto` unlock payload for the authenticated browser session
 - if a legacy account cannot finish `userCrypto` provisioning during login, the server must fail the login instead of issuing the cookie and then forcing a logout
 - `guest_create` creates an `L2` guest user whenever runtime config allows guest accounts, even when `LOGIN_ALLOWED=false`, and must publish the concrete new auth files through the shared mutation path so `user_index` sees the account immediately
 - when `LOGIN_ALLOWED=false`, `login_challenge` still allows guest usernames when guest users are enabled, `login` still finalizes already-issued challenges, and `login_check` stays available for public session checks even though guest-bootstrap and hosted-share flows may still complete the normal background login challenge path without showing the `/login` form
-- in clustered runtime, login challenges are stored in the primary-only `login_challenge` state area while workers still validate cookies from replicated auth index shards
+- in clustered runtime, login challenges are stored in the primary-only `login_challenge` state area while workers validate cookies from replicated auth index shards after the hinted user's auth-only state has been loaded
 
 App-file endpoints:
 
@@ -66,6 +74,8 @@ Current rules:
 - `file_list` and `file_paths` accept `access: "write"` or `writableOnly: true` when callers need only writable app paths instead of the default readable path set
 - `file_list` and `file_paths` accept `gitRepositories: true`; with patterns such as `**/.git/`, `file_paths` returns matching local-history owner roots like `L1/<group>/` or `L2/<user>/` while keeping `.git` metadata reserved and hidden
 - `file_paths` also accepts an optional explicit `maxLayer` body or query value when module-oriented discovery should ignore higher writable layers; this is used by the admin agent skill catalog so firmware-backed `ext/skills/` files are not shadowed by L1 or L2 customware
+- request-time `file_paths` must pass the shared `stateSystem` into `file_access.js` so normal pattern discovery scans only relevant shared `file_index` shards instead of sorting and filtering the whole watchdog path index
+- file, folder, Git-history, module, extension, debug path-index, and direct app-file serving routes must ensure the authenticated user's full L2 file-index shard before reading user-owned file listings; auth-only request context is intentionally not enough for these surfaces
 - batch operations validate all targets before any mutation begins
 - `file_write` still defaults to full-file replacement, but object-form writes also support `operation: "append"`, `"prepend"`, or `"insert"`; insert writes accept exactly one of `line`, `before`, or `after`, use the first literal `before` or `after` match, and require `utf8` encoding
 - when `USER_FOLDER_SIZE_LIMIT_BYTES` is positive, `file_write`, `file_copy`, `file_move`, `file_delete`, and module removal through `file_access.js` enforce the per-`L2/<user>/` folder quota before mutation; the shared quota helper should derive current totals and subtree deltas from indexed `sizeBytes` metadata instead of rescanning the whole user tree, and quota errors return `413`
@@ -110,7 +120,7 @@ Module endpoints:
 Current rules:
 
 - these endpoints delegate to `server/lib/customware/module_manage.js`
-- request-time reads should consume replicated shared-state shards instead of calling watchdog scan helpers directly
+- request-time reads should consume shared-state shards instead of calling watchdog scan helpers directly
 - writable operations must reuse the shared permission model and publish concrete changed logical paths through the shared mutation flow so the primary refreshes replicated module state
 - when `USER_FOLDER_SIZE_LIMIT_BYTES` is positive, new `module_install` writes into `L2/<user>/` are measured in a system temp directory and quota-checked before the module tree is moved into the user folder
 
@@ -127,9 +137,9 @@ Runtime and identity endpoints:
 Important notes:
 
 - `extensions_load` resolves module-owned `ext/...` request paths through the shared layered override system and supports grouped request batches
-- `extensions_load` should read the replicated shared-state shards for the caller's visible module owners rather than scanning watchdog paths directly
+- `extensions_load` should read the shared-state shards for the caller's visible module owners rather than scanning watchdog paths directly; caller L2 shards may be loaded on demand
 - `extensions_load` request bodies keep `maxLayer` at the call level; grouped lookups carry ordered `patterns` arrays only, and grouped responses return those normalized `patterns` alongside each request's resolved `extensions`
-- `debug_path_index` is an authenticated debugging endpoint for clustered-runtime verification; it returns filtered local `path_index` entries plus a stable hash so tests can compare worker replicas without walking the filesystem directly
+- `debug_path_index` is an authenticated debugging endpoint for clustered-runtime verification; it returns filtered local `path_index` compatibility entries from currently loaded shards plus a stable hash so tests can compare worker replicas without walking the filesystem directly
 - `password_change` is an authenticated account endpoint for the current user only; it validates the current password through the auth service, rewrites the backend-sealed verifier, clears stored sessions, and clears the current browser auth cookie so the frontend can return to `/login`
 - when the current account has a ready `userCrypto` record, `password_change` also requires a browser-produced replacement `userCryptoRecord` so the wrapped key survives self-service password rotation without re-encrypting user data
 - `user_crypto_bootstrap` is an authenticated recovery endpoint for the current user; it reports the current `userCrypto` state and, when that state is `missing`, can mint a provisioning share and later accept the browser-generated wrapped record so the first authenticated app load can self-heal a missing record without requiring a second login
@@ -139,7 +149,7 @@ Important notes:
 - `user_self_info` returns the authenticated user's derived identity plus browser-bootstrap crypto metadata: `{ username, fullName, groups, managedGroups, sessionId, userCryptoKeyId, userCryptoState }`
 - `password_generate` is an authenticated utility endpoint that returns the backend-sealed `password.json` payload and should stay narrow
 
-## Handler Contract
+### Handler Contract
 
 Handlers receive the request context assembled by `server/router/router.js`, including:
 
@@ -159,13 +169,23 @@ Handlers may return:
 - explicit HTTP-style `{ status, headers, body }` or `{ status, headers, stream }` shapes
 - Web `Response` objects
 
-Throw errors with a `statusCode` when the route should return a non-500 error.
+Throw errors with a `statusCode` when the route should return a non-500 error. The router treats explicit 4xx errors as expected client-error responses and returns them without backend `console.error` logging; unexpected errors and 5xx `statusCode` failures still produce one backend diagnostic log while redacting the browser response body.
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep endpoints narrow and explicit
 - keep auth, permission, inheritance, and filesystem policy in shared helpers
-- do not add endpoint-local filesystem walks when `path_index` or shared helpers already answer the question
+- do not add endpoint-local filesystem walks when `file_index` shards or shared helpers already answer the question
 - if frontend-facing API or extension-resolution semantics change, also update `app/L0/_all/mod/_core/skillset/ext/skills/development/` because the shared development skill mirrors this contract
 - if endpoint-family semantics change, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/server/api/`
 - if you add or remove endpoints, or change endpoint-family semantics, update this file and `/server/AGENTS.md`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

@@ -22,7 +22,9 @@ Current sub-areas:
 - `surfaces/`: shared panel and card treatments
 - `res/`: canonical shared image assets for authenticated app surfaces
 
-## Current Contracts
+## Local Contracts
+
+### Current Contracts
 
 Canvas:
 
@@ -74,7 +76,7 @@ Conversation and surfaces:
 - `conversation/agent-thread.css` owns the baseline bubble sizing, avatar spacer, and wrapping rules for shared threads; user bubbles must keep natural compact width for short drafts but still wrap long lines inside the bubble so chat scrollers do not widen or grow horizontal scrollbars, and execution narration should sit visually tight to its execution card instead of reading like a separate later reply; execute sections may use tighter local spacing than follow-up sections to preserve that coupling
 - `surfaces/cards.css` owns shared panel or card wrappers such as `space-panel`
 
-## Visual System Rules
+### Visual System Rules
 
 - solve shared presentation problems here before cloning styles into feature modules
 - keep the overall direction calm, dark, and readable rather than loud or novelty-driven
@@ -87,10 +89,20 @@ Conversation and surfaces:
 - keep reusable selection modals generic: the visual layer may own search, pagination, preview, and return-value flow, but feature-specific metadata semantics stay in the calling module
 - when changing the shared backdrop system, also review the mirrored public-shell copies in `server/pages/res/space-backdrop.css` and `server/pages/res/space-backdrop.js`
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - prefer semantic tokens from `_core/framework/css/colors.css`
 - prefer composing existing visual primitives over inventing near-duplicates
 - keep the baseline bubble markdown layout in `_core/visual/conversation/agent-thread.css`; add only feature-specific markdown tuning in the owning surface stylesheet
 - if a feature needs new shared chrome or surface behavior, add the smallest reusable primitive here and keep feature orchestration in the owning module
 - if a visual change affects app-wide direction, update `/app/AGENTS.md`; if it affects pre-auth mirrored shells, update `server/pages/AGENTS.md` too
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

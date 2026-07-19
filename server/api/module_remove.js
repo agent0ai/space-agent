@@ -23,6 +23,7 @@ function readMaxLayer(context) {
 
 export async function post(context) {
   try {
+    await context.ensureUserFileIndex?.(context.user?.username);
     const targetPathInfo = normalizeModuleTargetPath(readTargetPath(context), {
       projectRoot: context.projectRoot,
       runtimeParams: context.runtimeParams,

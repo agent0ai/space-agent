@@ -24,6 +24,8 @@ The current server routing order is fixed:
 
 This ordering lives centrally in `server/router/router.js`.
 
+API dispatch also owns backend error-log policy: explicit handler 4xx statuses are returned quietly, including expected 404s, while unexpected failures and 5xx statuses still emit one backend diagnostic log and keep browser-facing 5xx bodies redacted.
+
 ## Auth Gating
 
 Authenticated by default:
@@ -41,9 +43,9 @@ Public:
 - `/share/space/<token>` when guest users are enabled
 - anonymous endpoints that explicitly export `allowAnonymous = true`
 
-Request identity comes from `request_context.js`, which resolves the `space_session` cookie or the single-user runtime override. Authenticated `user_crypto_session_key` requests derive the browser's localStorage wrapping key from that live session's backend `sessionId` plus the server-held session secret.
+Request identity comes from `request_context.js`, which resolves the username-hinted `space_session` cookie or the single-user runtime override. In multi-user runtime this resolution may first demand-load only the hinted user's auth files so the worker has the user and session indexes without scanning all users or the full user tree. Routes that need user-owned files use the request context's file-index ensure hook to load the full `L2/<username>` shard separately. Authenticated `user_crypto_session_key` requests derive the browser's localStorage wrapping key from that live session's backend `sessionId` plus the server-held session secret.
 
-When `WORKERS>1`, the HTTP layer runs in multiple worker processes, but request routing order stays the same. The primary process owns the authoritative watchdog and unified replicated state system, while workers handle normal requests with replica indexes.
+When `WORKERS>1`, the HTTP layer runs in multiple worker processes, but request routing order stays the same. The primary process owns the authoritative watchdog and unified replicated state system, while workers handle normal requests with replica indexes. Worker startup snapshots include L0/L1 file-index scope; workers request L2 user shards only when a request needs them.
 
 That same authoritative owner also runs any server-owned periodic jobs from `server/jobs/`. Workers never execute maintenance jobs.
 
@@ -126,7 +128,7 @@ Clustered writes are ordered through the primary watchdog owner and the shared s
 Current rules:
 
 - after a worker finishes a mutating request, it commits the changed logical app paths to the primary once
-- the normal freshness path is those exact logical-path commits plus `fs.watch` incremental sync for out-of-process changes; the watchdog's full-tree reconcile is only an infrequent completion-anchored backstop
+- the normal freshness path is those exact logical-path commits plus `fs.watch` incremental sync for loaded out-of-process changes; the watchdog's reconcile is only an infrequent completion-anchored backstop over L0/L1 plus already-loaded L2 users
 - the primary updates the authoritative replicated state, schedules any debounced writable-layer Git history commit for the rebuilt owner roots, and broadcasts deltas or snapshots asynchronously; native local-history work then runs through an async per-owner queue, and writes do not wait for every worker to acknowledge or for Git commits to finish
 - primary-owned maintenance jobs use that same watchdog mutation path after each filesystem change; they do not bypass the replicated-state refresh flow
 - responses advertise the worker's current replicated version through `Space-State-Version`

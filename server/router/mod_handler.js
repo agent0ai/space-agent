@@ -30,8 +30,20 @@ function resolveModuleFilePath(projectRoot, requestPath, username, stateSystem, 
   return resolvedModulePath ? resolvedModulePath.absolutePath : "";
 }
 
-function handleModuleRequest(res, requestPath, options = {}) {
-  const { headers, projectRoot, requestUrl, runtimeParams, stateSystem, username } = options;
+async function handleModuleRequest(res, requestPath, options = {}) {
+  const {
+    ensureUserFileIndex,
+    headers,
+    projectRoot,
+    requestUrl,
+    runtimeParams,
+    stateSystem,
+    username
+  } = options;
+  if (typeof ensureUserFileIndex === "function") {
+    await ensureUserFileIndex(username);
+  }
+
   const filePath = resolveModuleFilePath(projectRoot, requestPath, username, stateSystem, {
     headers,
     requestUrl,

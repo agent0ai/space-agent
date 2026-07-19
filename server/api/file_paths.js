@@ -60,11 +60,12 @@ function readBooleanOption(context, name) {
   return ["1", "true", "yes", "on"].includes(String(rawValue || "").trim().toLowerCase());
 }
 
-function handleFilePaths(context) {
+async function handleFilePaths(context) {
   const payload = readPayload(context);
   const maxLayer = parseOptionalMaxLayer(payload.maxLayer ?? context.params.maxLayer);
 
   try {
+    await context.ensureUserFileIndex?.(context.user?.username);
     return listAppPathsByPatterns({
       access: readAccess(context),
       gitRepositories: readBooleanOption(context, "gitRepositories"),
@@ -72,6 +73,7 @@ function handleFilePaths(context) {
       patterns: readPatterns(context),
       projectRoot: context.projectRoot,
       runtimeParams: context.runtimeParams,
+      stateSystem: context.stateSystem,
       writableOnly: readBooleanOption(context, "writableOnly"),
       username: context.user?.username,
       watchdog: context.watchdog
@@ -81,10 +83,10 @@ function handleFilePaths(context) {
   }
 }
 
-export function get(context) {
+export async function get(context) {
   return handleFilePaths(context);
 }
 
-export function post(context) {
+export async function post(context) {
   return handleFilePaths(context);
 }

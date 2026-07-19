@@ -137,6 +137,20 @@ function rejectUnsafeRequestWithoutOrigin(req, res) {
   return true;
 }
 
+function normalizeApiErrorStatusCode(error) {
+  const statusCode = Number(error && error.statusCode);
+
+  if (Number.isInteger(statusCode) && statusCode >= 400 && statusCode <= 599) {
+    return statusCode;
+  }
+
+  return 500;
+}
+
+function shouldLogApiError(statusCode) {
+  return statusCode >= 500;
+}
+
 async function handleApiModuleRequest(req, res, requestUrl, apiModule, contextOptions) {
   const methodName = String(req.method || "GET").toUpperCase();
   const handler = apiModule.handlers[methodName.toLowerCase()];
@@ -193,7 +207,7 @@ async function handleApiModuleRequest(req, res, requestUrl, apiModule, contextOp
       res
     });
   } catch (error) {
-    const statusCode = Number(error && error.statusCode) || 500;
+    const statusCode = normalizeApiErrorStatusCode(error);
     const errorCode = error && error.code ? String(error.code) : String(statusCode);
 
     console.error(`[api] ${methodName} /api/${apiModule.endpointName} failed (${statusCode}).`);

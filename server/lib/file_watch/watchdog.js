@@ -3,7 +3,8 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
-  listProjectScanRoots,
+  getAppPathRoots,
+  normalizeEntityId,
   resolveProjectAbsolutePath,
   resolveProjectPathFromAbsolute
 } from "../customware/layout.js";
@@ -12,7 +13,7 @@ import { parseSimpleYaml } from "../../../app/L0/_all/mod/_core/framework/js/yam
 import { createStateSystem } from "../../runtime/state_system.js";
 import {
   FILE_INDEX_AREA,
-  buildFileIndexShards,
+  FILE_INDEX_META_AREA,
   buildGroupIndexShardChanges,
   buildUserIndexShardChanges,
   collectAffectedUsernames,
@@ -22,6 +23,13 @@ import {
   getFileIndexShardId,
   hasGroupConfigChange
 } from "./state_shards.js";
+import {
+  clonePathIndex,
+  createFileIndexStore,
+  isL2FileIndexShardId,
+  isPathIndexEntryEqual,
+  shouldReplicateFileIndexShard
+} from "./file_index_store.js";
 
 const REFRESH_DEBOUNCE_MS = 75;
 const FULL_SCAN_YIELD_INTERVAL_MS = 8;
@@ -194,19 +202,6 @@ function isCustomwareWatchdogEnabled(runtimeParams) {
   return true;
 }
 
-function clonePathIndex(pathIndex = Object.create(null)) {
-  const nextPathIndex = Object.create(null);
-
-  Object.entries(pathIndex || {}).forEach(([projectPath, metadata]) => {
-    nextPathIndex[projectPath] =
-      metadata && typeof metadata === "object" && !Array.isArray(metadata)
-        ? { ...metadata }
-        : metadata;
-  });
-
-  return nextPathIndex;
-}
-
 function createPathIndexEntry(stats, options = {}) {
   if (!stats) {
     return null;
@@ -222,22 +217,6 @@ function createPathIndexEntry(stats, options = {}) {
   };
 }
 
-function isPathIndexEntryEqual(left, right) {
-  if (!left && !right) {
-    return true;
-  }
-
-  if (!left || !right) {
-    return false;
-  }
-
-  return (
-    Boolean(left.isDirectory) === Boolean(right.isDirectory) &&
-    Number(left.mtimeMs || 0) === Number(right.mtimeMs || 0) &&
-    Number(left.sizeBytes || 0) === Number(right.sizeBytes || 0)
-  );
-}
-
 function loadWatchdogConfig(configPath) {
   const sourceText = tryReadTextFile(configPath);
 
@@ -247,8 +226,8 @@ function loadWatchdogConfig(configPath) {
 
   const parsed = parseSimpleYaml(sourceText);
   const handlerConfigs = [];
-  const uniquePatterns = [];
-  const seenPatterns = new Set();
+  const uniquePatterns = [normalizeProjectPath("/app/**/*")];
+  const seenPatterns = new Set(uniquePatterns);
 
   for (const [name, rawValue] of Object.entries(parsed)) {
     const handlerName = String(name || "").trim();
@@ -288,10 +267,6 @@ function loadWatchdogConfig(configPath) {
     throw new Error(`Watchdog config must define at least one handler: ${configPath}`);
   }
 
-  if (!handlerConfigs.some((handlerConfig) => handlerConfig.name === "path_index")) {
-    throw new Error(`Watchdog config must define a "path_index" handler: ${configPath}`);
-  }
-
   return {
     configPath,
     handlers: handlerConfigs,
@@ -312,39 +287,6 @@ function cloneWatchConfig(watchConfig = {}) {
 
 function getWatchConfigSignature(watchConfig = {}) {
   return JSON.stringify(cloneWatchConfig(watchConfig));
-}
-
-function getFixedPatternPrefix(pattern) {
-  const relativePattern = normalizePathSegment(pattern);
-  const segments = relativePattern ? relativePattern.split("/") : [];
-  const prefixSegments = [];
-
-  for (const segment of segments) {
-    if (/[*?[\]{}]/u.test(segment)) {
-      break;
-    }
-
-    prefixSegments.push(segment);
-  }
-
-  return prefixSegments.join("/");
-}
-
-function getExistingWatchBase(absolutePath) {
-  let currentPath = path.resolve(String(absolutePath || ""));
-
-  while (true) {
-    const stats = tryStat(currentPath);
-    if (stats && stats.isDirectory()) {
-      return currentPath;
-    }
-
-    if (currentPath === path.dirname(currentPath)) {
-      return currentPath;
-    }
-
-    currentPath = path.dirname(currentPath);
-  }
 }
 
 function walkDirectories(startDir, output) {
@@ -448,20 +390,6 @@ function createCompiledPatterns(patterns) {
       matcher: globToRegExp(normalized)
     };
   });
-}
-
-function collectFullScanRoots(compiledPatterns, projectRoot, runtimeParams) {
-  const scanRoots = [];
-
-  for (const { pattern } of compiledPatterns) {
-    const fixedPrefix = getFixedPatternPrefix(pattern);
-
-    for (const scanRoot of listProjectScanRoots(projectRoot, fixedPrefix, runtimeParams)) {
-      scanRoots.push(getExistingWatchBase(scanRoot));
-    }
-  }
-
-  return dedupeRootPaths(scanRoots);
 }
 
 function matchesCompiledPatterns(compiledPatterns, projectPath) {
@@ -614,6 +542,12 @@ function collectProjectSyncTargets(projectPaths = [], currentPathIndex = Object.
   }));
 }
 
+function isL2AuthStateProjectPath(projectPath = "") {
+  return /^\/app\/L2\/[^/]+\/(?:user\.yaml|meta\/(?:logins|password)\.json)$/u.test(
+    String(projectPath || "")
+  );
+}
+
 export function createWatchdog(options = {}) {
   const projectRoot = path.resolve(options.projectRoot || path.join(CURRENT_DIR, "..", "..", ".."));
   const runtimeParams = options.runtimeParams || null;
@@ -634,11 +568,12 @@ export function createWatchdog(options = {}) {
       version: resolveInitialReplicatedVersion(initialSnapshot, replica)
     });
   const replicatedAreaState = Object.create(null);
+  const fileIndexShardLoadPromises = new Map();
+  const authStateLoadPromises = new Map();
   let compiledPatterns = [];
   let configuredHandlers = [];
-  let currentPathIndex = Object.create(null);
   let lastConfigSignature = "";
-  let operationQueue = Promise.resolve();
+  let operationRunning = false;
   let pathSyncTimer = null;
   let refreshTimer = null;
   let reconcileTimer = null;
@@ -657,6 +592,18 @@ export function createWatchdog(options = {}) {
   const directoryWatchers = new Map();
   const handlerStates = new Map();
   const snapshotListeners = new Set();
+  const operationQueues = {
+    background: [],
+    demand: [],
+    mutation: [],
+    normal: []
+  };
+  const fileIndexStore = createFileIndexStore({
+    areaState: replicatedAreaState,
+    getCurrentVersion,
+    removeAreaIfEmpty: removeReplicatedAreaIfEmpty,
+    stateSystem
+  });
 
   function cloneValue(value) {
     if (value === null || value === undefined || typeof value !== "object") {
@@ -676,14 +623,102 @@ export function createWatchdog(options = {}) {
     );
   }
 
+  function getFileIndexShardValueLocal(shardId = "") {
+    return fileIndexStore.getShardValue(shardId);
+  }
+
+  function listFileIndexShardIds() {
+    return fileIndexStore.listShardIds();
+  }
+
+  function getFileIndexShardVersion(shardId = "") {
+    return fileIndexStore.getShardVersion(shardId);
+  }
+
+  function getPathIndexEntry(projectPath = "") {
+    return fileIndexStore.getPathEntry(projectPath);
+  }
+
+  function setPathIndexEntry(projectPath = "", metadata = null) {
+    return fileIndexStore.setPathEntry(projectPath, metadata);
+  }
+
+  function listCurrentProjectPaths() {
+    return fileIndexStore.listProjectPaths();
+  }
+
+  function createPathIndexSnapshot() {
+    return fileIndexStore.createPathIndexSnapshot();
+  }
+
   function getCurrentVersion() {
     return stateSystem.getVersion();
   }
 
-  function enqueueOperation(task) {
-    const operation = operationQueue.then(task, task);
-    operationQueue = operation.catch(() => {});
-    return operation;
+  function dequeueOperation() {
+    for (const priority of ["mutation", "demand", "normal", "background"]) {
+      const queue = operationQueues[priority];
+
+      if (queue.length > 0) {
+        return queue.shift();
+      }
+    }
+
+    return null;
+  }
+
+  function hasQueuedOperation() {
+    return Object.values(operationQueues).some((queue) => queue.length > 0);
+  }
+
+  function drainOperationQueue() {
+    if (operationRunning) {
+      return;
+    }
+
+    operationRunning = true;
+
+    void (async () => {
+      try {
+        while (true) {
+          const operation = dequeueOperation();
+
+          if (!operation) {
+            return;
+          }
+
+          try {
+            operation.resolve(await operation.task());
+          } catch (error) {
+            operation.reject(error);
+          }
+        }
+      } finally {
+        operationRunning = false;
+
+        if (hasQueuedOperation()) {
+          drainOperationQueue();
+        }
+      }
+    })().catch((error) => {
+      console.error("Watchdog operation queue failed.");
+      console.error(error);
+    });
+  }
+
+  function enqueueOperation(task, priority = "normal") {
+    const queueName = Object.prototype.hasOwnProperty.call(operationQueues, priority)
+      ? priority
+      : "normal";
+
+    return new Promise((resolve, reject) => {
+      operationQueues[queueName].push({
+        reject,
+        resolve,
+        task
+      });
+      drainOperationQueue();
+    });
   }
 
   function emitSnapshotEvent(event = {}) {
@@ -763,42 +798,8 @@ export function createWatchdog(options = {}) {
     }
   }
 
-  function rebuildCurrentPathIndexFromReplicatedState() {
-    const nextPathIndex = Object.create(null);
-    const fileIndexArea = replicatedAreaState[FILE_INDEX_AREA] || Object.create(null);
-
-    Object.values(fileIndexArea).forEach((shardValue) => {
-      Object.entries(shardValue || Object.create(null)).forEach(([projectPath, metadata]) => {
-        nextPathIndex[projectPath] =
-          metadata && typeof metadata === "object" && !Array.isArray(metadata)
-            ? { ...metadata }
-            : metadata;
-      });
-    });
-
-    currentPathIndex = nextPathIndex;
-  }
-
-  function applyFileShardToCurrentPathIndex(shardId, nextShardValue) {
-    const fileIndexArea = ensureReplicatedArea(FILE_INDEX_AREA);
-    const previousShardValue = fileIndexArea[shardId] || Object.create(null);
-
-    Object.keys(previousShardValue).forEach((projectPath) => {
-      delete currentPathIndex[projectPath];
-    });
-
-    if (!nextShardValue || Object.keys(nextShardValue).length === 0) {
-      delete fileIndexArea[shardId];
-      removeReplicatedAreaIfEmpty(FILE_INDEX_AREA);
-      return;
-    }
-
-    const clonedShardValue = clonePathIndex(nextShardValue);
-    fileIndexArea[shardId] = clonedShardValue;
-
-    Object.entries(clonedShardValue).forEach(([projectPath, metadata]) => {
-      currentPathIndex[projectPath] = { ...metadata };
-    });
+  function applyFileIndexShardLocal(shardId, nextShardValue, options = {}) {
+    fileIndexStore.applyShard(shardId, nextShardValue, options);
   }
 
   function hydrateReplicatedAreaState(state = {}) {
@@ -811,17 +812,18 @@ export function createWatchdog(options = {}) {
         return;
       }
 
+      if (area === FILE_INDEX_AREA) {
+        return;
+      }
+
       const nextArea = ensureReplicatedArea(area);
 
       Object.entries(areaValues).forEach(([id, value]) => {
-        nextArea[id] =
-          area === FILE_INDEX_AREA
-            ? clonePathIndex(value)
-            : cloneValue(value);
+        nextArea[id] = cloneValue(value);
       });
     });
 
-    rebuildCurrentPathIndexFromReplicatedState();
+    fileIndexStore.hydrateFromReplicatedState(state);
     resetDerivedIndexCaches();
   }
 
@@ -839,7 +841,28 @@ export function createWatchdog(options = {}) {
       changedAreas.add(area);
 
       if (area === FILE_INDEX_AREA) {
-        applyFileShardToCurrentPathIndex(id, change.deleted ? null : change.value || Object.create(null));
+        applyFileIndexShardLocal(id, change.deleted ? null : change.value || Object.create(null), {
+          fullyLoaded: !isL2FileIndexShardId(id)
+        });
+        return;
+      }
+
+      if (area === FILE_INDEX_META_AREA) {
+        const targetArea = ensureReplicatedArea(area);
+
+        if (change.deleted) {
+          delete targetArea[id];
+          removeReplicatedAreaIfEmpty(area);
+          return;
+        }
+
+        targetArea[id] = cloneValue(change.value);
+        fileIndexStore.applyInvalidations([
+          {
+            id,
+            version: change.value?.version
+          }
+        ]);
         return;
       }
 
@@ -901,35 +924,15 @@ export function createWatchdog(options = {}) {
       return false;
     }
 
-    let changed = false;
-
-    for (const existingPath of Object.keys(currentPathIndex)) {
-      const existingBase = stripTrailingSlash(existingPath);
-
-      if (existingBase === normalizedBase || existingBase.startsWith(`${normalizedBase}/`)) {
-        delete currentPathIndex[existingPath];
-        markChangedProjectPath(changedProjectPaths, existingPath);
-        changed = true;
-      }
-    }
-
-    return changed;
+    return fileIndexStore.removeEntries(normalizedBase, {
+      changedProjectPaths
+    });
   }
 
   function removeCurrentEntry(projectPath, changedProjectPaths = null) {
-    let changed = false;
-
-    for (const candidatePath of getProjectPathLookupCandidates(projectPath)) {
-      if (!candidatePath || !(candidatePath in currentPathIndex)) {
-        continue;
-      }
-
-      delete currentPathIndex[candidatePath];
-      markChangedProjectPath(changedProjectPaths, candidatePath);
-      changed = true;
-    }
-
-    return changed;
+    return fileIndexStore.removeEntryCandidates(getProjectPathLookupCandidates(projectPath), {
+      changedProjectPaths
+    });
   }
 
   function resolvePathIndexRecord(absolutePath, entryOptions = {}) {
@@ -973,57 +976,37 @@ export function createWatchdog(options = {}) {
       return removeCurrentEntries(record.projectPath, changedProjectPaths);
     }
 
-    const existingEntry = currentPathIndex[record.projectPath];
+    const existingEntry = getPathIndexEntry(record.projectPath);
 
     if (isPathIndexEntryEqual(existingEntry, record.entry)) {
       return false;
     }
 
-    currentPathIndex[record.projectPath] = record.entry;
+    setPathIndexEntry(record.projectPath, record.entry);
     markChangedProjectPath(changedProjectPaths, record.projectPath);
     return true;
   }
 
-  function rebuildCurrentPathIndex() {
-    const nextPathIndex = Object.create(null);
-    const scanRoots = new Set();
-
-    for (const { pattern } of compiledPatterns) {
-      const fixedPrefix = getFixedPatternPrefix(pattern);
-
-      for (const scanRoot of listProjectScanRoots(projectRoot, fixedPrefix, runtimeParams)) {
-        scanRoots.add(scanRoot);
-      }
+  function addPathIndexRecordToShardMap(shardMap, record) {
+    if (!record?.entry || !record.projectPath) {
+      return;
     }
 
-    for (const scanRoot of scanRoots) {
-      const directories = new Set();
-      walkDirectories(scanRoot, directories);
+    const shardId = getFileIndexShardId(record.projectPath);
 
-      directories.forEach((directoryPath) => {
-        const record = resolvePathIndexRecord(directoryPath, {
-          isDirectory: true
-        });
-
-        if (record?.entry) {
-          nextPathIndex[record.projectPath] = record.entry;
-        }
-      });
-
-      walkFiles(scanRoot, (filePath) => {
-        const record = resolvePathIndexRecord(filePath);
-
-        if (record?.entry) {
-          nextPathIndex[record.projectPath] = record.entry;
-        }
-      });
+    if (!shardId) {
+      return;
     }
 
-    currentPathIndex = nextPathIndex;
+    if (!shardMap[shardId]) {
+      shardMap[shardId] = Object.create(null);
+    }
+
+    shardMap[shardId][record.projectPath] = record.entry;
   }
 
   async function rebuildCurrentPathIndexAsync(scanRoots = []) {
-    const nextPathIndex = Object.create(null);
+    const nextFileIndexShards = Object.create(null);
     const nextDirectories = new Set();
     const pendingDirectories = [...dedupeRootPaths(scanRoots)];
     const visitedDirectories = new Set();
@@ -1054,9 +1037,7 @@ export function createWatchdog(options = {}) {
         stats: directoryStats
       });
 
-      if (directoryRecord?.entry) {
-        nextPathIndex[directoryRecord.projectPath] = directoryRecord.entry;
-      }
+      addPathIndexRecordToShardMap(nextFileIndexShards, directoryRecord);
 
       let entries;
 
@@ -1098,9 +1079,7 @@ export function createWatchdog(options = {}) {
           stats: fileStats
         });
 
-        if (fileRecord?.entry) {
-          nextPathIndex[fileRecord.projectPath] = fileRecord.entry;
-        }
+        addPathIndexRecordToShardMap(nextFileIndexShards, fileRecord);
 
         await maybeYieldDuringFullScan(yieldState);
       }
@@ -1108,21 +1087,46 @@ export function createWatchdog(options = {}) {
       await maybeYieldDuringFullScan(yieldState);
     }
 
-    currentPathIndex = nextPathIndex;
-    return nextDirectories;
+    return {
+      directories: nextDirectories,
+      shards: nextFileIndexShards
+    };
+  }
+
+  function createChangeEventFromProjectPath(projectPath, metadata, kind = "upsert") {
+    return {
+      absolutePath: toAbsolutePath(projectRoot, projectPath, runtimeParams),
+      exists: kind !== "delete",
+      isDirectory: Boolean(metadata?.isDirectory ?? projectPath.endsWith("/")),
+      kind,
+      metadata:
+        metadata && typeof metadata === "object" && !Array.isArray(metadata)
+          ? { ...metadata }
+          : null,
+      projectPath
+    };
+  }
+
+  function replaceFileIndexShard(shardId, nextShardValue = Object.create(null), options = {}) {
+    return fileIndexStore.replaceShard(shardId, nextShardValue, {
+      createChangeEvent: createChangeEventFromProjectPath,
+      fullyLoaded: options.fullyLoaded === true
+    });
+  }
+
+  function replaceFileIndexShards(nextFileIndexShards = Object.create(null), options = {}) {
+    return fileIndexStore.replaceShards(nextFileIndexShards, {
+      createChangeEvent: createChangeEventFromProjectPath,
+      fullyLoaded: options.fullyLoaded === true,
+      fullyLoadedShardIds: options.fullyLoadedShardIds,
+      includeShard: options.includeShard,
+      shardIds: options.shardIds
+    });
   }
 
   function createCurrentChangeFromProjectPath(projectPath) {
-    const metadata = currentPathIndex[projectPath] || null;
-
-    return {
-      absolutePath: toAbsolutePath(projectRoot, projectPath, runtimeParams),
-      exists: true,
-      isDirectory: Boolean(metadata?.isDirectory ?? projectPath.endsWith("/")),
-      kind: "upsert",
-      metadata: metadata ? { ...metadata } : null,
-      projectPath
-    };
+    const metadata = getPathIndexEntry(projectPath) || null;
+    return createChangeEventFromProjectPath(projectPath, metadata, "upsert");
   }
 
   function createChangeEvent(absolutePath) {
@@ -1162,7 +1166,7 @@ export function createWatchdog(options = {}) {
     const deletedPath = inferDeletedProjectPath(
       projectRoot,
       absolutePath,
-      currentPathIndex,
+      createPathIndexSnapshot(),
       runtimeParams
     );
 
@@ -1177,7 +1181,7 @@ export function createWatchdog(options = {}) {
   }
 
   function getCurrentPaths() {
-    return Object.keys(currentPathIndex).sort((left, right) => left.localeCompare(right));
+    return listCurrentProjectPaths();
   }
 
   function createHandlerContext(configuredHandler, matchingChanges = []) {
@@ -1190,17 +1194,20 @@ export function createWatchdog(options = {}) {
             : change.metadata
       })),
       getCurrentPathIndex() {
-        return clonePathIndex(currentPathIndex);
+        return createPathIndexSnapshot();
       },
       peekCurrentPathIndex() {
-        return currentPathIndex;
+        return createPathIndexSnapshot();
       },
       getCurrentPaths() {
         return getCurrentPaths();
       },
+      getFileIndexShard(shardId) {
+        return clonePathIndex(getFileIndexShardValueLocal(shardId));
+      },
       getIndex(name) {
         if (name === "path_index") {
-          return clonePathIndex(currentPathIndex);
+          return createPathIndexSnapshot();
         }
 
         return handlerStates.get(name) || null;
@@ -1232,11 +1239,10 @@ export function createWatchdog(options = {}) {
     handlerStates.clear();
 
     for (const configuredHandler of configuredHandlers) {
+      const matchingChanges = getCurrentMatchingChanges(configuredHandler.compiledPatterns);
+
       await configuredHandler.instance.onStart(
-        createHandlerContext(
-          configuredHandler,
-          getCurrentMatchingChanges(configuredHandler.compiledPatterns)
-        )
+        createHandlerContext(configuredHandler, matchingChanges)
       );
       syncHandlerState(configuredHandler);
     }
@@ -1359,7 +1365,7 @@ export function createWatchdog(options = {}) {
       const deletedPath = inferDeletedProjectPath(
         projectRoot,
         targetPath,
-        currentPathIndex,
+        createPathIndexSnapshot(),
         runtimeParams
       );
       removeDirectoryWatchersUnder(targetPath);
@@ -1404,7 +1410,7 @@ export function createWatchdog(options = {}) {
     const directoryProjectPath = normalizeProjectPath(projectPath, {
       isDirectory: true
     });
-    const changed = currentPathIndex[directoryProjectPath]
+    const changed = getPathIndexEntry(directoryProjectPath)
       ? removeCurrentEntries(directoryProjectPath, changedProjectPaths)
       : removeCurrentEntry(projectPath, changedProjectPaths);
 
@@ -1426,7 +1432,7 @@ export function createWatchdog(options = {}) {
       const deletedPath = inferDeletedProjectPath(
         projectRoot,
         targetPath,
-        currentPathIndex,
+        createPathIndexSnapshot(),
         runtimeParams
       );
       removeDirectoryWatchersUnder(targetPath);
@@ -1441,20 +1447,54 @@ export function createWatchdog(options = {}) {
       isDirectory: true,
       runtimeParams
     });
-    const existed = Boolean(projectPath && currentPathIndex[projectPath]);
+    const existed = Boolean(projectPath && getPathIndexEntry(projectPath));
 
     if (!replica && liveWatchEnabled) {
-      if (existed) {
-        watchDirectory(targetPath);
-      } else {
-        watchDirectoryTree(targetPath);
-      }
+      watchDirectory(targetPath);
     }
 
     return upsertCurrentEntry(targetPath, {
       isDirectory: true,
       stats
     }, changedProjectPaths);
+  }
+
+  function shouldSyncWatchedAbsolutePath(targetPath) {
+    const absolutePath = path.resolve(String(targetPath || ""));
+
+    if (!absolutePath || hasIgnoredPathSegment(absolutePath)) {
+      return false;
+    }
+
+    const stats = tryStat(absolutePath);
+    const projectPath = toProjectPath(projectRoot, absolutePath, {
+      isDirectory: Boolean(stats?.isDirectory?.()),
+      runtimeParams
+    });
+    const directoryProjectPath = toProjectPath(projectRoot, absolutePath, {
+      isDirectory: true,
+      runtimeParams
+    });
+
+    if (projectPath === "/app/L2/" || directoryProjectPath === "/app/L2/") {
+      return false;
+    }
+
+    const candidateShardIds = [
+      getFileIndexShardId(projectPath),
+      getFileIndexShardId(directoryProjectPath)
+    ].filter(Boolean);
+
+    return !candidateShardIds.some((shardId) => {
+      if (!isL2FileIndexShardId(shardId) || fileIndexStore.isShardCurrent(shardId)) {
+        return false;
+      }
+
+      return !(
+        fileIndexStore.hasShard(shardId) &&
+        (isL2AuthStateProjectPath(projectPath) || isL2AuthStateProjectPath(directoryProjectPath))
+      );
+    });
   }
 
   function buildReplicatedStateChanges(options = {}) {
@@ -1465,8 +1505,15 @@ export function createWatchdog(options = {}) {
     const nextUserIndex = handlerStates.get("user_index") || getRuntimeUserIndex();
     const nextGroupIndex = handlerStates.get("group_index") || getRuntimeGroupIndex();
     const stateChanges = [];
-    const previousFileShardIds = Object.keys(replicatedAreaState[FILE_INDEX_AREA] || Object.create(null));
-    const nextFileShards = fullReshard ? buildFileIndexShards(currentPathIndex) : null;
+    const lazyFileIndexInvalidations = Array.isArray(options.lazyFileIndexInvalidations)
+      ? options.lazyFileIndexInvalidations
+      : [];
+    const previousFileShardIds =
+      typeof stateSystem.listAreaIds === "function"
+        ? stateSystem.listAreaIds(FILE_INDEX_AREA).filter(shouldReplicateFileIndexShard)
+        : Object.keys(replicatedAreaState[FILE_INDEX_AREA] || Object.create(null)).filter(
+            shouldReplicateFileIndexShard
+          );
     const fileChangeProjectPaths = fullReshard
       ? []
       : [
@@ -1478,7 +1525,9 @@ export function createWatchdog(options = {}) {
               .filter(Boolean)
           )
         ];
-    const nextFileShardIds = fullReshard ? Object.keys(nextFileShards || Object.create(null)) : [];
+    const nextFileShardIds = fullReshard
+      ? listFileIndexShardIds().filter(shouldReplicateFileIndexShard)
+      : [];
     const incrementalFileChangesByShard = new Map();
 
     if (!fullReshard) {
@@ -1502,13 +1551,17 @@ export function createWatchdog(options = {}) {
       : collectFileIndexShardIdsFromProjectPaths(fileChangeProjectPaths);
 
     fileShardIds.forEach((shardId) => {
+      if (!shouldReplicateFileIndexShard(shardId)) {
+        return;
+      }
+
       const shardValue = fullReshard
-        ? nextFileShards?.[shardId] || Object.create(null)
+        ? clonePathIndex(getFileIndexShardValueLocal(shardId))
         : clonePathIndex(replicatedAreaState[FILE_INDEX_AREA]?.[shardId] || Object.create(null));
 
       if (!fullReshard) {
         for (const projectPath of incrementalFileChangesByShard.get(shardId) || []) {
-          const metadata = currentPathIndex[projectPath];
+          const metadata = getPathIndexEntry(projectPath);
 
           if (metadata) {
             shardValue[projectPath] = { ...metadata };
@@ -1550,7 +1603,30 @@ export function createWatchdog(options = {}) {
       stateChanges.push(...buildGroupIndexShardChanges(previousGroupIndex, nextGroupIndex));
     }
 
+    lazyFileIndexInvalidations.forEach((invalidation) => {
+      const shardId = String(invalidation?.id || "").trim();
+      const version = Number(invalidation?.version) || 0;
+
+      if (!isL2FileIndexShardId(shardId) || version <= 0) {
+        return;
+      }
+
+      stateChanges.push({
+        area: FILE_INDEX_META_AREA,
+        id: shardId,
+        value: {
+          version
+        }
+      });
+    });
+
     return stateChanges;
+  }
+
+  function createLazyFileIndexInvalidationsFromProjectPaths(projectPaths = []) {
+    return fileIndexStore.createInvalidations(
+      collectFileIndexShardIdsFromProjectPaths(projectPaths).filter(isL2FileIndexShardId)
+    );
   }
 
   function commitReplicatedState(options = {}) {
@@ -1559,6 +1635,7 @@ export function createWatchdog(options = {}) {
         changes: options.changes,
         fileChangeProjectPaths: options.fileChangeProjectPaths,
         fullReshard: options.fullReshard,
+        lazyFileIndexInvalidations: options.lazyFileIndexInvalidations,
         previousGroupIndex: options.previousGroupIndex,
         previousUserIndex: options.previousUserIndex
       })
@@ -1574,18 +1651,23 @@ export function createWatchdog(options = {}) {
       Array.isArray(options.projectPaths) && options.projectPaths.length > 0
         ? [...options.projectPaths]
         : [];
+    const lazyFileIndexInvalidations = Array.isArray(options.lazyFileIndexInvalidations)
+      ? options.lazyFileIndexInvalidations
+      : [];
 
     if (options.emit !== false) {
       if (snapshot) {
         emitSnapshotEvent({
+          lazyFileIndexInvalidations,
           projectPaths,
           snapshot,
           type: "snapshot",
           version: result.version
         });
-      } else if (result.delta) {
+      } else if (result.delta || lazyFileIndexInvalidations.length > 0) {
         emitSnapshotEvent({
           delta: result.delta,
+          lazyFileIndexInvalidations,
           projectPaths,
           type: "delta",
           version: result.version
@@ -1595,6 +1677,7 @@ export function createWatchdog(options = {}) {
 
     return {
       delta: result.delta,
+      lazyFileIndexInvalidations,
       snapshot,
       version: result.version
     };
@@ -1699,14 +1782,31 @@ export function createWatchdog(options = {}) {
       changes,
       emit: options.emit,
       fileChangeProjectPaths: [...fileChangeProjectPaths],
+      lazyFileIndexInvalidations:
+        options.includeLazyFileIndexInvalidations === false
+          ? []
+          : createLazyFileIndexInvalidationsFromProjectPaths([...fileChangeProjectPaths]),
       projectPaths: projectPathsToEmit,
       previousGroupIndex,
       previousUserIndex
     });
+    const lazyFileIndexShards =
+      options.includeLazyFileIndexShards === false
+        ? []
+        : collectFileIndexShardIdsFromProjectPaths([...fileChangeProjectPaths])
+            .filter(isL2FileIndexShardId)
+            .map((shardId) =>
+              getFileIndexShardSnapshot(shardId, {
+                includeEmpty: true
+              })
+            )
+            .filter(Boolean);
 
     return {
       changed,
       delta: stateCommit.delta,
+      lazyFileIndexInvalidations: stateCommit.lazyFileIndexInvalidations,
+      lazyFileIndexShards,
       projectPaths: projectPathsToEmit,
       snapshot: stateCommit.snapshot,
       version: stateCommit.version
@@ -1754,10 +1854,13 @@ export function createWatchdog(options = {}) {
       });
     }
 
+    const previousLocalL2ShardIds = fileIndexStore.getPreviousLocalL2ShardIds();
+
     stateSystem.applySnapshot({
       state: snapshot.state,
       version: snapshot.version
     });
+    fileIndexStore.clearLocalStateEntries(previousLocalL2ShardIds);
     hydrateReplicatedAreaState(snapshot.state);
 
     if (options.emit !== false) {
@@ -1792,6 +1895,256 @@ export function createWatchdog(options = {}) {
     };
   }
 
+  async function scanExplicitAbsolutePaths(absolutePaths = []) {
+    const shards = Object.create(null);
+    const directories = new Set();
+    const yieldState = createFullScanYieldState();
+
+    for (const rawPath of Array.isArray(absolutePaths) ? absolutePaths : []) {
+      const absolutePath = path.resolve(String(rawPath || ""));
+      const stats = await tryStatAsync(absolutePath);
+
+      if (!stats) {
+        await maybeYieldDuringFullScan(yieldState);
+        continue;
+      }
+
+      if (stats.isDirectory()) {
+        directories.add(absolutePath);
+      }
+
+      addPathIndexRecordToShardMap(
+        shards,
+        resolvePathIndexRecord(absolutePath, {
+          isDirectory: stats.isDirectory(),
+          stats
+        })
+      );
+      await maybeYieldDuringFullScan(yieldState);
+    }
+
+    return {
+      directories,
+      shards
+    };
+  }
+
+  function getCoreStartupScanRoots() {
+    const roots = getAppPathRoots(projectRoot, runtimeParams);
+    return dedupeRootPaths([roots.l0Dir, roots.l1Dir]);
+  }
+
+  function getLayerRootAbsolutePaths() {
+    const roots = getAppPathRoots(projectRoot, runtimeParams);
+    return [roots.appRootDir, roots.l0Dir, roots.l1Dir, roots.l2Dir];
+  }
+
+  function getL2UserRootDir(username) {
+    const normalizedUsername = normalizeEntityId(username);
+
+    if (!normalizedUsername) {
+      return "";
+    }
+
+    return path.join(getAppPathRoots(projectRoot, runtimeParams).l2Dir, normalizedUsername);
+  }
+
+  function getL2UserAuthProjectPaths(username) {
+    const normalizedUsername = normalizeEntityId(username);
+
+    if (!normalizedUsername) {
+      return [];
+    }
+
+    return [
+      `/app/L2/${normalizedUsername}/user.yaml`,
+      `/app/L2/${normalizedUsername}/meta/password.json`,
+      `/app/L2/${normalizedUsername}/meta/logins.json`
+    ];
+  }
+
+  async function ensureUserAuthStateLoaded(username) {
+    const normalizedUsername = normalizeEntityId(username);
+
+    if (!normalizedUsername) {
+      return {
+        delta: null,
+        lazyFileIndexInvalidations: [],
+        lazyFileIndexShards: [],
+        projectPaths: [],
+        version: getCurrentVersion()
+      };
+    }
+
+    if (authStateLoadPromises.has(normalizedUsername)) {
+      return authStateLoadPromises.get(normalizedUsername);
+    }
+
+    const loadPromise = applyProjectPathChanges(getL2UserAuthProjectPaths(normalizedUsername), {
+      includeLazyFileIndexShards: false
+    }).finally(() => {
+      authStateLoadPromises.delete(normalizedUsername);
+    });
+
+    authStateLoadPromises.set(normalizedUsername, loadPromise);
+    return loadPromise;
+  }
+
+  function mergeShardMaps(targetShards, sourceShards) {
+    Object.entries(sourceShards || Object.create(null)).forEach(([shardId, shardValue]) => {
+      if (!targetShards[shardId]) {
+        targetShards[shardId] = Object.create(null);
+      }
+
+      Object.assign(targetShards[shardId], shardValue);
+    });
+  }
+
+  async function buildRefreshFileIndexShards() {
+    const coreScan = await rebuildCurrentPathIndexAsync(getCoreStartupScanRoots());
+    const layerRootScan = await scanExplicitAbsolutePaths(getLayerRootAbsolutePaths());
+    const nextShards = Object.create(null);
+    const nextDirectories = new Set([...coreScan.directories, ...layerRootScan.directories]);
+
+    mergeShardMaps(nextShards, coreScan.shards);
+    mergeShardMaps(nextShards, layerRootScan.shards);
+
+    for (const shardId of listFileIndexShardIds()) {
+      if (!isL2FileIndexShardId(shardId) || !fileIndexStore.isShardCurrent(shardId)) {
+        continue;
+      }
+
+      const username = shardId.slice("L2/".length);
+      const userRoot = getL2UserRootDir(username);
+
+      if (!userRoot) {
+        continue;
+      }
+
+      const userScan = await rebuildCurrentPathIndexAsync([userRoot]);
+      mergeShardMaps(nextShards, userScan.shards);
+      userScan.directories.forEach((directoryPath) => {
+        nextDirectories.add(directoryPath);
+      });
+    }
+
+    return {
+      directories: nextDirectories,
+      shards: nextShards
+    };
+  }
+
+  async function scanL2UserFileIndexShard(username) {
+    const normalizedUsername = normalizeEntityId(username);
+    const userRoot = getL2UserRootDir(normalizedUsername);
+
+    if (!normalizedUsername || !userRoot) {
+      return {
+        delta: null,
+        lazyFileIndexShards: [],
+        projectPaths: [],
+        version: getCurrentVersion()
+      };
+    }
+
+    const shardId = `L2/${normalizedUsername}`;
+
+    if (fileIndexShardLoadPromises.has(shardId)) {
+      return fileIndexShardLoadPromises.get(shardId);
+    }
+
+    const loadPromise = enqueueOperation(async () => {
+      const previousUserIndex = handlerStates.get("user_index") || getRuntimeUserIndex();
+      const previousGroupIndex = handlerStates.get("group_index") || getRuntimeGroupIndex();
+      const scanResult = await rebuildCurrentPathIndexAsync([userRoot]);
+      const nextShardValue = scanResult.shards[shardId] || Object.create(null);
+      const changes = replaceFileIndexShard(shardId, nextShardValue, {
+        fullyLoaded: true
+      });
+      const projectPaths = changes.map((change) => change.projectPath).filter(Boolean);
+
+      scanResult.directories.forEach((directoryPath) => {
+        watchDirectory(directoryPath);
+      });
+
+      if (changes.length > 0) {
+        await notifyHandlers(changes);
+      }
+
+      const stateCommit = commitReplicatedState({
+        changes,
+        emit: changes.length > 0,
+        fileChangeProjectPaths: projectPaths,
+        lazyFileIndexInvalidations: createLazyFileIndexInvalidationsFromProjectPaths(projectPaths),
+        projectPaths,
+        previousGroupIndex,
+        previousUserIndex
+      });
+
+      return {
+        delta: stateCommit.delta || null,
+        lazyFileIndexInvalidations: stateCommit.lazyFileIndexInvalidations,
+        lazyFileIndexShards: [
+          getFileIndexShardSnapshot(shardId, {
+            includeEmpty: true
+          })
+        ].filter(Boolean),
+        projectPaths,
+        version: stateCommit.version
+      };
+    }, "demand").finally(() => {
+      fileIndexShardLoadPromises.delete(shardId);
+    });
+
+    fileIndexShardLoadPromises.set(shardId, loadPromise);
+    return loadPromise;
+  }
+
+  function getFileIndexShardSnapshot(shardId = "", options = {}) {
+    return fileIndexStore.getShardSnapshot(shardId, options);
+  }
+
+  async function ensureFileIndexShardLoaded(shardId, options = {}) {
+    const normalizedShardId = String(shardId || "").trim();
+
+    if (!normalizedShardId) {
+      return {
+        lazyFileIndexShards: [],
+        version: getCurrentVersion()
+      };
+    }
+
+    if (isL2FileIndexShardId(normalizedShardId) && !fileIndexStore.isShardCurrent(normalizedShardId)) {
+      const username = normalizedShardId.slice("L2/".length);
+      return scanL2UserFileIndexShard(username);
+    }
+
+    const knownVersion = Number(options.knownVersion) || 0;
+    const shardSnapshot = getFileIndexShardSnapshot(normalizedShardId);
+
+    return {
+      lazyFileIndexShards:
+        shardSnapshot && Number(shardSnapshot.version) !== knownVersion ? [shardSnapshot] : [],
+      version: getCurrentVersion()
+    };
+  }
+
+  async function applyLazyFileIndexShards(shards = []) {
+    fileIndexStore.applyLazyShards(shards);
+
+    return {
+      version: getCurrentVersion()
+    };
+  }
+
+  async function applyLazyFileIndexInvalidations(invalidations = []) {
+    fileIndexStore.applyInvalidations(invalidations);
+
+    return {
+      version: getCurrentVersion()
+    };
+  }
+
   async function refreshInternal() {
     if (replica) {
       return getSnapshot();
@@ -1800,22 +2153,38 @@ export function createWatchdog(options = {}) {
     const previousUserIndex = handlerStates.get("user_index") || getRuntimeUserIndex();
     const previousGroupIndex = handlerStates.get("group_index") || getRuntimeGroupIndex();
     const configChanged = await reloadWatchConfigIfNeeded();
-    const nextDirectories = await rebuildCurrentPathIndexAsync(
-      collectFullScanRoots(compiledPatterns, projectRoot, runtimeParams)
+    const scanResult = await buildRefreshFileIndexShards();
+    const fullyLoadedShardIds = new Set(
+      Object.keys(scanResult.shards || Object.create(null)).filter((shardId) =>
+        isL2FileIndexShardId(shardId) ? fileIndexStore.isShardCurrent(shardId) : true
+      )
     );
+    const changes = replaceFileIndexShards(scanResult.shards, {
+      fullyLoadedShardIds,
+      includeShard(shardId) {
+        return !isL2FileIndexShardId(shardId) || fileIndexStore.isShardCurrent(shardId);
+      }
+    });
 
-    closeRemovedWatchers(nextDirectories);
+    closeRemovedWatchers(scanResult.directories);
 
-    for (const directoryPath of nextDirectories) {
+    for (const directoryPath of scanResult.directories) {
       watchDirectory(directoryPath);
     }
 
-    await initializeHandlers();
+    if (handlerStates.size === 0 || configChanged) {
+      await initializeHandlers();
+    } else if (changes.length > 0) {
+      await notifyHandlers(changes);
+    }
 
     commitReplicatedState({
       emit: true,
       forceSnapshot: configChanged,
       fullReshard: true,
+      lazyFileIndexInvalidations: createLazyFileIndexInvalidationsFromProjectPaths(
+        changes.map((change) => change.projectPath).filter(Boolean)
+      ),
       previousGroupIndex,
       previousUserIndex
     });
@@ -1832,7 +2201,7 @@ export function createWatchdog(options = {}) {
           scheduleNextReconcile();
         }
       }
-    });
+    }, "background");
   }
 
   async function refreshSafely() {
@@ -1845,14 +2214,14 @@ export function createWatchdog(options = {}) {
   }
 
   async function processPendingPathChanges() {
-    const pathsToSync = [...pendingChangedPaths];
+    const pathsToSync = [...pendingChangedPaths].filter(shouldSyncWatchedAbsolutePath);
     pendingChangedPaths.clear();
 
     if (pathsToSync.length === 0) {
       return;
     }
 
-    await enqueueOperation(async () => applyAbsolutePathChanges(pathsToSync));
+    await enqueueOperation(async () => applyAbsolutePathChanges(pathsToSync), "mutation");
   }
 
   async function processPendingPathChangesSafely() {
@@ -1957,17 +2326,21 @@ export function createWatchdog(options = {}) {
       throw new Error("Replica watchdogs cannot scan authoritative filesystem changes.");
     }
 
-    const expandedProjectPaths = collectProjectSyncTargets(normalizedProjectPaths, currentPathIndex);
+    const expandedProjectPaths = collectProjectSyncTargets(normalizedProjectPaths, createPathIndexSnapshot());
     const absolutePaths = expandedProjectPaths.map((target) => ({
       absolutePath: toAbsolutePath(projectRoot, target.projectPath, runtimeParams),
       metadataOnly: target.metadataOnly
     }));
 
-    return enqueueOperation(async () =>
-      applyAbsolutePathChanges(absolutePaths, {
-        emit: options.emit,
-        projectPaths: normalizedProjectPaths
-      })
+    return enqueueOperation(
+      async () =>
+        applyAbsolutePathChanges(absolutePaths, {
+          emit: options.emit,
+          includeLazyFileIndexInvalidations: options.includeLazyFileIndexInvalidations,
+          includeLazyFileIndexShards: options.includeLazyFileIndexShards,
+          projectPaths: normalizedProjectPaths
+        }),
+      "mutation"
     );
   }
 
@@ -1980,6 +2353,8 @@ export function createWatchdog(options = {}) {
   }
 
   return {
+    applyLazyFileIndexInvalidations,
+    applyLazyFileIndexShards,
     applyProjectPathChanges,
     applySnapshot,
     applyStateDelta,
@@ -1993,7 +2368,7 @@ export function createWatchdog(options = {}) {
       }
 
       if (name === "path_index") {
-        return currentPathIndex;
+        return createPathIndexSnapshot();
       }
 
       if (name === "user_index") {
@@ -2003,7 +2378,7 @@ export function createWatchdog(options = {}) {
       return handlerStates.get(name) || null;
     },
     getPaths() {
-      return Object.keys(currentPathIndex).sort((left, right) => left.localeCompare(right));
+      return listCurrentProjectPaths();
     },
     getSnapshot,
     getStateSystem() {
@@ -2012,11 +2387,17 @@ export function createWatchdog(options = {}) {
     getVersion() {
       return getCurrentVersion();
     },
+    getFileIndexShardVersion,
     getWatchConfig,
     hasPath(projectPath) {
       return getProjectPathLookupCandidates(projectPath).some(
-        (candidate) => candidate && Boolean(currentPathIndex[candidate])
+        (candidate) => candidate && Boolean(getPathIndexEntry(candidate))
       );
+    },
+    ensureFileIndexShardLoaded,
+    ensureUserAuthStateLoaded,
+    isFileIndexShardCurrent(shardId) {
+      return fileIndexStore.isShardCurrent(shardId);
     },
     refresh,
     async start() {

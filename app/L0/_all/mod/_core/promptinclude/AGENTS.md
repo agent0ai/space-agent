@@ -18,6 +18,8 @@ This scope owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 - readable prompt-include discovery uses the indexed `file_paths` endpoint with `**/*.system.include.md` and `**/*.transient.include.md`; do not add ad hoc filesystem walks here
 - discovery follows the existing app-file permission model automatically, so only readable `L0`, `L1`, and the current user's `L2` include files are eligible
 - runtime prompt injection should prefer keyed prompt-item maps over legacy flat section arrays so include files can carry stable keys, optional `order`, and trim metadata through the shared prompt-budget path
@@ -29,8 +31,18 @@ This scope owns:
 - keyed prompt-include item builders should preserve explicit caller-supplied `key`, `order`, `trimAllowed`, `trimPriority`, and transient `heading` metadata when present, while still defaulting to deterministic path-derived keys and alphabetical order
 - this module should fail soft during system or transient injection: discovery or read errors may log locally, but they should not break the whole chat surface
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep this module headless and prompt-focused
 - prefer small pure formatting helpers in `promptinclude.js` so prompt rendering can be tested without booting the full browser runtime
 - if prompt-include discovery, ordering, or formatting changes, also update `_core/onscreen_agent/AGENTS.md` and the matching docs under `_core/documentation/docs/agent/`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

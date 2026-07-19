@@ -67,10 +67,8 @@ export default class UserIndexHandler extends WatchdogHandler {
   }
 
   rebuild(context) {
-    const pathIndex = context.getIndex("path_index") || {};
-
     this.state = buildUserIndexSnapshot({
-      filePaths: Object.keys(pathIndex),
+      filePaths: context.getCurrentPaths(),
       projectRoot: this.projectRoot,
       runtimeParams: this.runtimeParams
     });
@@ -81,7 +79,6 @@ export default class UserIndexHandler extends WatchdogHandler {
   }
 
   async onChanges(context) {
-    const pathIndex = context.getIndex("path_index") || Object.create(null);
     const affectedUsernames = collectAffectedUsernames(context.changes);
 
     if (affectedUsernames.length === 0) {
@@ -93,8 +90,12 @@ export default class UserIndexHandler extends WatchdogHandler {
     for (const username of affectedUsernames) {
       removeUserState(nextState, username);
 
+      const shardValue =
+        typeof context.getFileIndexShard === "function"
+          ? context.getFileIndexShard(`L2/${username}`)
+          : Object.create(null);
       const partialSnapshot = buildUserIndexSnapshot({
-        filePaths: getUserProjectPaths(pathIndex, username),
+        filePaths: getUserProjectPaths(shardValue, username),
         projectRoot: this.projectRoot,
         runtimeParams: this.runtimeParams
       });

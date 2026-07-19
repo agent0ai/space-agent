@@ -20,7 +20,9 @@ This surface owns:
 - `skills.js`: admin skill runtime aliases, exposing both `space.admin.loadSkill(...)` and `space.skills.load(...)` through shared `/mod/_core/skillset/skills.js`
 - `store.js` also owns the assistant-message evaluation seam `_core/admin/views/agent/store.js/evaluateAdminAssistantMessage`
 
-## Persistence And Prompt Contract
+## Local Contracts
+
+### Persistence And Prompt Contract
 
 Current persistence paths:
 
@@ -72,7 +74,7 @@ Prompt rules:
 - `api.js` may fold consecutive prepared `user` or `assistant` payload messages into alternating transport turns with `\n\n` joins immediately before the fetch call, but that transport-only fold must not mutate stored history or prompt-history state
 - the firmware prompt documents `space.api.userSelfInfo()` as `{ username, fullName, groups, managedGroups, sessionId, userCryptoKeyId, userCryptoState }`, and admin checks should still derive from `groups.includes("_admin")`
 
-## Execution And UI Contract
+### Execution And UI Contract
 
 Current behavior:
 
@@ -120,9 +122,19 @@ Current behavior:
 - the loop supports stop requests and queued follow-up submissions
 - restored attachment metadata is revalidated against current file availability
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep all admin-agent-specific runtime logic local to this folder
 - shared prompt-instance lifecycle belongs in `_core/agent_prompt/`; reusing the standard prepared-prompt builder from `_core/onscreen_agent/llm.js` is intentional, but new admin-only policy should still stay local here
 - prefer shared visual primitives from `_core/visual` for presentation and keep surface behavior here
 - if you change persistence paths, skill discovery, execution protocol, or prompt composition, update this file and the parent admin docs
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

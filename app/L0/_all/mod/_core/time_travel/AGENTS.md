@@ -20,6 +20,8 @@ This module owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 - the route is `#/time_travel`
 - the same `view.html` is also mounted by the admin Time Travel tab adapter at `/mod/_core/admin/views/time_travel/panel.html`
 - the Time Travel action in the routed header menu is owned here through `_core/onscreen_menu/items` with `data-order="300"`
@@ -53,9 +55,19 @@ This module owns:
 - the backend preserves ignored auth files such as `meta/password.json` and `meta/logins.json`; the page should not claim to roll those files back
 - Travel In Time and Revert Changes should stay in a shared action-button parent and render at matching widths
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep this page as a frontend client for the server-owned Git history API; do not add direct file-system semantics here
 - keep errors visible in the page because `CUSTOMWARE_GIT_HISTORY` may be disabled at runtime
 - keep page-level title copy in the routed header itself, but move ephemeral route actions such as Refresh and repository selection into the shared onscreen-menu left header container through route-owned `x-inject` markup so those controls disappear automatically when the route unmounts
 - if the route, dashboard panel manifest, onscreen menu item, default `~` scope, or repository-picker contract changes, update `app/AGENTS.md` and the relevant docs under `_core/documentation/docs/`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

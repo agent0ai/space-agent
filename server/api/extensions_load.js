@@ -81,7 +81,7 @@ function readRequestedGroups(context) {
   ];
 }
 
-export function post(context) {
+export async function post(context) {
   const payload = readPayload(context);
   const requests = readRequestedGroups(context);
   const maxLayer = resolveRequestMaxLayer({
@@ -91,6 +91,8 @@ export function post(context) {
   });
   const username = context.user && context.user.username;
   const stateSystem = context.stateSystem;
+
+  await context.ensureUserFileIndex?.(username);
 
   if (Array.isArray(payload.requests)) {
     return {

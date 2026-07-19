@@ -104,6 +104,7 @@ Widget YAML rules:
 - widgets may carry an optional plain-object `metadata` block in their YAML file; the browser runtime should preserve that metadata through ordinary render/upsert flows unless a caller explicitly replaces it
 - `readWidget(...)` should include a compact `metadata: ...` line when metadata exists, and `space.current.widgets` should expose both the raw `metadata` object and a convenience `example` boolean
 - widget renderers that show a website, search page, URL, live web page, or browser-like surface that the agent may inspect or control must embed a registered browser surface with plain `<x-browser src="google.com"></x-browser>` or create the same element through DOM APIs; `_core/web_browsing` owns id allocation, address-bar-style `src` normalization, optional `controls="true|false"` chrome, and `space.browser` exposure while `_core/spaces` only provides the normal widget render target; plain iframes are not registered browser surfaces and should be reserved for provider-specific embeds that are intentionally not agent-controllable
+- the framework-owned widget render target remains the widget scroll owner; keep its measured box aligned to the visible content area and disable overscroll chaining there so hitting a widget scroll boundary does not pan the whole space
 
 ## Layout Packing
 
@@ -120,6 +121,7 @@ Rules:
 - the viewport-sized spaces canvas should not clip its own grid; keep canvas overflow visible so camera-panned widgets can slide visually beneath the fixed routed header bar
 - when a space is opened, page-reloaded into the spaces route, shown for the first time after the empty canvas, or rearranged, the camera should reset to the default occupied-span view: center the occupied cells horizontally and place the top-most occupied row on the first visible grid row below the fixed shell bar with an extra `0.5em` gap, using the live onscreen-menu bottom when available and otherwise the router's `--router-shell-start-clearance` fallback
 - after that initial placement, camera panning should remain bounded only until an outer occupied row or column would leave the viewport entirely, so one occupied edge cell always stays visible instead of forcing the whole layout to stay framed; falling back to the empty canvas should still clear stale offsets before the next first-widget render
+- wheel input may still pan the canvas directly on the space background, but wheel events that start inside a scrollable widget should stay with that widget even after it reaches its top, bottom, or horizontal edge
 
 ## Dashboard Launcher
 

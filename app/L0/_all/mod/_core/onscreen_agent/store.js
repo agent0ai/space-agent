@@ -10,6 +10,9 @@ import * as llmParams from "/mod/_core/onscreen_agent/llm-params.js";
 import * as skills from "/mod/_core/onscreen_agent/skills.js";
 import * as storage from "/mod/_core/onscreen_agent/storage.js";
 import * as agentView from "/mod/_core/onscreen_agent/view.js";
+import {
+  resolveOnscreenAgentBoundaryAfterAssistantResponse
+} from "/mod/_core/onscreen_agent/turn-boundary.js";
 import { renderMarkdown } from "/mod/_core/framework/js/markdown-frontmatter.js";
 import {
   normalizeAssistantEvaluationLogEntry,
@@ -5276,7 +5279,10 @@ const model = {
           return this.getBoundaryAction() || "stopped";
         }
 
-        const boundaryActionAfterResponse = this.getBoundaryAction();
+        const boundaryActionAfterResponse = resolveOnscreenAgentBoundaryAfterAssistantResponse(
+          this.getBoundaryAction(),
+          assistantMessage.content
+        );
         const hasAssistantContent = Boolean(assistantMessage.content.trim());
 
         if (hasAssistantContent) {

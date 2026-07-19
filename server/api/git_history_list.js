@@ -35,6 +35,7 @@ function readFileFilter(context) {
 
 async function handleList(context) {
   try {
+    await context.ensureUserFileIndex?.(context.user?.username);
     return await listLayerHistoryCommits({
       fileFilter: readFileFilter(context),
       limit: readLimit(context),

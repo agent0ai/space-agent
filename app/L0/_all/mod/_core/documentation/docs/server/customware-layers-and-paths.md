@@ -32,6 +32,7 @@ Resolution rules:
 - `/app/L1/...` and `/app/L2/...` map into `CUSTOMWARE_PATH/L1/...` and `CUSTOMWARE_PATH/L2/...` when `CUSTOMWARE_PATH` is configured
 - otherwise writable paths map into repo `app/L1/...` and `app/L2/...`
 - `~/...` expands to the authenticated user's `L2/<username>/...`
+- auth state can be indexed from only `user.yaml`, `meta/password.json`, and `meta/logins.json`; routes that list or resolve user files must demand-load the full `L2/<username>` file-index shard separately
 
 ## Permission Model
 
@@ -58,9 +59,9 @@ Current contract:
 - app-file writes still default to replacement, but `file_write` also supports append, prepend, and text insert anchors; insert uses a 1-based line insertion point or the first literal `before` or `after` match and requires `utf8`
 - projected growth over the cap is rejected
 - when a user folder is already over cap, only mutations that reduce that folder's net byte size are allowed
-- quota accounting is cached per resolved L2 owner root, and both current totals and subtree deltas should come from indexed `sizeBytes` metadata in the live `path_index` or replicated `file_index` shards instead of rescanning user folders on disk during normal runtime
+- quota accounting is cached per resolved L2 owner root, and both current totals and subtree deltas should come from indexed `sizeBytes` metadata in the currently loaded `file_index` shard instead of rescanning user folders on disk during normal runtime
 - other backend app-path mutation callers invalidate affected user quota cache entries through `recordAppPathMutations`, and Git history operations invalidate the affected cache when `.git` metadata may have changed
-- clustered workers still perform the filesystem mutation locally, but they must publish the exact changed logical paths back to the primary so quota, user, and group derived state stays aligned across workers; those direct path reports are the normal freshness path, while the watchdog's full reconcile is only an infrequent completion-anchored backstop for missed external or CLI changes
+- clustered workers still perform the filesystem mutation locally, but they must publish the exact changed logical paths back to the primary so quota, user, and group derived state stays aligned across workers; those direct path reports are the normal freshness path, while the watchdog's reconcile is only an infrequent completion-anchored backstop for L0/L1 plus already-loaded L2 users
 
 ## Optional Git History
 
@@ -121,7 +122,7 @@ Resolution rules:
 - different extension filenames under one extension point compose together
 - `module_inheritance.js` owns `/mod/...` resolution
 - `extension_overrides.js` owns extension lookup resolution
-- request-time module and extension lookup reads replicated shared-state shards for the relevant readable owners instead of scanning the full watchdog path index
+- request-time module and extension lookup reads shared-state file-index shards for the relevant readable owners instead of scanning the full watchdog path index; the current user's `L2/<username>` shard is loaded on demand if it was not present in the worker startup snapshot
 
 ## `maxLayer`
 
@@ -141,4 +142,4 @@ This model explains why:
 - a stable `/mod/...` import may resolve to different backing files for different users
 - docs and skills can be delivered by normal modules
 - direct app-file reads and writes use logical layer paths even when writable storage is moved outside the repo
-- concrete changed file paths matter for incremental index rebuilds; publishing only a parent directory can leave derived state stale until a targeted sync or later backstop reconcile
+- concrete changed file paths matter for incremental index rebuilds; publishing only a parent directory can leave derived state stale until a targeted sync or later backstop reconcile for loaded scope

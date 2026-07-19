@@ -51,6 +51,7 @@ When a UI needs user-visible download failure feedback without fetching the arch
 
 - Use permission-aware APIs, not ad hoc browser path guesses.
 - Use `space.api.call("file_paths", { method: "POST", body: { patterns: [...] } })` for indexed glob discovery; add `access: "write"` for writable-only results.
+- Server-side `file_paths` discovery is shard-scoped to readable or writable `file_index` owner shards; the endpoint ensures the current user's full L2 shard when needed, so callers should pass precise patterns and rely on the endpoint instead of trying to enumerate all app paths in browser code.
 - Use `space.api.call("module_list", ...)` only when you need module inventory metadata rather than raw file paths.
 - Use `space.api.call("extensions_load", ...)` when the browser needs module-owned `ext/...` assets resolved with layered override behavior, such as HTML adapters or JS hooks. Keep `maxLayer` at the top level of the call, and when batching grouped lookups send ordered `patterns` entries and read grouped results back in that same order.
 - Use `file_paths` plus `fileRead(...)` for readable module metadata files such as `ext/panels/*.yaml` when you only need logical file discovery and file contents rather than the `extensions_load` response shape.

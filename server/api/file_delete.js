@@ -26,6 +26,7 @@ async function handleDelete(context) {
   });
 
   try {
+    await context.ensureUserFileIndex?.(context.user?.username);
     return await runTrackedMutation(context, async () => {
       const options = {
         maxLayer,

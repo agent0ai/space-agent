@@ -67,14 +67,14 @@ Both guest-maintenance jobs are disabled entirely when guest-account creation is
 `guest_cleanup_inactive`:
 
 - runs once per hour
-- inspects the watchdog `path_index` entries under each guest `L2/<username>/` root
+- inspects loaded watchdog file-index entries under each guest `L2/<username>/` root; unloaded stale guests are intentionally not discovered by a startup or reconcile scan
 - uses the most recent tracked file `mtimeMs`, falling back to any tracked entry under the root when needed
 - deletes a guest when no tracked change has happened in the last 72 hours
 
 `guest_cleanup_oversized`:
 
 - runs every 5 minutes
-- inspects the same guest `L2/<username>/` path-index slice
+- inspects the same loaded guest `L2/<username>` file-index slice
 - counts tracked files and sums tracked file bytes
 - deletes a guest when either threshold is exceeded: more than 1000 tracked files, or more than 1,000,000,000 total tracked bytes
 

@@ -21,6 +21,8 @@ Current files:
 
 ## Local Contracts
 
+### Local Contracts
+
 Discovery and scheduling rules:
 
 - every `.js` file in this folder is treated as a job module unless it is one of the shared infrastructure files owned by this doc
@@ -49,10 +51,20 @@ Current guest-maintenance rules:
 - `guest_cleanup_oversized` scans the same `path_index` view and deletes guests when they exceed either 1000 tracked files or 1,000,000,000 total tracked bytes
 - both guest jobs read file metadata from the watchdog-owned path index rather than walking the filesystem ad hoc
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep job files small and focused on schedule plus orchestration
 - prefer interval schedules unless a real wall-clock requirement appears
 - reuse primary-owned shared state and named locks instead of inventing job-local lockfiles or extra metadata files
 - if a job mutates auth or writable-layer data, reuse the existing shared helper and mutation-publication path
 - if job discovery, scheduling semantics, or primary-only execution rules change, update this file plus `/server/AGENTS.md` and `/server/runtime/AGENTS.md`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

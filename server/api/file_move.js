@@ -35,6 +35,7 @@ export async function post(context) {
   });
 
   try {
+    await context.ensureUserFileIndex?.(context.user?.username);
     return await runTrackedMutation(context, async () => {
       const options = {
         fromPath: String(payload.fromPath || context.params.fromPath || ""),

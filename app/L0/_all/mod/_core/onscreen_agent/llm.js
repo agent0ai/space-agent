@@ -18,6 +18,12 @@ import * as skills from "/mod/_core/onscreen_agent/skills.js";
 import { mergeConsecutiveChatMessages } from "/mod/_core/framework/js/chat-messages.js";
 import { countTextTokens } from "/mod/_core/framework/js/token-count.js";
 import * as proxyUrl from "/mod/_core/framework/js/proxy-url.js";
+import {
+  estimateVisualDataTokens,
+  normalizeVisionModelConfig,
+  normalizeVisualDataList,
+  prepareChatMessagesForVisionTransport
+} from "/mod/_core/agent-chat/visual-data.js";
 
 export const DEFAULT_ONSCREEN_AGENT_SYSTEM_PROMPT_PATH = "/mod/_core/onscreen_agent/prompts/system-prompt.md";
 export const ONSCREEN_AGENT_HISTORY_COMPACT_MODE = Object.freeze({
@@ -244,6 +250,7 @@ function normalizeConversationMessage(message) {
   }
 
   const content = typeof message.content === "string" ? message.content : "";
+  const visualData = normalizeVisualDataList(message?.visualData);
   const tokenCount = Number.isFinite(Number(message?.tokenCount))
     ? Math.max(0, Math.floor(Number(message.tokenCount)))
     : countTextTokens(content);
@@ -258,7 +265,8 @@ function normalizeConversationMessage(message) {
     id: typeof message?.id === "string" ? message.id : "",
     kind: typeof message?.kind === "string" ? message.kind.trim() : "",
     role: message.role,
-    tokenCount
+    tokenCount,
+    visualData
   };
 }
 
@@ -291,10 +299,12 @@ function createPreparedPromptEntry(role, content, options = {}) {
   const normalizedRole =
     role === "system" ? "system" : role === "assistant" ? "assistant" : role === "user" ? "user" : "";
   const normalizedContent = typeof content === "string" ? content.trim() : "";
+  const visualData = normalizedRole === "user" ? normalizeVisualDataList(options.visualData) : [];
 
-  if (!normalizedRole || !normalizedContent) {
+  if (!normalizedRole || (!normalizedContent && !visualData.length)) {
     return null;
   }
+  const visualTokenCount = estimateVisualDataTokens(visualData, options.modelConfig);
 
   return {
     blockType: typeof options?.blockType === "string" ? options.blockType.trim() : "",
@@ -305,12 +315,18 @@ function createPreparedPromptEntry(role, content, options = {}) {
     source: normalizePromptMessageSource(options?.source),
     tokenCount: Number.isFinite(Number(options?.tokenCount))
       ? Math.max(0, Math.floor(Number(options.tokenCount)))
-      : countTextTokens(normalizedContent)
+      : countTextTokens(normalizedContent) + visualTokenCount,
+    visualData
   };
 }
 
 function clonePreparedPromptEntry(entry) {
-  return entry && typeof entry === "object" ? { ...entry } : null;
+  return entry && typeof entry === "object"
+    ? {
+        ...entry,
+        visualData: normalizeVisualDataList(entry.visualData)
+      }
+    : null;
 }
 
 function clonePreparedPromptEntries(entries) {
@@ -325,7 +341,8 @@ function createPromptMessagesFromEntries(entries) {
   return clonePreparedPromptEntries(entries).map((entry) => ({
     content: entry.content,
     role: entry.role,
-    tokenCount: Number.isFinite(Number(entry?.tokenCount)) ? Math.max(0, Math.floor(Number(entry.tokenCount))) : 0
+    tokenCount: Number.isFinite(Number(entry?.tokenCount)) ? Math.max(0, Math.floor(Number(entry.tokenCount))) : 0,
+    visualData: normalizeVisualDataList(entry.visualData)
   }));
 }
 
@@ -368,6 +385,7 @@ function createPreparedPromptEntriesFromMessage(message, options = {}) {
   }
 
   const source = options.source || resolveHistoryPromptEntrySource(normalizedMessage);
+  const modelConfig = normalizeVisionModelConfig(options.modelConfig);
 
   return buildMessagePromptParts(normalizedMessage)
     .map((part) => {
@@ -376,7 +394,8 @@ function createPreparedPromptEntriesFromMessage(message, options = {}) {
           blockType: "assistant",
           kind: normalizedMessage.kind,
           messageId: normalizedMessage.id,
-          source
+          source,
+          modelConfig
         });
       }
 
@@ -392,7 +411,9 @@ function createPreparedPromptEntriesFromMessage(message, options = {}) {
           blockType,
           kind: normalizedMessage.kind,
           messageId: normalizedMessage.id,
-          source
+          source,
+          modelConfig,
+          visualData: part.visualData
         }
       );
     })
@@ -628,6 +649,28 @@ function resolvePromptBudgetConfig(context = {}) {
   };
 }
 
+function resolvePromptVisionModelConfig(context = {}) {
+  const options =
+    context?.options && typeof context.options === "object" && !Array.isArray(context.options)
+      ? context.options
+      : {};
+  const settings =
+    context?.settings && typeof context.settings === "object" && !Array.isArray(context.settings)
+      ? context.settings
+      : {};
+
+  return normalizeVisionModelConfig({
+    apiEndpoint: options.apiEndpoint ?? settings.apiEndpoint ?? context.apiEndpoint,
+    detail: options.imageDetail ?? settings.imageDetail ?? context.imageDetail,
+    model: options.model ?? settings.model ?? context.model,
+    provider: options.provider ?? settings.provider ?? context.provider,
+    supportsVision:
+      options.supportsVision === true ||
+      settings.supportsVision === true ||
+      context.supportsVision === true
+  });
+}
+
 function createPromptContributor(options = {}) {
   const renderValue =
     typeof options.renderValue === "function"
@@ -638,12 +681,16 @@ function createPromptContributor(options = {}) {
   const originalValueTokenCount = Number.isFinite(Number(options.valueTokenCount))
     ? Math.max(0, Math.floor(Number(options.valueTokenCount)))
     : countTextTokens(originalValueText);
+  const fixedTokenCount = Number.isFinite(Number(options.fixedTokenCount))
+    ? Math.max(0, Math.floor(Number(options.fixedTokenCount)))
+    : 0;
   const contributor = {
     blockType: typeof options.blockType === "string" ? options.blockType.trim() : "",
     currentText: "",
     currentValueText: originalValueText,
     exhausted: false,
     fullText: "",
+    fixedTokenCount,
     heading: typeof options.heading === "string" ? options.heading.trim() : "",
     id: 0,
     key: typeof options.key === "string" ? options.key.trim() : "",
@@ -672,7 +719,7 @@ function createPromptContributor(options = {}) {
   contributor.valueTokenCount = originalValueTokenCount;
   contributor.tokenCount = Number.isFinite(Number(options.tokenCount))
     ? Math.max(0, Math.floor(Number(options.tokenCount)))
-    : countTextTokens(contributor.currentText);
+    : countTextTokens(contributor.currentText) + fixedTokenCount;
   return contributor;
 }
 
@@ -691,7 +738,8 @@ function clonePromptContributorPromptEntry(entry, contributor) {
       : Number.isFinite(Number(entry?.tokenCount))
         ? Math.max(0, Math.floor(Number(entry.tokenCount)))
         : 0,
-    trimmed: contributor?.trimmed === true
+    trimmed: contributor?.trimmed === true,
+    visualData: normalizeVisualDataList(entry.visualData)
   };
 }
 
@@ -773,8 +821,8 @@ function trimPromptContributorByOverflow(contributor, overflowTokens) {
   contributor.valueTokenCount = trimmedValueTokenCount;
   contributor.tokenCount =
     contributor.currentText === contributor.currentValueText
-      ? trimmedValueTokenCount
-      : countTextTokens(contributor.currentText);
+      ? trimmedValueTokenCount + contributor.fixedTokenCount
+      : countTextTokens(contributor.currentText) + contributor.fixedTokenCount;
   return true;
 }
 
@@ -803,11 +851,10 @@ function countSystemPromptTokensFromContributors(contributors = []) {
 }
 
 function countHistoryPromptTokensFromContributors(contributors = []) {
-  return countTextTokens(
-    (Array.isArray(contributors) ? contributors : [])
-      .map((contributor) => contributor?.currentText || "")
-      .filter((entry) => entry.trim())
-      .join("\n\n")
+  return (Array.isArray(contributors) ? contributors : []).reduce(
+    (total, contributor) =>
+      total + (Number.isFinite(Number(contributor?.tokenCount)) ? Math.max(0, Math.floor(Number(contributor.tokenCount))) : 0),
+    0
   );
 }
 
@@ -985,6 +1032,7 @@ function buildPromptInputWithBudgets({
   budgetConfig,
   exampleEntries = [],
   historyEntries = [],
+  modelConfig = {},
   systemItems = {},
   transientItems = {}
 } = {}) {
@@ -1016,6 +1064,7 @@ function buildPromptInputWithBudgets({
   const historyContributors = allHistoryEntries.map((entry) =>
     createPromptContributor({
       blockType: entry?.blockType,
+      fixedTokenCount: estimateVisualDataTokens(entry?.visualData, modelConfig),
       key: entry?.messageId || `${entry?.source || "history"}:${entry?.role || "user"}`,
       messageId: entry?.messageId,
       minimumVisibleChars: 72,
@@ -1033,7 +1082,7 @@ function buildPromptInputWithBudgets({
           ? 20
           : 0,
       valueText: typeof entry?.content === "string" ? entry.content : "",
-      valueTokenCount: entry?.tokenCount,
+      valueTokenCount: countTextTokens(typeof entry?.content === "string" ? entry.content : ""),
       tokenCount: entry?.tokenCount
     })
   );
@@ -1358,6 +1407,7 @@ export const buildOnscreenAgentPromptInput = globalThis.space.extend(
     const historyMessagesForPrompt = Array.isArray(historyMessagesInput) ? historyMessagesInput : [];
     const systemItems = normalizePromptItemMap(systemPromptContext?.systemItems);
     const runtimeSystemPrompt = renderSystemPromptItems(systemItems).join("\n\n");
+    const modelConfig = resolvePromptVisionModelConfig(context);
     const exampleContext = await buildOnscreenAgentExampleMessages({
       ...context,
       historyMessages: historyMessagesForPrompt,
@@ -1367,6 +1417,7 @@ export const buildOnscreenAgentPromptInput = globalThis.space.extend(
     });
     const exampleEntries = appendExampleResetPromptEntry(
       buildPreparedPromptEntriesFromMessages(exampleContext?.exampleMessages, {
+        modelConfig,
         source: ONSCREEN_AGENT_PROMPT_MESSAGE_SOURCE.EXAMPLE
       })
     );
@@ -1381,6 +1432,7 @@ export const buildOnscreenAgentPromptInput = globalThis.space.extend(
     const historyEntries = normalizeConversationMessages(historyContext?.historyMessages)
       .flatMap((message) =>
         createPreparedPromptEntriesFromMessage(message, {
+          modelConfig,
           source: resolveHistoryPromptEntrySource(message)
         })
       )
@@ -1414,6 +1466,7 @@ export const buildOnscreenAgentPromptInput = globalThis.space.extend(
       budgetConfig,
       exampleEntries,
       historyEntries,
+      modelConfig,
       systemItems,
       transientItems
     });
@@ -1484,6 +1537,7 @@ async function updateOnscreenAgentPromptHistory({
   const historyEntries = normalizeConversationMessages(historyContext?.historyMessages)
     .flatMap((message) =>
       createPreparedPromptEntriesFromMessage(message, {
+        modelConfig: resolvePromptVisionModelConfig(context),
         source: resolveHistoryPromptEntrySource(message)
       })
     )
@@ -1519,6 +1573,7 @@ async function updateOnscreenAgentPromptHistory({
     budgetConfig,
     exampleEntries: promptInput.exampleEntries,
     historyEntries,
+    modelConfig: resolvePromptVisionModelConfig(context),
     systemItems: normalizePromptItemMap(
       promptInput?.systemItems || promptInput?.systemPromptContext?.systemItems
     ),
@@ -1540,6 +1595,19 @@ export function createOnscreenAgentPromptInstance(options = {}) {
   });
 }
 
+function buildOnscreenAgentVisionModelConfig(settings = {}) {
+  const provider = config.normalizeOnscreenAgentLlmProvider(settings?.provider);
+
+  return normalizeVisionModelConfig({
+    apiEndpoint: settings?.apiEndpoint,
+    model: settings?.model,
+    provider,
+    supportsVision:
+      provider === config.ONSCREEN_AGENT_LLM_PROVIDER.API &&
+      config.normalizeOnscreenAgentSupportsVision(settings?.supportsVision)
+  });
+}
+
 function createRequestBody(settings, promptInput) {
   const requestMessages = mergeConsecutiveChatMessages(
     Array.isArray(promptInput?.requestMessages) ? promptInput.requestMessages : []
@@ -1549,7 +1617,10 @@ function createRequestBody(settings, promptInput) {
     ...llmParams.parseOnscreenAgentParamsText(settings.paramsText || ""),
     model: settings.model || config.DEFAULT_ONSCREEN_AGENT_SETTINGS.model,
     stream: true,
-    messages: requestMessages
+    messages: prepareChatMessagesForVisionTransport(
+      requestMessages,
+      buildOnscreenAgentVisionModelConfig(settings)
+    )
   };
 }
 

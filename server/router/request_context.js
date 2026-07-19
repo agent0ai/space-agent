@@ -53,11 +53,12 @@ function parseCookieHeader(cookieHeader) {
   return cookies;
 }
 
-function resolveRequestUser(headers, auth) {
+async function resolveRequestUser(headers, auth) {
   const cookies = parseCookieHeader(headers && headers.cookie);
-  const user = auth && typeof auth.resolveUserFromCookies === "function"
-    ? auth.resolveUserFromCookies(cookies, headers)
-    : createAnonymousRequestUser();
+  const user =
+    auth && typeof auth.resolveUserFromCookies === "function"
+      ? await auth.resolveUserFromCookies(cookies, headers)
+      : createAnonymousRequestUser();
 
   return {
     cookies,
@@ -65,12 +66,14 @@ function resolveRequestUser(headers, auth) {
   };
 }
 
-function createRequestContext({ auth, req, requestUrl } = {}) {
-  const { cookies, user } = resolveRequestUser(req && req.headers, auth);
+async function createRequestContext({ auth, ensureUserFileIndex, req, requestUrl } = {}) {
+  const { cookies, user } = await resolveRequestUser(req && req.headers, auth);
 
   return {
     auth,
     cookies,
+    ensureUserFileIndex:
+      typeof ensureUserFileIndex === "function" ? ensureUserFileIndex : async () => {},
     req,
     requestUrl,
     user

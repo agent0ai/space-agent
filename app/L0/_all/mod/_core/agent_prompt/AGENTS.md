@@ -17,6 +17,8 @@ This module owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 Current shared runtime contract:
 
 - prompt builders may assemble system and transient context as keyed prompt-item maps instead of only plain strings; shared helpers in `prompt-items.js` own normalization, ordering, merging, and delete or replace semantics for those maps
@@ -34,8 +36,18 @@ Current shared runtime contract:
 - the runtime clones prompt context and prompt-input snapshots defensively; when `structuredClone(...)` rejects a non-cloneable value, the fallback clone keeps plain JSON-like data and drops runtime-only values instead of crashing prompt-history or retry flows
 - this module must not depend on surface-specific prompt-entry shapes beyond cloning and caching them
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep surface-specific prompt seams, skill discovery, examples, and transient-section policy in the owning agent modules
 - keep this module headless and reusable; do not add UI, transport, or skill-loading behavior here
 - if the shared prompt-instance lifecycle changes, update both consumer docs and the supplemental agent-runtime docs
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

@@ -16,7 +16,9 @@ This subtree owns:
 - `archive_create.js`: unique temp archive allocation, in-process ZIP creation, attachment filename headers, and cleanup-aware archive streams
 - `server/tmp/`: the runtime temp directory for transitory server artifacts, kept in git through `.gitignore`
 
-## Temp Directory Contract
+## Local Contracts
+
+### Temp Directory Contract
 
 Current rules:
 
@@ -26,7 +28,7 @@ Current rules:
 - the janitor runs on startup and then on a fixed low-memory interval instead of per-file timers
 - repo-owned anchor files such as `server/tmp/.gitignore` are preserved
 
-## Archive Contract
+### Archive Contract
 
 Current folder-download behavior:
 
@@ -35,8 +37,18 @@ Current folder-download behavior:
 - the archive builder uses the in-process Node `archiver` ZIP implementation with fast compression and symbolic-link preservation, writing the archive to disk in `server/tmp/` before the response stream opens
 - streamed archive files are unlinked after the response stream closes; the janitor is the fallback cleanup path if any request exits early or misses manual cleanup
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep temp storage disk-backed and streaming-oriented; avoid blob buffering for large artifacts
 - do not create feature-local cleanup timers when the janitor already owns stale-entry cleanup
 - if temp retention, archive creation behavior, or the `server/tmp/` ownership contract changes, update this file and `/server/AGENTS.md`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

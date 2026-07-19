@@ -40,7 +40,7 @@ function readBooleanOption(context, name) {
   return ["1", "true", "yes", "on"].includes(String(rawValue || "").trim().toLowerCase());
 }
 
-function handleList(context) {
+async function handleList(context) {
   const maxLayer = resolveRequestMaxLayer({
     body: readPayload(context),
     headers: context.headers,
@@ -48,6 +48,7 @@ function handleList(context) {
   });
 
   try {
+    await context.ensureUserFileIndex?.(context.user?.username);
     return listAppPaths({
       access: readAccess(context),
       gitRepositories: readBooleanOption(context, "gitRepositories"),
@@ -65,10 +66,10 @@ function handleList(context) {
   }
 }
 
-export function get(context) {
+export async function get(context) {
   return handleList(context);
 }
 
-export function post(context) {
+export async function post(context) {
   return handleList(context);
 }

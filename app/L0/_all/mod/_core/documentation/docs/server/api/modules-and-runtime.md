@@ -27,7 +27,7 @@ Important notes:
 - `login` completes both the auth session and the `userCrypto` bootstrap: it may persist a missing `user_crypto.json` record before issuing the cookie, and successful responses return a backend `sessionId` plus the `userCrypto` payload needed to unlock the current browser session
 - `guest_create` creates a guest `L2` user whenever runtime config allows guest accounts, even when `LOGIN_ALLOWED=false`
 - `login_check` stays available even when `LOGIN_ALLOWED=false` for public session checks, while guest-bootstrap and hosted-share flows may still complete the same background `login_challenge` plus `login` path without showing the `/login` form
-- in clustered runtime, login challenges are coordinated through the primary-only `login_challenge` area of the unified state system while workers still validate cookies and write `logins.json`
+- in clustered runtime, login challenges are coordinated through the primary-only `login_challenge` area of the unified state system while workers validate cookies from auth-only user/session shards and write `logins.json`
 
 ## Hosted Share And Import Endpoints
 
@@ -64,7 +64,7 @@ Important behaviors:
 
 - module writes must reuse shared permission rules
 - module writes should publish changed logical paths through the shared mutation commit flow so every worker sees the new module state before the response finishes
-- request-time module list and info reads consume replicated shared-state shards, usually only the readable `L1` roots plus the caller's own `L2`, instead of scanning the full app index
+- request-time module list and info reads consume shared-state file-index shards, usually only the readable `L1` roots plus the caller's demand-loaded `L2`, instead of scanning the full app index
 - when `USER_FOLDER_SIZE_LIMIT_BYTES` is positive, new L2 module installs are cloned into a system temp directory, measured, and quota-checked before they are moved into `L2/<user>/mod/...`
 - module list surfaces distinguish areas such as `l1`, `l2_self`, `l2_user`, and `l2_users`
 - cross-user or aggregated user-layer module listings are admin-only
@@ -87,7 +87,7 @@ Important runtime endpoints:
 - resolves module-owned `ext/...` files through the layered override system
 - supports grouped extension lookups
 - is the shared backend for frontend extension loading
-- reads the replicated shared-state shards needed for the caller's visible module owners instead of scanning the full watchdog path index
+- ensures the caller's full L2 file-index shard when max layer allows user customware, then reads the shared-state shards needed for the caller's visible module owners instead of scanning the full watchdog path index
 - receives grouped lookup batches from the frontend; the batching policy itself lives in the frontend loader, not in the endpoint contract
 - keeps `maxLayer` at the call level and grouped `patterns` inside ordered request entries, then returns grouped results in that same order with the matching normalized `patterns` plus resolved `extensions`
 - first-party HTML anchors and JS hooks use it for `ext/html/...` and `ext/js/...`
@@ -96,7 +96,7 @@ Important runtime endpoints:
 `debug_path_index`:
 
 - is authenticated and intended for clustered-runtime verification
-- returns filtered local `path_index` entries, the local index size, and a stable hash of the returned entry set
+- ensures the caller's full L2 shard, then returns filtered local `path_index` compatibility entries, the local loaded-index size, and a stable hash of the returned entry set
 - accepts exact `path` or `paths` plus directory `prefix` or `prefixes`
 - is meant for tests and temporary diagnostics, not for general frontend workflows
 
@@ -138,6 +138,10 @@ Important runtime endpoints:
 The frontend API client exposes `space.api.health()` for the health endpoint.
 
 It returns a small status shape rather than a broad runtime dump.
+
+## API Error Logging
+
+Endpoint handlers should throw errors with an explicit `statusCode` when returning an expected HTTP failure. Router dispatch returns explicit 4xx statuses, including expected 404s, without backend `console.error` logging so routine missing-resource probes do not flood server logs. Unexpected failures and 5xx statuses still produce one backend diagnostic log, and 5xx response bodies stay redacted to `Internal server error`.
 
 ## Related Docs
 

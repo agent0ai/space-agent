@@ -21,6 +21,8 @@ This module owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 Current route and panel-manifest contract:
 
 - the route is `#/user`, so the router resolves it to `/mod/_core/user/view.html`
@@ -39,9 +41,19 @@ Current profile and password contract:
 - when frontend config reports `SINGLE_USER_APP=true`, the password form should stay read-only and explain that password login is disabled in single-user runtimes
 - user-facing copy and status messages on `#/user` should stay plain-language and must not expose storage paths, verifier filenames, or endpoint names such as `~/user.yaml`, `~/meta/password.json`, or `password_change`
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep implementation changes inside this module unless a stable cross-module contract truly changes
 - keep `~/user.yaml` persistence as a direct YAML file update instead of inventing a second profile API
 - keep password rotation narrow and backend-owned; this module should only collect form input and display status
 - if the route path, panel-manifest path, onscreen menu item, `~/user.yaml` path, or `password_change` API contract changes, update this file, `/app/AGENTS.md`, and the matching supplemental docs under `_core/documentation/docs/`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

@@ -19,7 +19,7 @@ function readPath(context) {
   return String(payload.path || context.params.path || "");
 }
 
-function resolveFolderInfo(context) {
+async function resolveFolderInfo(context) {
   const payload = readPayload(context);
   const maxLayer = resolveRequestMaxLayer({
     body: payload,
@@ -27,6 +27,7 @@ function resolveFolderInfo(context) {
     requestUrl: context.requestUrl
   });
 
+  await context.ensureUserFileIndex?.(context.user?.username);
   return getAppFolderDownloadInfo({
     maxLayer,
     path: readPath(context),
@@ -39,7 +40,7 @@ function resolveFolderInfo(context) {
 
 async function handleDownload(context) {
   try {
-    const folderInfo = resolveFolderInfo(context);
+    const folderInfo = await resolveFolderInfo(context);
     const archiveInfo = await createDirectoryZipArchive({
       archiveBaseName: folderInfo.directoryName,
       downloadFilename: `${folderInfo.directoryName}.zip`,
@@ -63,9 +64,9 @@ async function handleDownload(context) {
   }
 }
 
-export function head(context) {
+export async function head(context) {
   try {
-    resolveFolderInfo(context);
+    await resolveFolderInfo(context);
     return {
       status: 204,
       headers: {
@@ -77,10 +78,10 @@ export function head(context) {
   }
 }
 
-export function get(context) {
+export async function get(context) {
   return handleDownload(context);
 }
 
-export function post(context) {
+export async function post(context) {
   return handleDownload(context);
 }

@@ -43,7 +43,9 @@ This module owns:
 - `ext/skills/spaces/SKILL.md`: concise always-loaded onscreen-agent guidance for space-level browsing, selection, CRUD, and `space.yaml` edits across spaces
 - `ext/skills/space-widgets/SKILL.md`: current-space widget-authoring guidance that is eligible and auto-loaded only while the page exports `space:open`
 
-## Persistence And Widget Contract
+## Local Contracts
+
+### Persistence And Widget Contract
 
 Spaces persist under the authenticated user's `~/spaces/<spaceId>/` root.
 
@@ -118,7 +120,7 @@ Current widget contract:
 - widgets that fetch remote HTTP data should use runtime-managed `fetch(...)` or `space.fetchExternal(...)`; do not hardcode third-party CORS proxy services such as allorigins or corsproxy inside widget renderers, because the frontend runtime already retries blocked origins through `/api/proxy` and remembers successful proxy-needed origins for the rest of the page lifetime
 - generated widget scaffolds should not inject instructional title blocks or storage-explainer copy into the visible widget output
 
-## Runtime Namespace
+### Runtime Namespace
 
 `store.js` registers both `space.current` and `space.spaces`.
 
@@ -221,12 +223,12 @@ Current runtime split:
 - the canvas navigation model is camera-based: background dragging pans the visible window over the logical grid without resetting to keep widgets in frame, and camera movement should stay bounded only far enough that at least one occupied edge cell remains visible on each side instead of forcing the whole occupied span to stay framed at once
 - opening a space, reloading the page into a space, showing the first widget after the empty canvas, and rearranging the current space should reset the camera to the same default occupied-span view: center the occupied cells horizontally, place the top-most occupied row on the first visible grid row below the fixed shell bar with an extra `0.5em` gap by preferring the live onscreen-menu bottom and otherwise the router's `--router-shell-start-clearance` fallback, and clear stale offsets whenever the page falls back to the empty canvas before that next first-widget render
 - the drag cursor belongs only to surfaces that actually drag: the canvas background while panning and the widget header drag strip while moving a widget; widget bodies should not inherit the canvas grab cursor so text and normal widget interactions feel native
-- wheel navigation should pan the same camera in both axes using the browser-provided `WheelEvent` deltas directly, only normalizing `deltaMode` for line/page units, and should not hijack wheel input from widget-local scroll containers that can still scroll natively
+- wheel navigation should pan the same camera in both axes using the browser-provided `WheelEvent` deltas directly, only normalizing `deltaMode` for line/page units, and should not hijack wheel input from widget-local scroll containers; when one of those containers hits its top, bottom, or horizontal edge, keep absorbing the wheel there instead of chaining into canvas panning
 - widgets can be moved by the subtle full-width top drag strip, reloaded from the left header control, resized from the bottom-right handle, minimized from the top control button, and removed from the top close button
 - icon-bearing header controls such as reload and close should render with the shared `x-icon` glyph path instead of raw text characters so the control chrome stays visually aligned
 - widget header controls must stay pointer-interactive above the drag strip; clicking reload, minimize, or close must not fall through into widget-move drag start
 - widget cards should use one flat dark surface color rather than a gradient, and the header chrome should use that same surface color with light transparency plus a restrained blur so text never overlaps title or control icons while scrolling underneath
-- the framework-owned `[data-widget-body]` render target is the scroll owner; its measured box must stay equal to the net visible content area so widgets that size themselves from `clientWidth`, `clientHeight`, or `ResizeObserver` do not count the title bar or outer chrome padding
+- the framework-owned `[data-widget-body]` render target is the scroll owner; its measured box must stay equal to the net visible content area so widgets that size themselves from `clientWidth`, `clientHeight`, or `ResizeObserver` do not count the title bar or outer chrome padding, and that render target should disable overscroll chaining so wheel hits at widget scroll boundaries do not move the whole space
 - widget keyboard handling must not steal normal onscreen-agent chat typing through global plain-key listeners; widgets that need keyboard input should either listen only while their own DOM is focused or use modified shortcuts such as `Ctrl` or `Cmd` combinations instead of bare letters, `Space`, or bare `Enter`
 - widget content should stay responsive to its own card dimensions and to later user resizes; avoid renderer layouts that depend on one fixed widget size, and prefer flexible wrapping, percentage-based sizing within the render target, and local scrolling when content outgrows the available area
 - move and resize interactions should feel smooth during pointer movement, then resolve and persist onto the snapped logical grid when released; temporary grid lines should appear only during widget move or resize, not during background pan, and dragging near the viewport edge may nudge the camera slowly but must stay within that same occupied-edge visibility clamp
@@ -246,7 +248,9 @@ Current dashboard integration:
 - dashboard cards and other list surfaces should keep the icon in a dedicated right-side column, let long titles wrap with word breaking without breaking the row layout, keep launcher cards square at one consistent size instead of stretching them wider for sparse rows, center the row only while the current card count is still below the row capacity, cap the launcher at five columns on wide screens, keep the footer date on the same row as duplicate and delete controls, use a concise no-comma timestamp with a two-digit year, and still show the selected space icon in its stored color plus widget-name pills; row capacity should be calculated from fixed card size plus a required minimum gutter so five cards fit across the full dashboard width when that width truly supports them, and once the launcher reaches that capacity it should switch to one explicit left-to-right column stage built from stretched parent slots while the cards inside those slots stay square; wrapped remainder rows should reuse that same slot spacing from the left edge, and widget-name pills inside each card should be capped to two visible rows so the square size can stay compact; when the stored title is empty, render the `Untitled` placeholder instead of exposing the internal space id as user-facing copy
 - dashboard-specific spaces UI should stay in this module, not in the dashboard owner
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep persistence in logical app files under `~/spaces/`; do not introduce server-owned special storage for ordinary spaces, and keep hosted-share UI limited to ZIP export/import plus explicit uploads to the separate cloud-share receiver
 - keep `space.yaml` and widget YAML files within the lightweight YAML subset that the shipped parser can round-trip reliably, including multiline block scalars for renderer source
@@ -289,3 +293,11 @@ Current dashboard integration:
 - do not rebuild widget primitive helper DSLs here; prefer direct DOM rendering and `space.utils.markdown.render(...)`
 - if the spaces runtime surface or widget workflow changes, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/app/` and `docs/agent/`
 - if the routed feature contract, runtime namespace, or persisted space layout changes, update this file and `/app/AGENTS.md`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

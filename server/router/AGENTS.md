@@ -22,7 +22,9 @@ Current files:
 - `responses.js`: shared JSON, redirect, file, and generic API response writers
 - `proxy.js`: outbound fetch proxy transport for `/api/proxy`
 
-## Routing Order
+## Local Contracts
+
+### Routing Order
 
 Current request order is fixed:
 
@@ -39,7 +41,7 @@ Rules:
 - do not hide route precedence in scattered conditionals across unrelated files
 - all non-public API, module, and app-fetch routes require an authenticated request context before dispatch
 
-## State Version Contract
+### State Version Contract
 
 `router.js` owns the request-level replicated-state fence.
 
@@ -52,7 +54,7 @@ Current behavior:
 - if the worker still cannot satisfy the requested version within the bounded wait, the router returns a retryable `503`
 - the frontend fetch wrapper is expected to carry the highest seen version on follow-up same-origin requests, while the router clears cookie-sourced state-version handoffs once it has consumed them
 
-## Request Context Contract
+### Request Context Contract
 
 `request_context.js` owns request-scoped auth state.
 
@@ -60,11 +62,14 @@ Current behavior:
 
 - cookies are parsed once from the incoming request
 - the auth service resolves the current user from the `space_session` cookie or from the runtime single-user override
+- request context creation is asynchronous because resolving a multi-user session may need to demand-load that user's auth-only state before the replicated user and session indexes are available on the worker
+- the request context carries `ensureUserFileIndex(username)` for routes that need user-owned file listings; auth resolution itself must not force a full L2 shard load
 - multi-user session auth hashes the incoming cookie through a backend-held key, matches the resulting verifier against `meta/logins.json`, and rejects unsigned or expired session records
+- multi-user `space_session` cookie values include a username hint plus the bearer token; token-only legacy cookies cannot be resolved without scanning all L2 users and should be cleared
 - the request context is stored in AsyncLocalStorage for the lifetime of the request
 - `ensureAuthenticatedRequestContext(...)` is the shared guard for authenticated routes
 
-## Serving Contracts
+### Serving Contracts
 
 Pages:
 
@@ -85,6 +90,7 @@ Modules:
 - `mod_handler.js` resolves `/mod/...` through `server/lib/customware/module_inheritance.js`
 - `/mod/...`, page-shell HTML, and `server/pages/res/` asset responses should be emitted with explicit no-store headers so source updates replace stale browser or proxy caches on reload across origins such as `localhost`, `127.0.0.1`, and deployed hosts
 - request-time module serving should consume the replicated shared state interface passed into the router, not reach back into watchdog-specific scanning helpers
+- module serving and direct app-file serving must ensure the current user's full L2 file-index shard before resolving user-layer paths
 - logical `L1` and `L2` module overrides may come from the configured `CUSTOMWARE_PATH` storage root even though request paths stay `/mod/...`
 - `maxLayer` is read from explicit request data, query params, the `X-Space-Max-Layer` request header, or admin-origin fallback through `layer_limit.js`
 
@@ -102,12 +108,22 @@ Responses:
 - `responses.js` owns JSON serialization, redirects, file responses, stream responses, and Web `Response` bridging
 - `responses.js.sendFile(...)` must stream file bodies from disk after a stat check instead of buffering the whole file into memory first
 - `cors.js` owns the API CORS policy and `OPTIONS` handling
-- `router.js` must log every caught API handler failure once, including non-5xx responses, and should prefer an attached `error.cause` when endpoint wrappers preserve the underlying backend exception; 5xx bodies are still redacted to `Internal server error` for the browser
+- `router.js` must keep expected API client-error responses quiet: explicit 4xx `statusCode` errors, including 404s, are returned to the browser without backend `console.error` noise; 5xx or otherwise unexpected handler failures are still logged once, should prefer an attached `error.cause` when endpoint wrappers preserve the underlying backend exception, and keep 5xx bodies redacted to `Internal server error` for the browser
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep routing logic here, not in page or API modules
 - keep page and module serving thin and delegate policy decisions to shared helpers
 - do not bypass `request_context.js` for auth state
 - if routing order, page gating, launcher behavior, or direct app-fetch semantics change, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/server/`
 - if routing order, auth flow, page handling, response contracts, or state-version fencing change, update this file and `/server/AGENTS.md`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

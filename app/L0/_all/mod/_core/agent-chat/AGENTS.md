@@ -18,6 +18,8 @@ This module owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 Current shared helper contract:
 
 - assistant-message repeat matching should normalize line endings, trim trailing per-line whitespace, and trim outer whitespace before comparing exact assistant-message bodies
@@ -27,8 +29,18 @@ Current shared helper contract:
 - prepending synthetic transcript logs must not rewrite or trim the real execution console entries that already exist on the execution result
 - this module owns the first-party repeated-message loop policy for both overlay and admin chat; the consuming stores own only the evaluation seams and transcript insertion point
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep framework-generic runtime helpers in `_core/framework/`; keep chat-feature policy here
 - keep surface-specific store behavior in the owning chat modules and reuse this module only for logic that is intentionally shared across agent surfaces
 - when repeat-detection thresholds, wording, or transcript insertion semantics change, update this file, the consuming chat docs, and the supplemental agent-runtime docs in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

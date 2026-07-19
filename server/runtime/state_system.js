@@ -294,9 +294,20 @@ function createStateSystem(options = {}) {
   }
 
   function listAreaIds(area, options = {}) {
-    return Object.keys(getAreaValues(area, options)).sort((left, right) =>
-      left.localeCompare(right)
-    );
+    const normalizedArea = normalizeArea(area);
+    const replicatedOnly = options.replicatedOnly === true;
+    const areaEntries = getAreaEntries(normalizedArea);
+
+    if (!areaEntries) {
+      return [];
+    }
+
+    return Object.keys(areaEntries)
+      .filter((id) => {
+        const entry = removeExpiredEntry(normalizedArea, id);
+        return Boolean(entry && (!replicatedOnly || entry.replicated !== false));
+      })
+      .sort((left, right) => left.localeCompare(right));
   }
 
   function getReplicatedSnapshot() {
@@ -444,6 +455,41 @@ function createStateSystem(options = {}) {
 
     return {
       applied: true,
+      version: replicatedVersion
+    };
+  }
+
+  function applyLocalEntries(entries = [], options = {}) {
+    const normalizedVersion = normalizeVersion(options.version, replicatedVersion);
+
+    (Array.isArray(entries) ? entries : []).forEach((entry) => {
+      const normalizedArea = normalizeArea(entry?.area);
+      const normalizedId = normalizeId(entry?.id);
+      const areaEntries = ensureAreaEntries(normalizedArea);
+
+      if (entry.deleted) {
+        delete areaEntries[normalizedId];
+        removeAreaIfEmpty(normalizedArea);
+        return;
+      }
+
+      areaEntries[normalizedId] = {
+        area: normalizedArea,
+        expiresAtMs: 0,
+        id: normalizedId,
+        replicated: entry.replicated !== false,
+        updatedAtMs: Date.now(),
+        value: cloneStateValue(entry.value),
+        version: normalizedVersion
+      };
+    });
+
+    if (normalizedVersion > replicatedVersion) {
+      replicatedVersion = normalizedVersion;
+      resolveVersionWaiters();
+    }
+
+    return {
       version: replicatedVersion
     };
   }
@@ -727,6 +773,7 @@ function createStateSystem(options = {}) {
   return {
     acquireLock,
     applyDelta,
+    applyLocalEntries,
     applySnapshot,
     commitEntries,
     deleteEntry,

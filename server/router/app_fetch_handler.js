@@ -64,13 +64,17 @@ function resolveAppFetchProjectPath(requestPath, username) {
   return projectPath && projectPath.startsWith("/app/") ? projectPath : null;
 }
 
-function handleAppFetchRequest(res, requestPath, options = {}) {
-  const { projectRoot, runtimeParams, username, watchdog } = options;
+async function handleAppFetchRequest(res, requestPath, options = {}) {
+  const { ensureUserFileIndex, projectRoot, runtimeParams, username, watchdog } = options;
   const projectPath = resolveAppFetchProjectPath(requestPath, username);
 
   if (!projectPath) {
     sendNotFound(res);
     return;
+  }
+
+  if (typeof ensureUserFileIndex === "function") {
+    await ensureUserFileIndex(username);
   }
 
   if (isReservedAppProjectPath(projectPath)) {

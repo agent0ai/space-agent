@@ -47,7 +47,7 @@ function createCustomwareRuntimeParams(customwarePath) {
   });
 }
 
-test("watchdog tracks raw external nested file changes without periodic reconcile", async (testContext) => {
+test("watchdog leaves external L2 changes unloaded until the user shard is requested", async (testContext) => {
   const customwarePath = fs.mkdtempSync(path.join(os.tmpdir(), "space-watchdog-external-"));
   const runtimeParams = createCustomwareRuntimeParams(customwarePath);
   const watchdog = createWatchdog({
@@ -70,12 +70,14 @@ test("watchdog tracks raw external nested file changes without periodic reconcil
   fs.mkdirSync(targetDirectory, { recursive: true });
   fs.writeFileSync(path.join(targetDirectory, "a.txt"), "hello");
 
-  await waitFor(
-    () =>
-      watchdog.hasPath("/app/L2/alice/notes/nested/") &&
-      watchdog.hasPath("/app/L2/alice/notes/nested/a.txt"),
-    "the external nested file to appear in the watchdog index"
-  );
+  await wait(150);
+
+  assert.equal(watchdog.hasPath("/app/L2/alice/notes/nested/a.txt"), false);
+
+  await watchdog.ensureFileIndexShardLoaded("L2/alice");
+
+  assert.equal(watchdog.hasPath("/app/L2/alice/notes/nested/"), true);
+  assert.equal(watchdog.hasPath("/app/L2/alice/notes/nested/a.txt"), true);
 
   assert.equal(
     Boolean(watchdog.getIndex("path_index")["/app/L2/alice/notes/nested/a.txt"]),
@@ -83,7 +85,7 @@ test("watchdog tracks raw external nested file changes without periodic reconcil
   );
 });
 
-test("watchdog tracks CLI-style user and group writes without periodic reconcile", async (testContext) => {
+test("watchdog tracks CLI-style group writes immediately and L2 user writes on demand", async (testContext) => {
   const customwarePath = fs.mkdtempSync(path.join(os.tmpdir(), "space-watchdog-cli-"));
   const runtimeParams = createCustomwareRuntimeParams(customwarePath);
   const watchdog = createWatchdog({
@@ -111,15 +113,110 @@ test("watchdog tracks CLI-style user and group writes without periodic reconcile
 
   await waitFor(
     () =>
-      watchdog.hasPath("/app/L2/bob/user.yaml") &&
-      watchdog.hasPath("/app/L2/bob/meta/password.json") &&
-      watchdog.hasPath("/app/L2/bob/meta/logins.json") &&
       watchdog.hasPath("/app/L1/team-red/group.yaml"),
-    "the CLI-style user and group files to appear in the watchdog index"
+    "the CLI-style group file to appear in the watchdog index"
   );
 
+  assert.equal(watchdog.hasPath("/app/L2/bob/meta/password.json"), false);
+
+  await watchdog.ensureFileIndexShardLoaded("L2/bob");
+
+  assert.equal(watchdog.hasPath("/app/L2/bob/user.yaml"), true);
+  assert.equal(watchdog.hasPath("/app/L2/bob/meta/password.json"), true);
+  assert.equal(watchdog.hasPath("/app/L2/bob/meta/logins.json"), true);
   assert.equal(Boolean(watchdog.getIndex("path_index")["/app/L1/team-red/group.yaml"]), true);
   assert.equal(Boolean(watchdog.getIndex("path_index")["/app/L2/bob/meta/password.json"]), true);
+});
+
+test("watchdog can load L2 auth state without loading the full user shard", async (testContext) => {
+  const customwarePath = fs.mkdtempSync(path.join(os.tmpdir(), "space-watchdog-auth-state-"));
+  const runtimeParams = createCustomwareRuntimeParams(customwarePath);
+  const watchdog = createWatchdog({
+    liveWatchEnabled: false,
+    projectRoot: PROJECT_ROOT,
+    reconcileIntervalMs: 0,
+    runtimeParams
+  });
+
+  testContext.after(() => {
+    watchdog.stop();
+    fs.rmSync(customwarePath, { force: true, recursive: true });
+  });
+
+  fs.mkdirSync(path.join(customwarePath, "L1"), { recursive: true });
+  fs.mkdirSync(path.join(customwarePath, "L2"), { recursive: true });
+  createUser(PROJECT_ROOT, "alice", "secret123", {
+    runtimeParams
+  });
+  fs.mkdirSync(path.join(customwarePath, "L2", "alice", "notes"), { recursive: true });
+  fs.writeFileSync(path.join(customwarePath, "L2", "alice", "notes", "private.txt"), "secret");
+
+  await watchdog.start();
+
+  assert.equal(watchdog.hasPath("/app/L2/alice/notes/private.txt"), false);
+
+  await watchdog.ensureUserAuthStateLoaded("alice");
+
+  assert.equal(watchdog.getIndex("user_index").hasUser("alice"), true);
+  assert.equal(watchdog.hasPath("/app/L2/alice/user.yaml"), true);
+  assert.equal(watchdog.hasPath("/app/L2/alice/meta/password.json"), true);
+  assert.equal(watchdog.hasPath("/app/L2/alice/notes/private.txt"), false);
+
+  await watchdog.ensureFileIndexShardLoaded("L2/alice");
+
+  assert.equal(watchdog.hasPath("/app/L2/alice/notes/private.txt"), true);
+});
+
+test("watchdog lazy L2 shard payloads clear stale replica shards after deletion", async (testContext) => {
+  const customwarePath = fs.mkdtempSync(path.join(os.tmpdir(), "space-watchdog-lazy-delete-"));
+  const runtimeParams = createCustomwareRuntimeParams(customwarePath);
+  const primary = createWatchdog({
+    liveWatchEnabled: false,
+    projectRoot: PROJECT_ROOT,
+    reconcileIntervalMs: 0,
+    runtimeParams
+  });
+  let replica = null;
+
+  testContext.after(() => {
+    primary.stop();
+    replica?.stop();
+    fs.rmSync(customwarePath, { force: true, recursive: true });
+  });
+
+  fs.mkdirSync(path.join(customwarePath, "L1"), { recursive: true });
+  fs.mkdirSync(path.join(customwarePath, "L2", "alice", "notes"), { recursive: true });
+  fs.writeFileSync(path.join(customwarePath, "L2", "alice", "notes", "private.txt"), "secret");
+
+  await primary.start();
+
+  const loadResult = await primary.ensureFileIndexShardLoaded("L2/alice");
+  replica = createWatchdog({
+    initialSnapshot: primary.getSnapshot(),
+    liveWatchEnabled: false,
+    projectRoot: PROJECT_ROOT,
+    reconcileIntervalMs: 0,
+    replica: true,
+    runtimeParams
+  });
+  await replica.start();
+  await replica.applyLazyFileIndexShards(loadResult.lazyFileIndexShards);
+
+  assert.equal(replica.hasPath("/app/L2/alice/notes/private.txt"), true);
+
+  fs.rmSync(path.join(customwarePath, "L2", "alice"), { force: true, recursive: true });
+  const deleteResult = await primary.applyProjectPathChanges(["/app/L2/alice/"]);
+
+  assert.equal(
+    deleteResult.lazyFileIndexShards.some(
+      (shard) => shard.id === "L2/alice" && Object.keys(shard.value || {}).length === 0
+    ),
+    true
+  );
+
+  await replica.applyLazyFileIndexShards(deleteResult.lazyFileIndexShards);
+
+  assert.equal(replica.hasPath("/app/L2/alice/notes/private.txt"), false);
 });
 
 test("watchdog explicit project-path sync hydrates missing ancestors without a full layer rescan", async (testContext) => {
@@ -163,9 +260,6 @@ test("watchdog schedules reconciles from the previous completion instead of queu
   const projectRoot = path.join(tempRoot, "project");
   const handlerDir = path.join(tempRoot, "handlers");
   const configPath = path.join(tempRoot, "watchdog.yaml");
-  const pathIndexHandlerUrl = pathToFileURL(
-    path.join(PROJECT_ROOT, "server", "lib", "file_watch", "handlers", "path_index.js")
-  ).href;
   const watchdogModuleUrl = pathToFileURL(
     path.join(PROJECT_ROOT, "server", "lib", "file_watch", "watchdog.js")
   ).href;
@@ -181,16 +275,12 @@ test("watchdog schedules reconciles from the previous completion instead of queu
   fs.writeFileSync(path.join(projectRoot, "app", "L0", "seed.txt"), "seed\n");
   fs.mkdirSync(handlerDir, { recursive: true });
   fs.writeFileSync(
-    path.join(handlerDir, "path_index.js"),
-    `export { default } from ${JSON.stringify(pathIndexHandlerUrl)};\n`
-  );
-  fs.writeFileSync(
     path.join(handlerDir, "slow_counter.js"),
-    `import { WatchdogHandler } from ${JSON.stringify(watchdogModuleUrl)};\n\nlet refreshCount = 0;\n\nfunction wait(ms) {\n  return new Promise((resolve) => {\n    setTimeout(resolve, ms);\n  });\n}\n\nexport function getRefreshCount() {\n  return refreshCount;\n}\n\nexport default class SlowCounterHandler extends WatchdogHandler {\n  createInitialState() {\n    return { count: refreshCount };\n  }\n\n  async onStart() {\n    refreshCount += 1;\n    await wait(80);\n    this.state = { count: refreshCount };\n  }\n}\n`
+    `import fs from "node:fs";\nimport path from "node:path";\n\nimport { WatchdogHandler } from ${JSON.stringify(watchdogModuleUrl)};\n\nlet refreshCount = 0;\n\nfunction wait(ms) {\n  return new Promise((resolve) => {\n    setTimeout(resolve, ms);\n  });\n}\n\nfunction touchSeed(projectRoot) {\n  fs.writeFileSync(path.join(projectRoot, "app", "L0", "seed.txt"), \`seed-\${Date.now()}-\${refreshCount}\\n\`);\n}\n\nexport function getRefreshCount() {\n  return refreshCount;\n}\n\nexport default class SlowCounterHandler extends WatchdogHandler {\n  createInitialState() {\n    return { count: refreshCount };\n  }\n\n  async onStart() {\n    refreshCount += 1;\n    touchSeed(this.projectRoot);\n    await wait(80);\n    this.state = { count: refreshCount };\n  }\n\n  async onChanges() {\n    refreshCount += 1;\n\n    if (refreshCount < 4) {\n      touchSeed(this.projectRoot);\n    }\n\n    await wait(80);\n    this.state = { count: refreshCount };\n  }\n}\n`
   );
   fs.writeFileSync(
     configPath,
-    `path_index:\n  - /app/**/*\nslow_counter:\n  - /app/**/*\n`
+    `slow_counter:\n  - /app/**/*\n`
   );
 
   const slowCounterModule = await import(pathToFileURL(path.join(handlerDir, "slow_counter.js")).href);
@@ -213,9 +303,9 @@ test("watchdog schedules reconciles from the previous completion instead of queu
 
   const refreshCount = Number(slowCounterModule.getRefreshCount() || 0);
 
-  assert.ok(refreshCount >= 2, `Expected at least 2 full refreshes, saw ${refreshCount}.`);
+  assert.ok(refreshCount >= 2, `Expected at least 2 refresh callbacks, saw ${refreshCount}.`);
   assert.ok(
-    refreshCount < 4,
-    `Expected completion-anchored reconcile scheduling, saw ${refreshCount} full refreshes.`
+    refreshCount < 5,
+    `Expected completion-anchored reconcile scheduling, saw ${refreshCount} refresh callbacks.`
   );
 });

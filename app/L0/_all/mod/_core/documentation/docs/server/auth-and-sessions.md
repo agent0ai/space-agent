@@ -36,6 +36,8 @@ They come from:
 
 or the local fallback `server/data/auth_keys.json` when `SPACE_AUTH_DATA_DIR` is unset.
 
+`node space supervise` injects those same canonical backend auth keys into child `serve` processes. Older `supervisor/auth/auth_keys.json` state is migrated only when the canonical auth-key file is absent, so CLI-created users and supervised runtime children share one verifier-sealing key source.
+
 Per-user `userCrypto` server shares are also backend-only and live under gitignored `server/data/user_crypto/<username>.json`, or under `SPACE_AUTH_DATA_DIR/user_crypto/<username>.json` when that override is set.
 
 ## Session Contract
@@ -51,12 +53,14 @@ Current session rules:
 Important behavior:
 
 - the browser cookie is a bearer token
+- in multi-user runtime the cookie value also carries the username hint needed to load only that user's auth files; older token-only cookies are cleared because resolving them would require scanning all users
 - the backend stores only a verifier plus signed metadata in `meta/logins.json`
 - each stored session record also carries a backend-generated `sessionId`, which the browser uses to bind its session-scoped `userCrypto` cache to the active login
 - unsigned or expired session records are rejected
 - revocation deletes the stored session record and republishes the changed auth file through the shared mutation commit path
 - the auth service also exposes backend-owned trusted session issuance for server-controlled flows that already have authority to choose the target user, but public hosted-share opens now use the normal guest `login_challenge` plus `login` flow instead of that trusted-session shortcut
-- in clustered runtime, cookie validation happens on workers from replicated auth index shards, one-time login challenges live in the primary-only `login_challenge` area of the unified state system, and any debounced writable-layer Git history scheduling for auth-file writes is triggered only from the primary post-rebuild path
+- in clustered runtime, cookie validation happens on workers from replicated auth index shards after the hinted user's auth-only state is loaded, one-time login challenges live in the primary-only `login_challenge` area of the unified state system, and any debounced writable-layer Git history scheduling for auth-file writes is triggered only from the primary post-rebuild path
+- full L2 file-index shards are loaded separately by file, module, extension, quota, and app-file serving routes; auth resolution must not scan the user's full tree
 
 ## User Crypto Contract
 
@@ -83,7 +87,7 @@ Important rules:
 - do not hand-author these files
 - only backend helpers that hold the seal key can create accepted payloads
 - authenticated self-service password changes go through `/api/password_change`, which validates the current password against the opened sealed verifier, rewrites `meta/password.json`, rewraps `meta/user_crypto.json` when the current session has unlocked browser crypto, clears `meta/logins.json`, and clears the current browser auth cookie
-- legacy plaintext verifier files are migrated to sealed form during startup; in clustered runtime that initialization stays on the primary before workers begin serving
+- legacy plaintext verifier files are migrated to sealed form when that user is loaded on demand, not by scanning every L2 user at startup
 - the auth service uses the shared state system for challenge coordination; there is no second in-memory login-challenge path in the runtime
 
 ## Login Availability

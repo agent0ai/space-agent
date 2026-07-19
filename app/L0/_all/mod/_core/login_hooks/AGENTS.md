@@ -17,6 +17,8 @@ This scope owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 - this module stays frontend-only and must not require backend auth-service edits to fire login lifecycle hooks
 - the first-login marker path is `~/meta/login_hooks.json`; its existence suppresses later first-login hook dispatch for that user
 - the marker file is client-owned state under the current user's `meta/` folder, not backend auth state
@@ -28,10 +30,20 @@ This scope owns:
 - hook context must include the current `identity`, `username`, `markerPath`, `isFirstLogin`, and `isLoginNavigation`
 - this module should fail soft at the page level: hook errors may log locally through the extension runtime, but they should not break authenticated shell bootstrap
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep this module headless and bootstrap-focused
 - use the shared `_core/framework/initializer.js/initialize/end` seam instead of editing page shells
 - keep first-login persistence minimal and explicit so future client-owned lifecycle markers can share the same `meta/` folder without confusion
 - keep feature-owned onboarding behavior in first-login hook extensions owned by the feature module instead of hardcoding that behavior into `login-hooks.js`
 - if the marker path, dispatch order, extension point names, or login-detection heuristic changes, also update `/app/AGENTS.md` and the matching docs under `_core/documentation/docs/app/`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

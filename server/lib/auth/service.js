@@ -508,6 +508,98 @@ export function createAuthService(options = {}) {
     }
   }
 
+async function normalizeUserAuthFiles(username) {
+    const normalizedUsername = normalizeEntityId(username);
+
+    if (!normalizedUsername) {
+      return false;
+    }
+
+    if (normalizedAuthUsers.has(normalizedUsername)) {
+      return false;
+    }
+
+    normalizedAuthUsers.add(normalizedUsername);
+
+    try {
+      let changed = false;
+      const changedProjectPaths = new Set();
+      const passwordRecord = readUserPasswordVerifier(projectRoot, normalizedUsername, runtimeParams);
+      const currentLogins = readUserLogins(projectRoot, normalizedUsername, runtimeParams);
+      const passwordRecordInfo = inspectPasswordRecord(passwordRecord);
+      const migratedPasswordRecord =
+        passwordRecordInfo?.format === "sealed"
+          ? null
+          : migratePasswordVerifierRecord(passwordRecord, authKeys);
+      const sanitizedLogins = sanitizeStoredLogins(
+        currentLogins,
+        normalizedUsername,
+        authKeys
+      );
+
+      if (
+        migratedPasswordRecord &&
+        JSON.stringify(passwordRecord || {}) !== JSON.stringify(migratedPasswordRecord)
+      ) {
+        writeUserPasswordVerifier(projectRoot, normalizedUsername, migratedPasswordRecord, runtimeParams);
+        recordAppPathMutations(
+          {
+            projectRoot,
+            runtimeParams
+          },
+          [`/app/L2/${normalizedUsername}/meta/password.json`]
+        );
+        changedProjectPaths.add(`/app/L2/${normalizedUsername}/meta/password.json`);
+        changed = true;
+      }
+
+      if (JSON.stringify(currentLogins || {}) !== JSON.stringify(sanitizedLogins)) {
+        writeUserLogins(projectRoot, normalizedUsername, sanitizedLogins, runtimeParams);
+        recordAppPathMutations(
+          {
+            projectRoot,
+            runtimeParams
+          },
+          [`/app/L2/${normalizedUsername}/meta/logins.json`]
+        );
+        changedProjectPaths.add(`/app/L2/${normalizedUsername}/meta/logins.json`);
+        changed = true;
+      }
+
+      if (changed && changedProjectPaths.size > 0) {
+        await commitProjectPathChanges([...changedProjectPaths]);
+      }
+
+      return changed;
+    } catch (error) {
+      normalizedAuthUsers.delete(normalizedUsername);
+      throw error;
+    }
+  }
+
+async function ensureUserIndexLoaded(username, options = {}) {
+    const normalizedUsername = normalizeEntityId(username);
+
+    if (!normalizedUsername) {
+      return "";
+    }
+
+    const userRecord = getUserIndex().getUser(normalizedUsername);
+    const shouldLoadAuthState =
+      options.force === true || (!userRecord && !loadedAuthStateUsers.has(normalizedUsername));
+
+    if (shouldLoadAuthState) {
+      await ensureUserAuthState(normalizedUsername);
+      loadedAuthStateUsers.add(normalizedUsername);
+    }
+
+    if (options.normalizeAuthFiles !== false) {
+      await normalizeUserAuthFiles(normalizedUsername);
+    }
+
+    return normalizedUsername;
+  }
+
   function readCurrentPasswordVerifier(username) {
     return openPasswordVerifierRecord(
       readUserPasswordVerifier(projectRoot, username, runtimeParams),

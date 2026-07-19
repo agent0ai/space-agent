@@ -27,6 +27,8 @@ This module owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 Current route contract:
 
 - the test route is `#/huggingface`
@@ -108,10 +110,20 @@ Current chat and metrics contract:
 - sparse chat threads should stay top-aligned and keep compact message heights; do not stretch message rows to fill the thread column
 - the chat column should keep the thread and composer visually dense; avoid oversized message padding, oversized saved-model rows, or expanded prompt editors by default
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep this surface self-contained under `_core/huggingface/` unless a later request explicitly promotes shared helpers into `_core/framework` or `_core/visual`
 - prefer worker-side inference changes over main-thread imports so the test page remains responsive during model load and generation
 - keep cross-surface Hugging Face state in `manager.js`; do not reintroduce per-surface worker copies in routed stores, admin adapters, or onscreen adapters
 - keep the routed page simple, dense, and legible; it is a test harness, not a polished chat product
 - if the route path, worker protocol, pinned Transformers.js shim, model-selection contract, or persistence contract changes, update this file, `/app/AGENTS.md`, and the matching docs under `_core/documentation/docs/`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

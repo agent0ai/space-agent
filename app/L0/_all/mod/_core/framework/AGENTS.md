@@ -33,7 +33,9 @@ This module owns:
 - small shared parsing and utility helpers such as markdown frontmatter, the browser YAML wrapper, and token counting
 - shared framework CSS and icon font assets under `css/`, including non-visual helper-tag defaults such as hidden `x-context` elements
 
-## Boot And Runtime Contract
+## Local Contracts
+
+### Boot And Runtime Contract
 
 Framework-backed page shells load `/mod/_core/framework/js/initFw.js` once.
 
@@ -92,7 +94,7 @@ Rules:
 - ordinary authenticated feature dialogs must not route through `js/modals.js`; they should stay feature-owned native `<dialog class="chat-dialog">` surfaces using `_core/visual/forms/dialog.css` plus `forms/dialog.js`, while `js/modals.js` stays reserved for generic separately loaded modal documents or platform utilities that truly need it
 - framework-backed pages centralize navigation interception in `js/new-window.js`: same-origin `/` and `/admin` URLs opened with `_blank` through normal left-clicks or `window.open(..., "_blank")` receive the current tab's `/enter` access in the child window before navigation, while same-tab cross-origin `http(s)` navigations are first blocked through the Navigation API `navigate` event when that event exists and is cancelable, and otherwise fall back to interception of anchor clicks, `window.open(..., "_self")`, and best-effort `Location.assign(...)`, `Location.replace(...)`, or `Location.href = ...` writes; web runtime tries to move those cross-origin requests into a new browser tab, while packaged desktop runtime blocks them in-place and relies on the Electron host as the hard guarantee; location-bar navigations, manual browser opens such as context-menu or middle-click or modifier-key opens, non-cancelable navigation events, and any browser engines that refuse the location patches still fall back to the page-shell or host guard
 
-## Extension And Component System
+### Extension And Component System
 
 `extensions.js` owns both HTML extension lookup and JS hook execution.
 
@@ -134,7 +136,9 @@ Rules:
 - non-visual helper tags such as `<x-context>` may live in mounted DOM for module-owned runtime discovery; framework CSS should keep them out of layout, and framework bootstrap now owns the one hidden runtime context element with `data-runtime="browser|app"` plus derived `runtime-browser` or `runtime-app` tags, while other tags remain owned by the emitting module
 - if a hook or component behavior becomes feature-specific, move it out of framework
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep this module focused on platform concerns, not feature logic
 - add shared runtime helpers here only when multiple modules genuinely need them
@@ -145,3 +149,11 @@ Rules:
 - when bootstrap, runtime namespaces, extension loading, or component loading change, also update `app/L0/_all/mod/_core/skillset/ext/skills/development/` because the shared development skill mirrors this module's contract
 - when bootstrap, runtime namespaces, extension loading, or component loading change, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/app/`
 - when changing bootstrap, runtime namespaces, extension loading, or component loading, update `/app/AGENTS.md` in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

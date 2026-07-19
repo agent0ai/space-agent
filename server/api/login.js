@@ -74,7 +74,10 @@ export async function post(context) {
       status: 200,
       headers: {
         "Cache-Control": "no-store",
-        "Set-Cookie": context.auth.createSessionCookieHeader(loginResult.sessionToken)
+        "Set-Cookie": context.auth.createSessionCookieHeader(
+          loginResult.sessionToken,
+          loginResult.username
+        )
       },
       body: {
         authenticated: true,

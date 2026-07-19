@@ -1,4 +1,5 @@
 const FILE_INDEX_AREA = "file_index";
+const FILE_INDEX_META_AREA = "file_index_meta";
 const GROUP_INDEX_AREA = "group_index";
 const GROUP_META_AREA = "group_meta";
 const GROUP_USER_INDEX_AREA = "group_user_index";
@@ -13,6 +14,7 @@ const GROUP_INCLUSION_CYCLES_ID = "inclusion_cycles";
 
 export {
   FILE_INDEX_AREA,
+  FILE_INDEX_META_AREA,
   GROUP_ERRORS_ID,
   GROUP_INDEX_AREA,
   GROUP_INCLUSION_CYCLES_ID,

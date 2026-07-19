@@ -1956,8 +1956,8 @@ function getPrimaryWheelAxis(deltaX, deltaY) {
   return "y";
 }
 
-function canElementScrollInDirection(element, axis, delta) {
-  if (!(element instanceof HTMLElement) || Math.abs(delta) < 0.01) {
+function elementHasScrollableRange(element, axis) {
+  if (!(element instanceof HTMLElement)) {
     return false;
   }
 
@@ -1965,6 +1965,22 @@ function canElementScrollInDirection(element, axis, delta) {
   const overflowValue = axis === "x" ? computedStyle.overflowX : computedStyle.overflowY;
 
   if (!/(auto|scroll|overlay)/u.test(overflowValue)) {
+    return false;
+  }
+
+  if (axis === "x") {
+    return (element.scrollWidth - element.clientWidth) > 1;
+  }
+
+  return (element.scrollHeight - element.clientHeight) > 1;
+}
+
+function canElementScrollInDirection(element, axis, delta) {
+  if (!(element instanceof HTMLElement) || Math.abs(delta) < 0.01) {
+    return false;
+  }
+
+  if (!elementHasScrollableRange(element, axis)) {
     return false;
   }
 
@@ -1991,29 +2007,45 @@ function canElementScrollInDirection(element, axis, delta) {
     : element.scrollTop < (maxScrollTop - 1);
 }
 
-function shouldAllowNativeWheelScroll(target, boundaryElement, deltaX, deltaY) {
+function canElementConsumeWheelOnAxis(element, axis, delta) {
+  return Math.abs(delta) >= 0.01 && elementHasScrollableRange(element, axis);
+}
+
+function getWheelScrollHandling(target, boundaryElement, deltaX, deltaY) {
   if (!(target instanceof Element)) {
-    return false;
+    return "pan-space";
   }
 
   const primaryAxis = getPrimaryWheelAxis(deltaX, deltaY);
   const secondaryAxis = primaryAxis === "x" ? "y" : "x";
   const primaryDelta = primaryAxis === "x" ? deltaX : deltaY;
   const secondaryDelta = secondaryAxis === "x" ? deltaX : deltaY;
+  let foundScrollableRange = false;
   let element = target;
 
   while (element && element !== boundaryElement) {
     if (
+      canElementConsumeWheelOnAxis(element, primaryAxis, primaryDelta) ||
+      canElementConsumeWheelOnAxis(element, secondaryAxis, secondaryDelta)
+    ) {
+      foundScrollableRange = true;
+    }
+
+    if (
       canElementScrollInDirection(element, primaryAxis, primaryDelta) ||
       canElementScrollInDirection(element, secondaryAxis, secondaryDelta)
     ) {
-      return true;
+      return "allow-native";
     }
 
     element = element.parentElement;
   }
 
-  return false;
+  if (foundScrollableRange) {
+    return "block-space-pan";
+  }
+
+  return "pan-space";
 }
 
 function readGridMetrics(gridElement) {
@@ -3778,11 +3810,18 @@ const spacesModel = {
 
     const delta = resolveWheelDeltaPixels(event, this.refs.canvas, this.refs.canvas);
 
-    if (shouldAllowNativeWheelScroll(event.target, this.refs.canvas, delta.x, delta.y)) {
+    const wheelHandling = getWheelScrollHandling(event.target, this.refs.canvas, delta.x, delta.y);
+
+    if (wheelHandling === "allow-native") {
       return;
     }
 
     event.preventDefault();
+
+    if (wheelHandling === "block-space-pan") {
+      return;
+    }
+
     this.panCameraByPixels(-delta.x, -delta.y, {
       forceRender: true
     });

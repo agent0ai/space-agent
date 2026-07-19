@@ -1,3 +1,9 @@
+import {
+  formatVisualDataDimensions,
+  normalizeVisualDataList,
+  serializeVisualDataList
+} from "/mod/_core/agent-chat/visual-data.js";
+
 const ATTACHMENT_ID_PREFIX = "attachment";
 const DEFAULT_ATTACHMENT_TYPE = "application/octet-stream";
 export const MESSAGE_PROMPT_PART_BLOCK = Object.freeze({
@@ -119,24 +125,59 @@ function buildAttachmentListBlock(attachments) {
   return ["Attachments↓", ...buildAttachmentListLines(attachments)].join("\n");
 }
 
-function buildAttachmentRuntimeAccessBlock(messageId, attachments) {
-  if (!Array.isArray(attachments) || !attachments.length) {
+function buildVisualDataListLines(visualData) {
+  return normalizeVisualDataList(visualData).map((entry) => {
+    const dimensions = formatVisualDataDimensions(entry);
+    const source = entry.source ? ` | source: ${entry.source}` : "";
+    return `- ${entry.id} | name: ${JSON.stringify(entry.name)} | type: ${entry.mediaType}${dimensions ? ` | dimensions: ${dimensions}` : ""}${source}`;
+  });
+}
+
+function buildVisualDataListBlock(visualData) {
+  const lines = buildVisualDataListLines(visualData);
+
+  if (!lines.length) {
     return "";
   }
 
-  const availabilityNote = attachments.some((attachment) => !attachment.available)
+  return ["Visual data↓", ...lines].join("\n");
+}
+
+function buildChatRuntimeAccessBlock(messageId, attachments, visualData) {
+  const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+  const hasVisualData = normalizeVisualDataList(visualData).length > 0;
+
+  if (!hasAttachments && !hasVisualData) {
+    return "";
+  }
+
+  const availabilityNote = hasAttachments && attachments.some((attachment) => !attachment.available)
     ? "Some files listed below are metadata-only because the page was reloaded. Those bytes are no longer readable in JavaScript."
-    : "These files are live in the browser runtime for this message.";
+    : hasAttachments
+      ? "These files are live in the browser runtime for this message."
+      : "";
+  const attachmentLines = hasAttachments
+    ? [
+        availabilityNote,
+        "Read live attachments with `space.chat.attachments.current()`, `space.chat.attachments.forMessage(\"" +
+          messageId +
+          "\")`, or `space.chat.attachments.get(\"<attachment-id>\")`.",
+        "Each attachment object exposes `id`, `messageId`, `name`, `type`, `size`, `lastModified`, `file`, and async methods `text()`, `json()`, `arrayBuffer()`, `dataUrl()`."
+      ]
+    : [];
+  const visualLines = [
+    "Read visual data with `space.chat.visual.current()`, `space.chat.visual.forMessage(\"" +
+      messageId +
+      "\")`, or `space.chat.visual.get(\"<visual-id>\")`.",
+    "Load image data into model context with `await space.chat.visual.loadImage(dataUrlOrBlobOrFile, { name })` or `await space.chat.visual.loadAttachment(\"<attachment-id>\")`."
+  ];
 
   return [
     "Chat runtime access↓",
     "The current thread is available in JavaScript as `space.chat`.",
     "Read current messages with `space.chat.messages`.",
-    availabilityNote,
-    "Read live attachments with `space.chat.attachments.current()`, `space.chat.attachments.forMessage(\"" +
-      messageId +
-      "\")`, or `space.chat.attachments.get(\"<attachment-id>\")`.",
-    "Each attachment object exposes `id`, `messageId`, `name`, `type`, `size`, `lastModified`, `file`, and async methods `text()`, `json()`, `arrayBuffer()`, `dataUrl()`."
+    ...attachmentLines,
+    ...visualLines
   ].join("\n");
 }
 
@@ -218,6 +259,7 @@ export function buildMessagePromptParts(message) {
   const attachments = Array.isArray(message?.attachments)
     ? message.attachments.map((attachment) => serializeAttachmentMetadata(attachment))
     : [];
+  const visualData = serializeVisualDataList(message?.visualData);
   const isFrameworkMessage = Boolean(typeof message?.kind === "string" ? message.kind.trim() : "");
 
   if (message?.role === "assistant") {
@@ -233,25 +275,30 @@ export function buildMessagePromptParts(message) {
     return [];
   }
 
-  if (isFrameworkMessage || !attachments.length) {
-    return content
+  if (isFrameworkMessage || (!attachments.length && !visualData.length)) {
+    const frameworkContent = [content, buildVisualDataListBlock(visualData)].filter(Boolean).join("\n\n");
+
+    return frameworkContent || visualData.length
       ? [{
           blockType: isFrameworkMessage ? MESSAGE_PROMPT_PART_BLOCK.FRAMEWORK : MESSAGE_PROMPT_PART_BLOCK.USER,
-          content
+          content: frameworkContent,
+          visualData
         }]
       : [];
   }
 
   const attachmentListBlock = buildAttachmentListBlock(attachments);
+  const visualDataListBlock = buildVisualDataListBlock(visualData);
   const messageId = typeof message.id === "string" ? message.id : "current-user-message";
-  const runtimeAccessBlock = buildAttachmentRuntimeAccessBlock(messageId, attachments);
-  const userContent = [content, attachmentListBlock].filter(Boolean).join("\n\n");
+  const runtimeAccessBlock = buildChatRuntimeAccessBlock(messageId, attachments, visualData);
+  const userContent = [content, attachmentListBlock, visualDataListBlock].filter(Boolean).join("\n\n");
 
   return [
     userContent
       ? {
           blockType: MESSAGE_PROMPT_PART_BLOCK.USER,
-          content: userContent
+          content: userContent,
+          visualData
         }
       : null,
     runtimeAccessBlock

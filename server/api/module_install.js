@@ -41,6 +41,7 @@ export async function post(context) {
   const payload = readPayload(context);
 
   try {
+    await context.ensureUserFileIndex?.(context.user?.username);
     const result = await runTrackedMutation(context, async () =>
       installModule({
         commit: readRevision(payload.commit),

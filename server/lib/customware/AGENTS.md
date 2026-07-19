@@ -25,7 +25,9 @@ Current files:
 - `file_access.js`: canonical app-file permission model, file operations, and readable-folder download resolution
 - `module_manage.js`: module list, info, install, remove, and Git metadata helpers
 
-## Path And Permission Contract
+## Local Contracts
+
+### Path And Permission Contract
 
 Path rules:
 
@@ -60,7 +62,7 @@ CLI group-editing rules:
 - `group add` and `user create --groups ...` may create the target writable `L1/<group>/` root automatically before writing membership, including `_admin`
 - those writes must pass the resolved runtime params into `group_files.js` so configured `CUSTOMWARE_PATH` roots are honored
 
-## Inheritance And Override Contract
+### Inheritance And Override Contract
 
 Module and extension resolution is layered and rank-based.
 
@@ -76,14 +78,15 @@ Important rules:
 
 - `layer_limit.js` constrains module and extension resolution through `maxLayer`
 - `layer_limit.js` also accepts `X-Space-Max-Layer` as an explicit request-level override source for module and extension fetches
-- worker-side module lookup must read replicated `file_index` and group shards from the shared `stateSystem`; only the primary watchdog owns filesystem scanning and shard publication
+- worker-side module lookup must read shared `file_index` and group shards from the shared `stateSystem`; only the primary watchdog owns filesystem scanning and shard publication, and `L2/<user>` file-index shards are loaded on demand
+- auth-only request context does not imply the authenticated user's full L2 shard is loaded; file, module, extension, quota, and direct app-file callers must use the router-provided full-shard ensure hook before relying on user-owned file-index entries
 - frontend HTML anchors resolve through module `ext/html/...` paths and JS hooks resolve through module `ext/js/...` paths
 - modules may also resolve other extension-owned assets through the same ranked `ext/...` override model when the frontend calls `extensions_load` directly; the current first-party example is `ext/panels/*.yaml`, and grouped lookups preserve request order while returning each request's normalized `patterns` with its resolved `extensions`
 - exact same override keys replace lower-ranked entries
 - different extension filenames under the same extension point compose together
 - `module_inheritance.js` and `extension_overrides.js` are the only supported paths for `/mod/...` and extension resolution
 
-## File And Module Management Contract
+### File And Module Management Contract
 
 `file_access.js` is the canonical entry point for:
 
@@ -106,10 +109,12 @@ Rules:
 - keep permission, duplication, overlap, path-normalization, and logical-to-disk resolution logic centralized here
 - frontend callers should derive writable roots from the canonical permission rules and the `user_self_info` identity fields instead of depending on a serialized scope payload
 - callers that need server-confirmed writable discovery may pass `access: "write"` or `writableOnly: true` to `file_list` or `file_paths`; repository pickers may add `gitRepositories: true` with a pattern such as `**/.git/` to receive writable owner roots like `L1/<group>/` and `L2/<user>/`
+- normal request-time `file_paths` discovery must read the caller's relevant `file_index` shards, matching module discovery: readable lookups scan `L0`, readable `L1` group shards, and the authenticated user's demand-loaded `L2` shard, while writable lookups scan only writable owner shards except admin-wide discovery
+- do not route ordinary `file_paths` calls through a full `watchdog.getPaths()` or whole-index sort when the shared `stateSystem` is available; fallback whole-index filtering is only for direct helper callers that do not provide replicated state
 - when `CUSTOMWARE_GIT_HISTORY` is enabled, writable `L1` and `L2` file mutations schedule debounced per-owner Git history commits; in clustered runtime, worker writes defer that scheduling to the primary after it rebuilds the authoritative watchdog state for the changed logical paths
 - debounced owner-root history work must stay off the request path; local-history backends serialize operations per owner repository so primary-owned scheduling does not block the event loop or race the same repo, native keeps Git subprocess work asynchronous, and the isomorphic fallback reuses immutable history-entry and tree caches for repeated Time Travel reads
 - when `USER_FOLDER_SIZE_LIMIT_BYTES` is positive, `file_access.js` must check all app-file writes, copies, moves, and deletes through `user_quota.js` before mutation; projected growth over the cap is rejected, while a user folder already over cap may only perform mutations whose net `L2/<user>/` size delta is negative
-- user-folder quota accounting is cached per resolved `L2/<user>/` root; cache fills and subtree size reads should come from indexed `sizeBytes` metadata in the live `path_index` or replicated `file_index` shards instead of crawling the full user tree, while normal app-file mutations update that cache by byte deltas
+- user-folder quota accounting is cached per resolved `L2/<user>/` root; cache fills and subtree size reads should come from indexed `sizeBytes` metadata in the loaded `file_index` shard instead of crawling the full user tree, while normal app-file mutations update that cache by byte deltas
 - other backend app-path mutation callers invalidate the affected cache through `recordAppPathMutations`, and Git history commits, rollback, and revert also invalidate affected L2 quota cache entries because backend `.git` metadata can change outside the app-file mutation delta
 
 `module_manage.js` is the canonical entry point for:
@@ -161,7 +166,9 @@ Admin-only access is required for aggregated or cross-user user-layer listings.
 - rollback snapshots and restores the ignored L2 auth and wrapped-user-key files so old commits cannot log the user out, resurrect an old password verifier, or silently replace the current `userCrypto` record
 - `.git` metadata paths are reserved and must not be exposed through app-file APIs, direct app fetches, or path indexes
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - do not add ad hoc filesystem walks or permission checks to endpoints when this subtree already owns the rule
 - keep changes to path semantics, inheritance, or permissions centralized here
@@ -169,3 +176,11 @@ Admin-only access is required for aggregated or cross-user user-layer listings.
 - if path, layer, module-resolution, or permission rules change, also update `app/L0/_all/mod/_core/skillset/ext/skills/development/` because the shared development skill mirrors this contract
 - if path, layer, module-resolution, or permission rules change, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/server/`
 - if you change path normalization, group semantics, `maxLayer`, file access, or module-management rules, update this file and the relevant server or API docs in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

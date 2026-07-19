@@ -21,6 +21,8 @@ This module owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 Current route and panel-manifest contract:
 
 - the route is `#/agent`, so the router resolves it to `/mod/_core/agent/view.html`
@@ -42,9 +44,19 @@ Current UI and persistence contract:
 - missing personality files are the normal empty-state case and should not surface as hard errors
 - the personality file is promptinclude-owned content: readable `*.system.include.md` files are injected into the agent system prompt, so this page must treat the textarea as raw include text rather than inventing a second config format
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep implementation changes inside this module unless a stable cross-module contract truly changes
 - keep the avatar animation local here; do not patch public-shell or overlay motion just to tune this route
 - keep personality persistence as a plain text include file, not YAML
 - if the route path, panel-manifest path, onscreen menu item, astronaut asset path, or personality include path changes, update this file, `/app/AGENTS.md`, and the matching supplemental docs under `_core/documentation/docs/`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

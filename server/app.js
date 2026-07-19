@@ -207,9 +207,45 @@ async function createAgentServer(overrides = {}) {
   const stateSystem =
     overrides.stateSystem ||
     (watchdog && typeof watchdog.getStateSystem === "function" ? watchdog.getStateSystem() : null);
+  const ensureUserFileIndex =
+    overrides.ensureUserFileIndex ||
+    (async (username) => {
+      const normalizedUsername = String(username || "").trim();
+      const shardId = normalizedUsername ? `L2/${normalizedUsername}` : "";
+
+      if (
+        shardId &&
+        watchdog &&
+        typeof watchdog.isFileIndexShardCurrent === "function" &&
+        watchdog.isFileIndexShardCurrent(shardId)
+      ) {
+        return;
+      }
+
+      if (shardId && watchdog && typeof watchdog.ensureFileIndexShardLoaded === "function") {
+        await watchdog.ensureFileIndexShardLoaded(shardId);
+      }
+    });
+  const ensureUserAuthState =
+    overrides.ensureUserAuthState ||
+    (async (username) => {
+      const normalizedUsername = String(username || "").trim();
+
+      if (
+        normalizedUsername &&
+        watchdog &&
+        typeof watchdog.ensureUserAuthStateLoaded === "function"
+      ) {
+        await watchdog.ensureUserAuthStateLoaded(normalizedUsername);
+      }
+    });
   const resolvedAuth =
     overrides.auth ||
     createAuthService({
+      commitProjectPathChanges: async (projectPaths = []) => {
+        await mutationSync.commitProjectPaths(projectPaths);
+      },
+      ensureUserAuthState,
       projectRoot,
       runtimeParams,
       stateSystem,
@@ -239,6 +275,7 @@ async function createAgentServer(overrides = {}) {
     runtimeParams,
     stateSystem,
     stateSync,
+    ensureUserFileIndex,
     workerNumber: normalizedWorkerNumber,
     watchdog,
     host,
