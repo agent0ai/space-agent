@@ -22,7 +22,9 @@ Current files:
 - `responses.js`: shared JSON, redirect, file, and generic API response writers
 - `proxy.js`: outbound fetch proxy transport for `/api/proxy`
 
-## Routing Order
+## Local Contracts
+
+### Routing Order
 
 Current request order is fixed:
 
@@ -39,7 +41,7 @@ Rules:
 - do not hide route precedence in scattered conditionals across unrelated files
 - all non-public API, module, and app-fetch routes require an authenticated request context before dispatch
 
-## State Version Contract
+### State Version Contract
 
 `router.js` owns the request-level replicated-state fence.
 
@@ -52,7 +54,7 @@ Current behavior:
 - if the worker still cannot satisfy the requested version within the bounded wait, the router returns a retryable `503`
 - the frontend fetch wrapper is expected to carry the highest seen version on follow-up same-origin requests, while the router clears cookie-sourced state-version handoffs once it has consumed them
 
-## Request Context Contract
+### Request Context Contract
 
 `request_context.js` owns request-scoped auth state.
 
@@ -67,7 +69,7 @@ Current behavior:
 - the request context is stored in AsyncLocalStorage for the lifetime of the request
 - `ensureAuthenticatedRequestContext(...)` is the shared guard for authenticated routes
 
-## Serving Contracts
+### Serving Contracts
 
 Pages:
 
@@ -106,12 +108,22 @@ Responses:
 - `responses.js` owns JSON serialization, redirects, file responses, stream responses, and Web `Response` bridging
 - `responses.js.sendFile(...)` must stream file bodies from disk after a stat check instead of buffering the whole file into memory first
 - `cors.js` owns the API CORS policy and `OPTIONS` handling
-- `router.js` must log every caught API handler failure once, including non-5xx responses, and should prefer an attached `error.cause` when endpoint wrappers preserve the underlying backend exception; 5xx bodies are still redacted to `Internal server error` for the browser
+- `router.js` must keep expected API client-error responses quiet: explicit 4xx `statusCode` errors, including 404s, are returned to the browser without backend `console.error` noise; 5xx or otherwise unexpected handler failures are still logged once, should prefer an attached `error.cause` when endpoint wrappers preserve the underlying backend exception, and keep 5xx bodies redacted to `Internal server error` for the browser
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep routing logic here, not in page or API modules
 - keep page and module serving thin and delegate policy decisions to shared helpers
 - do not bypass `request_context.js` for auth state
 - if routing order, page gating, launcher behavior, or direct app-fetch semantics change, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/server/`
 - if routing order, auth flow, page handling, response contracts, or state-version fencing change, update this file and `/server/AGENTS.md`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

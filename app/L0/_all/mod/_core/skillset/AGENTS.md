@@ -8,33 +8,6 @@ This module is not a routed UI surface. It exists to keep skill instructions sho
 
 Documentation is top priority for this module. After any change under `_core/skillset/`, update this file and any affected parent docs in the same session.
 
-## Documentation Hierarchy
-
-`_core/skillset/AGENTS.md` owns the shared skill-pack module, helper-script ownership, and the map of deeper docs inside this subtree.
-
-Current deeper docs:
-
-- `app/L0/_all/mod/_core/skillset/ext/skills/development/AGENTS.md`
-
-Parent vs child split:
-
-- this file owns module-wide skill-pack ownership, shared skill-discovery helper contracts, and skill-local helper-file contracts
-- `ext/skills/development/AGENTS.md` owns the shared development skill tree and its mirrored frontend or backend source contracts
-
-Child doc section pattern:
-
-- `Purpose`
-- `Documentation Hierarchy` when the subtree owns deeper docs
-- `Ownership`
-- `Local Contracts`
-- `Development Guidance`
-
-Update rules:
-
-- update this file when shared skill-pack ownership, helper APIs, or ownership boundaries change
-- update the deeper development-skill doc when the development skill tree, routing map, or mirrored source contracts change
-- when framework, router, API, path, permission, or auth contracts change in ways that affect the shared development skill tree, update the deeper doc in the same session
-
 ## Ownership
 
 This module owns:
@@ -48,8 +21,11 @@ This module owns:
 - `ext/skills/user-management/SKILL.md`: the top-level onscreen skill for user account and membership file operations
 - `skills.js`: shared browser-side skill discovery, frontmatter metadata parsing, `metadata.when` plus `metadata.loaded` plus `metadata.placement` evaluation against tags collected through framework `js/context.js`, the runtime loaded-skill registry under `space.chat.skills`, and compact prompt-section builders reused by `_core/onscreen_agent` and `_core/admin`
 - `vendor/html2canvas.min.js` and `vendor/html2canvas.LICENSE`: vendored `html2canvas@1.4.1` browser bundle and license reused by the screenshot and PDF-report helpers
+- Direct child DOX docs listed below own their narrower subtrees.
 
-## Skill Helper Contract
+## Local Contracts
+
+### Skill Helper Contract
 
 - this module owns repo-owned shared first-party top-level skills such as `development`, `browser-manager`, `browser-control`, `file-download`, `pdf-report`, `screenshots`, and `user-management`; module-specific skills that describe one module's private contracts may still live under that owning module
 - `skills.js` is the shared owner of the browser-side skill-discovery contract across agent surfaces: skill ids come from `ext/skills/.../SKILL.md`, catalog and auto-loaded prompt discovery both scan only top-level `ext/skills/*/SKILL.md` files, nested skills remain explicit-load-only, live page tags come from `<x-context>` elements in the current document, including the framework-owned runtime context element whose `data-runtime` resolves to `browser` or `app` and whose `data-tags` emits `runtime-browser` or `runtime-app`, `metadata.when` and `metadata.loaded` may each be either `true` or a `{ tags: [...] }` condition, `metadata.when.tags` gates catalog eligibility, `metadata.loaded` controls automatic prompt inclusion after the catalog, and `metadata.placement` routes auto-included or explicitly loaded skill content into system, transient, or history context
@@ -73,8 +49,18 @@ This module owns:
 - the screenshots skill should point agents at `/mod/_core/skillset/ext/skills/screenshots/screenshots.js` instead of repeating the low-level `html2canvas` bootstrap inline
 - the pdf-report skill should point agents at `/mod/_core/skillset/ext/skills/pdf-report/pdf-report.js` instead of repeating low-level PDF object assembly inline
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep helper APIs narrow, stable, and easy to call from one short execution block
 - prefer skill-local helpers over bloating `SKILL.md` with long scripts, but promote a helper into `_core/framework/` only when it becomes general frontend runtime infrastructure rather than skill-focused utility
 - when a helper API changes, update the affected `SKILL.md` files in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- `/app/L0/_all/mod/_core/skillset/ext/skills/development/AGENTS.md` - ext/skills/development/ owns the shared first-party frontend development super-skill for the agent skill surfaces.

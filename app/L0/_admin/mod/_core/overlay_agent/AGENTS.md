@@ -18,6 +18,8 @@ This module owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 - this module contributes onscreen skills only through `ext/skills/.../SKILL.md`
 - because it lives under `L0/_admin`, its skill files should only be readable through the existing group-based app-file permission model for `_admin` users
 - this module's skills are still onscreen-only despite being admin-readable; their frontmatter should require the live `agent` context tag so they do not leak into the separate `/admin` agent runtime
@@ -26,9 +28,19 @@ This module owns:
 - this module's skill content should stay aligned with the auth, group, and file-layout contracts documented under `server/lib/auth/`, `server/lib/customware/`, `server/api/`, and `commands/`
 - admin-gated skill guidance should verify `_admin` membership through `space.api.userSelfInfo().groups`, not a separate boolean field
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep the top-level skill short and route into deeper task-specific skills when the topic grows
 - prefer logical app paths like `L1/<group>/group.yaml` and `L2/<username>/user.yaml`, not disk paths
 - describe browser-usable API workflows first; mention CLI equivalents only as reference context
 - if auth, user storage, group semantics, or admin visibility rules change, update this module's skill files in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

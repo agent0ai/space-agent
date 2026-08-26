@@ -8,7 +8,14 @@ This folder should stay thin. Endpoints should validate input, call shared infra
 
 Documentation is top priority for this subtree. After any change under `server/api/`, update this file and any affected parent or helper docs in the same session.
 
-## Discovery Contract
+## Ownership
+
+- Owns the documentation and operating contract for `/server/api/`.
+- Direct child DOX docs listed below own their narrower subtrees.
+
+## Local Contracts
+
+### Discovery Contract
 
 API endpoint modules are discovered dynamically from `server/api/*.js` by `server/lib/api/registry.js`.
 
@@ -21,7 +28,7 @@ Current loader rules:
 - endpoints are authenticated by default
 - endpoints opt into public access only by exporting `allowAnonymous = true`
 
-## Endpoint Families
+### Endpoint Families
 
 Public auth and health endpoints:
 
@@ -142,7 +149,7 @@ Important notes:
 - `user_self_info` returns the authenticated user's derived identity plus browser-bootstrap crypto metadata: `{ username, fullName, groups, managedGroups, sessionId, userCryptoKeyId, userCryptoState }`
 - `password_generate` is an authenticated utility endpoint that returns the backend-sealed `password.json` payload and should stay narrow
 
-## Handler Contract
+### Handler Contract
 
 Handlers receive the request context assembled by `server/router/router.js`, including:
 
@@ -162,9 +169,11 @@ Handlers may return:
 - explicit HTTP-style `{ status, headers, body }` or `{ status, headers, stream }` shapes
 - Web `Response` objects
 
-Throw errors with a `statusCode` when the route should return a non-500 error.
+Throw errors with a `statusCode` when the route should return a non-500 error. The router treats explicit 4xx errors as expected client-error responses and returns them without backend `console.error` logging; unexpected errors and 5xx `statusCode` failures still produce one backend diagnostic log while redacting the browser response body.
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep endpoints narrow and explicit
 - keep auth, permission, inheritance, and filesystem policy in shared helpers
@@ -172,3 +181,11 @@ Throw errors with a `statusCode` when the route should return a non-500 error.
 - if frontend-facing API or extension-resolution semantics change, also update `app/L0/_all/mod/_core/skillset/ext/skills/development/` because the shared development skill mirrors this contract
 - if endpoint-family semantics change, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/server/api/`
 - if you add or remove endpoints, or change endpoint-family semantics, update this file and `/server/AGENTS.md`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

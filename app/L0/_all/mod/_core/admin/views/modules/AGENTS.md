@@ -15,7 +15,9 @@ This surface owns:
 - `panel.html`: module-list UI
 - `store.js`: area selection, debounced search, module loading, repository links, and module removal
 
-## Module API Contract
+## Local Contracts
+
+### Module API Contract
 
 Current API usage:
 
@@ -36,9 +38,19 @@ Current behaviors:
 - repository actions are enabled only when a browser-safe remote URL can be derived
 - file-browser actions are intentionally disabled and point the user to the Files tab instead
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep permissions and visibility server-authoritative; use returned flags such as `canWrite`
 - keep search and area changes centralized in `store.js`
 - do not bolt unrelated module-management workflows into this panel unless the module API contract supports them cleanly
 - if `module_list` or `module_remove` semantics change, update this file and the relevant server docs in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

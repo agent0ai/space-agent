@@ -17,6 +17,8 @@ This module owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 Current route contract:
 
 - the dashboard is routed at `#/dashboard`
@@ -45,8 +47,18 @@ Rules:
 - `.dashboard-shell` should clamp to the same `--onscreen-menu-shell-max-width` contract used by `_core/onscreen_menu`, so the dashboard column and top overlay bar stay visually aligned instead of drifting to different desktop widths
 - ordering between dashboard topbar controls and dashboard sections should be expressed with explicit seams here rather than relying on same-anchor extension filename order
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep dashboard-owned copy and styling minimal
 - add or change dashboard seams here rather than reaching into the DOM from another module
 - if dashboard routing, default-home behavior, or stable seams change, update this file, `_core/onscreen_menu/AGENTS.md`, and `/app/AGENTS.md`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

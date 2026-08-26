@@ -17,6 +17,8 @@ This scope owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 - prefer plain text over markdown chrome
 - use `$snake_case` only for reusable protocol terms
 - use plain section labels, or `$keyword label` when the section explains that keyword directly
@@ -58,9 +60,19 @@ This scope owns:
 - whenever these prompt files change, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/agent/`
 - whenever these prompt files change, measure token counts with the local tokenizer in the same session
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep examples minimal and only when they change behavior materially
 - avoid repeating the same rule in multiple prompt files
 - prefer short concrete lines over explanatory paragraphs
 - if a prompt can lose words without losing obedience, cut it
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

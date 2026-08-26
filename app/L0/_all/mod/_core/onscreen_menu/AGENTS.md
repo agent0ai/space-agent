@@ -17,7 +17,9 @@ This module owns:
 
 Feature-owned menu item extensions do not belong in this module. Current first-party item adapters live in `_core/agent`, `_core/user`, `_core/time_travel`, `_core/file_explorer`, and `_core/admin`.
 
-## Current Contract
+## Local Contracts
+
+### Current Contract
 
 Current behavior:
 
@@ -50,7 +52,9 @@ Current behavior:
 - when frontend config reports `SINGLE_USER_APP=true`, the local auth exit action is labeled Leave, clears the current tab's launcher-access grant, and navigates to `/enter`
 - otherwise, the local auth exit action is labeled Logout, clears the current `space.utils.userCrypto` browser cache before navigation, and then navigates to `/logout`
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep this module thin; it should stay a routed shell affordance, not a second app shell
 - prefer shared topbar and menu styles from `_core/visual/chrome/topbar.css`
@@ -61,3 +65,11 @@ Current behavior:
 - add feature menu entries from the owning feature module through `_core/onscreen_menu/items` instead of hardcoding them in `menu.html`
 - pick `data-order` values with gaps so downstream modules can insert actions between first-party items without replacing them
 - if the header seams, route inject target behavior, item seam, router shell seam, route helper behavior, or auth exit behavior changes, update this file and any owning feature docs that rely on that contract
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

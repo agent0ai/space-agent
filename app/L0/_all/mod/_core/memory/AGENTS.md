@@ -16,6 +16,8 @@ This scope owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 - the memory skill must stay auto-loaded into system prompt context through `metadata.loaded: true` plus `metadata.placement: system`
 - the memory workflow must reuse `_core/promptinclude` rather than inventing a second persistence or prompt-injection system
 - `~/memory/behavior.system.include.md` is the canonical home for stable behavior changes, user preferences, and standing instructions that should keep applying across conversations
@@ -26,8 +28,18 @@ This scope owns:
 - when the user asks the agent to change its behavior, the skill must direct that change into `~/memory/behavior.system.include.md`
 - memory files are plain markdown include bodies whose contents are injected as prompt context by `_core/promptinclude`; keep the skill concise so the prompt budget stays focused on the files themselves
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep this module headless and prompt-focused
 - prefer small edits to the skill text over adding JS unless the prompt runtime truly needs new behavior
 - if the memory file conventions, auto-loaded behavior, or cross-provider prompt guarantees change, also update `app/AGENTS.md`, `_core/onscreen_agent/AGENTS.md`, `_core/admin/views/agent/AGENTS.md`, and the matching docs under `_core/documentation/docs/`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

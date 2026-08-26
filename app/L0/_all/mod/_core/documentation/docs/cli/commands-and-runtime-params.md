@@ -99,6 +99,7 @@ Current behavior:
 - normalizes `CUSTOMWARE_PATH` to an absolute path before passing it to child servers
 - starts real `space serve` children on private loopback `HOST=127.0.0.1 PORT=0`
 - treats all non-supervisor CLI arguments as opaque `space serve` launch arguments, only rewriting child `HOST`, child `PORT`, and `CUSTOMWARE_PATH`
+- injects the same canonical backend auth keys that `serve` and CLI user-management helpers use, so CLI-created password verifiers remain decryptable under supervised children
 - periodically checks the watched Git remote and branch for a newer revision when `--auto-update-interval` is greater than `0`
 - resolves the watched Git remote from `--remote-url`, then `GIT_URL`, then the local `origin` remote URL, and only then the canonical fallback
 - for GitHub remotes, update checks and staged release clones use `SPACE_GITHUB_TOKEN` when set and otherwise send no GitHub auth header
@@ -134,7 +135,8 @@ Current supervisor options:
 Supervisor state:
 
 - default state directory: `<projectRoot>/supervisor`
-- shared child auth keys: `auth/auth_keys.json`, unless `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` are already injected
+- shared child auth keys: `server/data/auth_keys.json` by default, or `SPACE_AUTH_DATA_DIR/auth_keys.json` when configured, unless `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` are already injected
+- legacy `<projectRoot>/supervisor/auth/auth_keys.json` is migrated into canonical auth-key storage only when no canonical auth key file exists yet
 - staged source releases: `releases/<revision>/`
 
 The supervisor intentionally avoids changing `server/` lifecycle code. Its only runtime assumptions about a child are that `node space serve` prints the existing listening URL line and that `/api/health` succeeds after startup.

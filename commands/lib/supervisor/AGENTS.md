@@ -10,14 +10,16 @@ The supervisor keeps `server/` agnostic: it does not require server-owned cluste
 
 Current files:
 
-- `auth_keys.js`: supervisor-owned shared auth-key storage and environment injection for child servers
+- `auth_keys.js`: supervisor-owned auth-key environment injection for child servers, backed by the canonical server auth-key storage used by `serve` and CLI user-management helpers
 - `child_process.js`: `space serve` child startup, readiness detection, health checking, crash/stop handling, and proxied-stream activity tracking
 - `git_releases.js`: Git remote polling, release cloning, dependency installation, and release metadata
 - `http_proxy.js`: public HTTP and upgrade proxying to the active child
 - `process_log.js`: prefixed child-process output helpers
 - `supervisor.js`: orchestration for startup, update checks, child promotion, stream-aware drain, fallback, crash restart, and shutdown
 
-## Helper Contract
+## Local Contracts
+
+### Helper Contract
 
 `node space supervise` is the only intended caller of this subtree.
 
@@ -32,7 +34,8 @@ Stable behavior:
 - supervisor state defaults to `<projectRoot>/supervisor`
 - staged releases live under that project-root supervisor directory, separate from both the live source files and `CUSTOMWARE_PATH`
 - auto-update polling uses `--auto-update-interval`, defaults to `300` seconds, and is disabled when the interval is less than or equal to `0`
-- auth keys are either inherited from `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` or generated once under supervisor state and injected into every child
+- auth keys are either inherited from `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` or loaded from the canonical backend auth-key fallback at `server/data/auth_keys.json`, or `SPACE_AUTH_DATA_DIR/auth_keys.json` when that override is set, then injected into every child
+- legacy `<projectRoot>/supervisor/auth/auth_keys.json` files are migrated into the canonical backend auth-key fallback only when that canonical file does not already exist
 - `supervise` should stay independent from server runtime-param parsing so new `space serve` flags can flow through without a supervisor-specific change
 - the watched update repository is resolved in shared order: `--remote-url`, then `GIT_URL`, then the local `origin` remote URL, then the canonical fallback
 - GitHub update checks and staged release clones use the same `SPACE_GITHUB_TOKEN` auth rule as `node space update`, and send no GitHub auth header when that variable is unset
@@ -43,13 +46,14 @@ Stable behavior:
 - old children are drained by tracking proxied HTTP requests and upgrade streams; they are stopped when streams finish or stop sending traffic, with the drain timeout as a hard cap
 - if the active child crashes, the supervisor falls back to a still-draining previous child when available, otherwise restarts the active target with bounded backoff
 
-## Arguments, Output, And State Changes
+### Arguments, Output, And State Changes
 
 The public command owns argument parsing. Helper modules should receive normalized config instead of re-reading CLI arguments.
 
 Runtime state written by this subtree:
 
-- `<projectRoot>/supervisor/auth/auth_keys.json` by default, unless auth keys are injected through environment variables
+- `<projectRoot>/server/data/auth_keys.json` by default, or `SPACE_AUTH_DATA_DIR/auth_keys.json` when that override is set, unless auth keys are injected through environment variables
+- legacy `<projectRoot>/supervisor/auth/auth_keys.json` may be copied once into the canonical auth-key fallback during startup when no canonical auth key file exists yet
 - `<projectRoot>/supervisor/releases/<revision>/` release directories by default
 
 External commands used by this subtree:
@@ -60,7 +64,9 @@ External commands used by this subtree:
 
 Supervisor logs use `[supervise]`, `[serve:<label>]`, `[supervise:git]`, and `[supervise:npm]` prefixes so operator output stays attributable.
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep this subtree command-owned; do not add server-side hooks just to help the supervisor
 - keep child servers replaceable at runtime by treating them as opaque HTTP targets after readiness
@@ -70,3 +76,11 @@ Supervisor logs use `[supervise]`, `[serve:<label>]`, `[supervise:git]`, and `[s
 - keep crash recovery independent from update polling; a failed update must not prevent restart of the currently active target
 - keep `--auto-update` command-owned; do not add it to `commands/params.yaml` unless the server runtime itself starts consuming it
 - if the supervisor adds new public flags, update `commands/supervise.js`, `/commands/AGENTS.md`, and `app/L0/_all/mod/_core/documentation/docs/cli/commands-and-runtime-params.md` in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

@@ -25,7 +25,9 @@ Current files:
 - `file_access.js`: canonical app-file permission model, file operations, and readable-folder download resolution
 - `module_manage.js`: module list, info, install, remove, and Git metadata helpers
 
-## Path And Permission Contract
+## Local Contracts
+
+### Path And Permission Contract
 
 Path rules:
 
@@ -60,7 +62,7 @@ CLI group-editing rules:
 - `group add` and `user create --groups ...` may create the target writable `L1/<group>/` root automatically before writing membership, including `_admin`
 - those writes must pass the resolved runtime params into `group_files.js` so configured `CUSTOMWARE_PATH` roots are honored
 
-## Inheritance And Override Contract
+### Inheritance And Override Contract
 
 Module and extension resolution is layered and rank-based.
 
@@ -84,7 +86,7 @@ Important rules:
 - different extension filenames under the same extension point compose together
 - `module_inheritance.js` and `extension_overrides.js` are the only supported paths for `/mod/...` and extension resolution
 
-## File And Module Management Contract
+### File And Module Management Contract
 
 `file_access.js` is the canonical entry point for:
 
@@ -164,7 +166,9 @@ Admin-only access is required for aggregated or cross-user user-layer listings.
 - rollback snapshots and restores the ignored L2 auth and wrapped-user-key files so old commits cannot log the user out, resurrect an old password verifier, or silently replace the current `userCrypto` record
 - `.git` metadata paths are reserved and must not be exposed through app-file APIs, direct app fetches, or path indexes
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - do not add ad hoc filesystem walks or permission checks to endpoints when this subtree already owns the rule
 - keep changes to path semantics, inheritance, or permissions centralized here
@@ -172,3 +176,11 @@ Admin-only access is required for aggregated or cross-user user-layer listings.
 - if path, layer, module-resolution, or permission rules change, also update `app/L0/_all/mod/_core/skillset/ext/skills/development/` because the shared development skill mirrors this contract
 - if path, layer, module-resolution, or permission rules change, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/server/`
 - if you change path normalization, group semantics, `maxLayer`, file access, or module-management rules, update this file and the relevant server or API docs in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

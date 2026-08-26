@@ -23,6 +23,8 @@ Those remain owned by `tests/AGENTS.md`.
 
 ## Local Contracts
 
+### Local Contracts
+
 - this harness is intentionally narrower than the real desktop app; it should exercise the browser guest path directly and must not recreate the full Space Agent shell, router, or app stores
 - the harness must keep a single browser instance with the public browser id `1` and the internal guest id `browser-1`
 - because that single browser id is always `1`, manual harness commands such as `detail 1`, `click 1`, `submit 1`, `scroll 1`, `type 1 ...`, and `type-submit 1 ...` must treat that trailing `1` as the reference id when no extra scoped browser id is present; browser-id stripping is only valid when additional scoped arguments remain
@@ -39,9 +41,19 @@ Those remain owned by `tests/AGENTS.md`.
 - selector-scoped `content([...])` requests should stay cheap enough for manual debugging; when the shared desktop DOM helper is available, the harness should ask it for selector-target snapshots instead of serializing the entire recursive page tree first
 - scenario helpers in `main.cjs` should stay thin wrappers around the same browser method calls exposed to the CLI and tests
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - prefer debugging browser transport or extraction issues here before touching the full desktop host
 - keep the harness readable and manual-friendly; it is both a regression surface and an operator tool
 - when adding a new browser bridge capability, expose it here in the controller and the manual UI if that capability is useful for debugging
 - when the harness startup flow, parent IPC contract, or shared guest-runtime reuse changes, update this file and `tests/AGENTS.md` in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

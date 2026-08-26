@@ -21,6 +21,8 @@ This module owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 Current dashboard integration:
 
 - `_core/dashboard/` provides the `_core/dashboard/content_start` and `_core/dashboard/topbar_secondary` seams
@@ -55,9 +57,19 @@ Current persistence and demo-space contract:
 - welcome actions should call the public `space.spaces.installExampleSpace(...)` runtime helper rather than duplicating filesystem logic locally
 - demo installs launched from the dashboard should push a new space route entry instead of replacing the dashboard route, so browser Back returns to the dashboard rather than exposing whatever older space happened to be behind it in history
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep the copy brief, direct, and product-relevant
 - keep the welcome surface visually lighter than the spaces grid below it
 - keep hidden-state restore UI in the dashboard topbar, not in a placeholder dashboard row
 - if the preference path, extension seam, or example-space loading contract changes, update this file and the owning parent docs
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

@@ -28,7 +28,8 @@ export const DEFAULT_ONSCREEN_AGENT_SETTINGS = {
   model: "anthropic/claude-sonnet-4.6",
   paramsText: "temperature:0.2",
   promptBudgetRatios: { ...DEFAULT_PROMPT_BUDGET_RATIOS },
-  provider: ONSCREEN_AGENT_LLM_PROVIDER.API
+  provider: ONSCREEN_AGENT_LLM_PROVIDER.API,
+  supportsVision: true
 };
 
 function normalizeOnscreenAgentSettingText(value) {
@@ -43,6 +44,10 @@ export function normalizeOnscreenAgentLlmProvider(value) {
 
 export function normalizeOnscreenAgentLocalProvider(value) {
   return ONSCREEN_AGENT_LOCAL_PROVIDER.HUGGINGFACE;
+}
+
+export function normalizeOnscreenAgentSupportsVision(value) {
+  return value === true || value === "true" || value === 1 || value === "1";
 }
 
 export function createOnscreenAgentHuggingFaceSelectionValue(modelId, dtype) {
@@ -106,7 +111,9 @@ export function isDefaultOnscreenAgentLlmSettings(settings) {
       normalizeOnscreenAgentSettingText(DEFAULT_ONSCREEN_AGENT_SETTINGS.model) &&
     normalizeOnscreenAgentMaxTokens(normalizedSettings.maxTokens) === DEFAULT_ONSCREEN_AGENT_SETTINGS.maxTokens &&
     normalizeOnscreenAgentSettingText(normalizedSettings.paramsText) ===
-      normalizeOnscreenAgentSettingText(DEFAULT_ONSCREEN_AGENT_SETTINGS.paramsText)
+      normalizeOnscreenAgentSettingText(DEFAULT_ONSCREEN_AGENT_SETTINGS.paramsText) &&
+    normalizeOnscreenAgentSupportsVision(normalizedSettings.supportsVision) ===
+      DEFAULT_ONSCREEN_AGENT_SETTINGS.supportsVision
   );
 }
 

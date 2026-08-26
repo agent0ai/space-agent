@@ -6,39 +6,18 @@
 
 Keep this file scoped to native hosting and packaging behavior. Repo-wide packaging surface and install commands still belong in `/AGENTS.md`.
 
-This is one of the five core docs. It owns the packaging subtree contract. If platform-specific packaging areas later grow their own `AGENTS.md` files, those local docs should own the detailed implementation guidance while this file stays focused on packaging-wide structure and principles.
+This is a top-level DOX child doc. It owns the packaging subtree contract. If platform-specific packaging areas later grow their own `AGENTS.md` files, those local docs should own the detailed implementation guidance while this file stays focused on packaging-wide structure and principles.
 
 Documentation is top priority for this area. After any change under `packaging/` or any packaging contract change owned here, update this file and the matching supplemental docs under `app/L0/_all/mod/_core/documentation/docs/` in the same session before finishing.
 
-## Documentation Hierarchy
+## Ownership
 
-`/packaging/AGENTS.md` stays the packaging-wide doc until a host surface, platform subtree, or packaging helper area grows its own `AGENTS.md`.
+- Owns the documentation and operating contract for `/packaging/`.
+- Direct child DOX docs listed below own their narrower subtrees.
 
-If that happens:
+## Local Contracts
 
-- this file should keep packaging-wide structure, shared principles, and cross-platform rules
-- the child doc should own the exact host, platform, bridge, or build-helper contract
-- update both docs when a packaging-wide rule and a local implementation contract change together
-
-## How To Document Packaging Child Docs
-
-Future packaging docs should keep the same section spine:
-
-- `Purpose`
-- `Ownership`
-- `Host Or Build Contract`
-- `Platform Or Bridge Contract` when that distinction exists
-- `Development Guidance`
-
-Required coverage:
-
-- the startup lifecycle between the native host and the local server runtime
-- any preload or native bridge APIs exposed to browser code and who may call them
-- packaging scripts, assets, metadata, and platform-specific files owned by that subtree
-- what must stay thin host glue versus what must remain in `app/` or `server/`
-- platform-specific divergence only where it is real; shared behavior should stay documented here
-
-## Current State
+### Current State
 
 `packaging/desktop/` holds the current Electron desktop host.
 
@@ -88,7 +67,29 @@ Native hosts should remain thin:
 - tagged desktop release automation lives in `.github/workflows/release-desktop.yml`; it runs automatically for pushed `v*` tags and also supports manual `workflow_dispatch` reruns, but in both modes the selected tag must already be on `origin/main` history and the workflow skips it only when a newer `v*` tag is already on `origin/main` after it, uses the packaging scripts for all platform builds, requires OpenRouter-backed release-note generation from commit history through the prompt helper under `packaging/resources/release-notes/`, prepends every release body with a fixed `## Downloads` table that links the canonical DMG, AppImage, and EXE assets for x86 and ARM, requires the AI-written portion below that table to omit release-title and version/tag headings because GitHub already renders that metadata outside the body, tolerates an empty previous-release tag when no prior published release is available, merges multi-arch updater metadata during publish, stages public installer assets through `packaging/release-asset-filters.yaml`, rewrites those metadata files to the canonical updater payload names, uploads only NSIS installers, DMGs, AppImages, canonical macOS updater zips, and metadata files, removes duplicate builder-default asset names plus stale blockmaps from the release, rebuilds fresh desktop artifacts for every release run, and updates the GitHub Release for that tag before uploading the staged set separately from the local packaging scripts; the local and CI packaging wrapper must pass `publish: null` into `electron-builder` so builds never upload directly, and the macOS `--dir` flow must backfill `app-update.yml` into unpacked `.app` outputs because `electron-builder` only writes that file automatically when updater-capable targets such as `dmg` or `zip` are present; when a tag resolves to a semver patch of `0`, the published public installer asset names, canonical updater zip names, and user-facing updater text collapse to the two-segment release version
 - preserve platform-neutral behavior here when possible
 
-## Guidance
+## Work Guidance
+
+### Child DOX Guidance
+
+Future packaging docs should keep the DOX section spine:
+
+- `Purpose`
+- `Ownership`
+- `Local Contracts`
+- `Work Guidance`
+- `Verification`
+- `Child DOX Index`
+
+Required coverage:
+
+- the startup lifecycle between the native host and the local server runtime
+- any preload or native bridge APIs exposed to browser code and who may call them
+- packaging scripts, assets, metadata, and platform-specific files owned by that subtree
+- what must stay thin host glue versus what must remain in `app/` or `server/`
+- platform-specific divergence only where it is real; shared behavior should stay documented here
+- which existing packaging or host verification covers the behavior, when such a check exists
+
+### Local Work Rules
 
 - avoid moving app logic into native hosts
 - keep packaging automation in `packaging/scripts/`
@@ -99,3 +100,11 @@ Native hosts should remain thin:
 - keep local packaging workable without Apple credentials; the desktop builder consumes `SKIP_SIGNING=1` for macOS packaging runs and disables signing and notarization in that mode, and `npm run package:desktop:macos:dev` is the preferred zero-config local wrapper because it defaults that env var plus `--dir`; for signed local runs the shared builder also accepts the launcher-style `APPLE_PASSWORD` env var as an alias for `APPLE_APP_SPECIFIC_PASSWORD`
 - add future mobile-specific hosts alongside `packaging/desktop/`
 - when native host behavior, preload bridges, packaging assets, or packaging entrypoints change, update this file in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

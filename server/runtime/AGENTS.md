@@ -23,6 +23,8 @@ Current files:
 
 ## Local Contracts
 
+### Local Contracts
+
 Cluster runtime rules:
 
 - `WORKERS=1` stays on the normal single-process runtime
@@ -60,10 +62,20 @@ Mutation and visibility rules:
 - when a worker receives a higher requested version than its replica currently has, it should pull from primary immediately before falling back to the bounded local wait window, so startup and cross-worker races recover without making the client sit through a full timeout first
 - responses also advertise `Space-Worker`; clustered workers use stable ordinal numbers starting at `1`, while single-process runtime reports `0`
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep the primary narrow: authoritative state, watchdog ownership, and coordination only
 - keep workers request-shaped: accept the request, do local work, then commit changed app paths once
 - add new shared runtime coordination through `state_system.js` with stable `area` and `id` shards instead of one-off IPC methods
 - keep replicated state replayable by version and snapshot-recoverable when deltas are pruned
 - when runtime IPC, worker-state visibility, or state-hosting rules change, update this file and `/server/AGENTS.md`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

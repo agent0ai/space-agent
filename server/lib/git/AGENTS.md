@@ -19,7 +19,9 @@ Current files:
 - `local_history.js`: per-directory local-history client selection for app-layer owner repositories
 - `shared.js`: shared backend-selection, remote-sanitization, and history path-filter helpers
 
-## Backend Selection Contract
+## Local Contracts
+
+### Backend Selection Contract
 
 Current backend order:
 
@@ -45,7 +47,9 @@ Current rules:
 - `revertCommit` creates a new commit with inverse changes and does not move the current branch back to the selected commit; local-history backends should use a Git-like reverse-merge strategy so later non-overlapping edits can still revert cleanly, while overlapping changes still raise a `409` conflict instead of a generic `500`, and the conflict message should identify the blocking file plus the current and expected file versions when available
 - local-history repositories are local-only infrastructure repositories with no remote requirement
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep backend-specific behavior behind this abstraction
 - do not import a backend implementation directly from unrelated server or command code when `client_create.js` already owns selection
@@ -53,3 +57,11 @@ Current rules:
 - keep remote sanitization and backend-resolution logic centralized in `shared.js`
 - preserve the shared per-repo serialization rule and immutable-history caching behavior for local-history backends whenever native or isomorphic history handling changes
 - if backend order, interface shape, runtime-param behavior, or environment-variable behavior changes, update this file and the relevant server or command docs in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

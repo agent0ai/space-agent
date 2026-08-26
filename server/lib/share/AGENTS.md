@@ -14,7 +14,9 @@ Current files:
 
 - `service.js`: hosted-share token allocation, metadata storage, share URL generation, archive extraction and validation, imported-space naming, authenticated import, and guest-clone installation
 
-## Storage And Validation Contract
+## Local Contracts
+
+### Storage And Validation Contract
 
 Hosted shares are backend-owned server state, not app files.
 
@@ -38,7 +40,7 @@ Current validation contract:
 - that extracted space root must include a readable `space.yaml` and at least one non-empty widget file
 - YAML widget files must parse and include a non-empty `renderer` field
 
-## Import And Clone Contract
+### Import And Clone Contract
 
 Current install rules:
 
@@ -56,9 +58,19 @@ Current guest-clone rules:
 - clone-time validation runs before the guest user is created, so invalid or empty shares do not leave behind orphaned guest accounts
 - successful clones create a fresh randomized `guest_...` user, install the shared space as the next `imported-N` destination for that guest, return that guest's temporary credentials to the public share shell for normal background login, and update the hosted share metadata `lastUsedAt`
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep hosted-share storage outside the logical app tree and outside `server/tmp/`; `server/tmp/` is only for request-scoped extraction work
 - reuse this helper from endpoints and public share flows instead of duplicating token generation, ZIP validation, or destination naming elsewhere
 - keep browser-side password protection limited to opaque ZIP encryption metadata; the backend should treat encrypted uploads as opaque bytes until the browser submits the decrypted archive for clone or import
 - if hosted-share storage, archive validation, or install semantics change, update this file plus the matching docs in `server/api/AGENTS.md`, `server/pages/AGENTS.md`, and `app/L0/_all/mod/_core/documentation/docs/server/`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

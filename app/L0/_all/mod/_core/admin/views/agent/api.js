@@ -5,6 +5,11 @@ import * as prompt from "/mod/_core/admin/views/agent/prompt.js";
 import { mergeConsecutiveChatMessages } from "/mod/_core/framework/js/chat-messages.js";
 import * as proxyUrl from "/mod/_core/framework/js/proxy-url.js";
 import { getHuggingFaceManager } from "/mod/_core/huggingface/manager.js";
+import {
+  normalizeVisionModelConfig,
+  normalizeVisualDataList,
+  prepareChatMessagesForVisionTransport
+} from "/mod/_core/agent-chat/visual-data.js";
 
 function createHeaders(apiKey) {
   const headers = {
@@ -182,7 +187,11 @@ function normalizeAdminPromptContext(promptContext, fallbackSystemPrompt = "") {
         .filter((message) => message && typeof message === "object")
         .map((message) => ({
           content: typeof message.content === "string" ? message.content : "",
-          role: message.role === "assistant" ? "assistant" : message.role === "system" ? "system" : "user"
+          role: message.role === "assistant" ? "assistant" : message.role === "system" ? "system" : "user",
+          tokenCount: Number.isFinite(Number(message?.tokenCount))
+            ? Math.max(0, Math.floor(Number(message.tokenCount)))
+            : 0,
+          visualData: normalizeVisualDataList(message.visualData)
         }))
     : [];
 
@@ -255,15 +264,33 @@ export function buildAdminAgentPromptMessages(systemPromptOrContext, messages, o
   return requestMessages;
 }
 
+function buildAdminAgentVisionModelConfig(settings = {}) {
+  const provider = config.normalizeAdminChatLlmProvider(settings?.provider);
+
+  return normalizeVisionModelConfig({
+    apiEndpoint: settings?.apiEndpoint,
+    model: settings?.model,
+    provider,
+    supportsVision:
+      provider === config.ADMIN_CHAT_LLM_PROVIDER.API &&
+      config.normalizeAdminChatSupportsVision(settings?.supportsVision)
+  });
+}
+
 function createRequestBody(settings, systemPrompt, messages, options = {}) {
+  const requestMessages = mergeConsecutiveChatMessages(
+    buildAdminAgentPromptMessages(systemPrompt, messages, {
+      promptContext: options.promptContext
+    })
+  );
+
   return {
     ...llmParams.parseAdminAgentParamsText(settings.paramsText || ""),
     model: settings.model || config.DEFAULT_ADMIN_CHAT_SETTINGS.model,
     stream: true,
-    messages: mergeConsecutiveChatMessages(
-      buildAdminAgentPromptMessages(systemPrompt, messages, {
-        promptContext: options.promptContext
-      })
+    messages: prepareChatMessagesForVisionTransport(
+      requestMessages,
+      buildAdminAgentVisionModelConfig(settings)
     )
   };
 }

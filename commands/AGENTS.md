@@ -6,45 +6,18 @@
 
 Keep this file scoped to command-module behavior and help metadata. Repo-wide CLI surface and top-level command names still belong in `/AGENTS.md`.
 
-This is one of the five core docs. It owns the command-tree contract for `commands/`. If command-specific helper subtrees later grow their own `AGENTS.md` files, those local docs should own the implementation detail while this file stays focused on the command surface and conventions.
+This is a top-level DOX child doc. It owns the command-tree contract for `commands/`. If command-specific helper subtrees later grow their own `AGENTS.md` files, those local docs should own the implementation detail while this file stays focused on the command surface and conventions.
 
 Documentation is top priority for this area. After any change to command discovery, command behavior, command help, or the command tree under `commands/`, update this file and the matching supplemental docs under `app/L0/_all/mod/_core/documentation/docs/` in the same session before finishing.
 
-## Documentation Hierarchy
+## Ownership
 
-`/commands/AGENTS.md` stays the command-tree doc for top-level command behavior. Command-family or helper subtrees with their own local contracts should add child `AGENTS.md` files.
+- Owns the documentation and operating contract for `/commands/`.
+- Direct child DOX docs listed below own their narrower subtrees.
 
-Current child docs:
+## Local Contracts
 
-- `commands/lib/supervisor/AGENTS.md`
-
-If that happens:
-
-- the parent command doc should own the command-family surface and cross-command conventions
-- the child doc should own the concrete subcommand or helper contract
-- update both docs when the surfaced CLI behavior and the helper boundary change together
-
-## How To Document Command Child Docs
-
-Future command-family docs should keep the same section spine:
-
-- `Purpose`
-- `Ownership`
-- `Command Surface` or `Helper Contract`
-- `Arguments, Output, And State Changes`
-- `Development Guidance`
-
-Required coverage:
-
-- which command files or helpers are owned
-- which subcommands, flags, environment variables, or schema entries are part of the public CLI contract
-- what the command prints and what files or runtime state it mutates
-- which shared server or helper libraries it must delegate to instead of re-implementing logic
-- which help text and examples must stay synchronized with the code
-
-A child doc is justified only when a command family has enough behavior or helper ownership that this file would otherwise become vague or bloated.
-
-## Contract
+### Contract
 
 Each command module should export:
 
@@ -109,7 +82,7 @@ Runtime resolution rules:
 
 The `help` export should be complete enough that `node space help <command>` is useful without reading the code. Prefer accurate usage lines, concrete descriptions, explicit argument descriptions when position matters, and examples when the command shape is not obvious.
 
-## Current Commands
+### Current Commands
 
 - `get`
 - `group`
@@ -121,7 +94,7 @@ The `help` export should be complete enough that `node space help <command>` is 
 - `update`
 - `version`
 
-## Command Families
+### Command Families
 
 There are two kinds of commands in this tree:
 
@@ -130,7 +103,7 @@ There are two kinds of commands in this tree:
 
 The preferred shape is a small number of readable top-level commands with explicit subcommands. Do not add one file per tiny action when a subcommand fits the existing command family cleanly.
 
-## Operational Commands
+### Operational Commands
 
 ### `serve`
 
@@ -207,6 +180,7 @@ Guidance:
 - keep the supervisor process title set to `space-supervise` so operator tools such as `htop` can distinguish it from child runtimes
 - keep child `space serve` launch args opaque and passthrough; `supervise` should only consume supervisor flags, normalize `CUSTOMWARE_PATH`, and replace child `HOST` and `PORT`
 - normalize `CUSTOMWARE_PATH` to an absolute path before passing it to children so every release shares the same writable `L1` and `L2` roots
+- inject the same canonical backend auth keys that `serve` and `user` commands use, loading them from `server/data/auth_keys.json` by default or `SPACE_AUTH_DATA_DIR/auth_keys.json` when configured; only migrate legacy `supervisor/auth/auth_keys.json` when the canonical file is absent
 - keep the watched update repository shared with `node space update`: `--remote-url` overrides `GIT_URL`, `GIT_URL` overrides the local `origin` remote URL, and only then should the canonical fallback apply
 - keep release staging out of the live source checkout to avoid mixed old-code/new-asset windows
 - keep update attempts non-overlapping and bounded so a stalled Git, install, or child-readiness step cannot block future intervals forever
@@ -326,7 +300,7 @@ Guidance:
 - prefer explicit revision handling over clever inference
 - surface destructive or branch-moving behavior clearly in help text
 
-## Runtime State Commands
+### Runtime State Commands
 
 These commands edit the layered runtime state under `app/`. They should operate through explicit filesystem contracts and shared backend libraries, not through ad hoc inline file mutations.
 
@@ -432,7 +406,7 @@ Guidance:
 - prefer normalized list editing through shared helpers in `server/lib/customware/`
 - when extending group semantics, keep command syntax readable instead of growing multiple near-duplicate top-level commands
 
-## Implementation Conventions
+### Implementation Conventions
 
 - keep command modules small and explicit
 - put shared CLI routing behavior in `space`
@@ -444,7 +418,39 @@ Guidance:
 - prefer explicit filesystem contracts such as `user.yaml`, `meta/password.json`, `meta/logins.json`, and `group.yaml`
 - keep command names and subcommands stable once exposed; when changing them, update help text and docs in the same session
 
-## Guidance
+## Work Guidance
+
+### Child DOX Guidance
+
+Future command-family docs should keep the DOX section spine:
+
+- `Purpose`
+- `Ownership`
+- `Local Contracts`
+- `Work Guidance`
+- `Verification`
+- `Child DOX Index`
+
+Required coverage:
+
+- which command files or helpers are owned
+- which subcommands, flags, environment variables, or schema entries are part of the public CLI contract
+- what the command prints and what files or runtime state it mutates
+- which shared server or helper libraries it must delegate to instead of re-implementing logic
+- which help text and examples must stay synchronized with the code
+- which existing command verification covers the behavior, when such a check exists
+
+A child doc is justified only when a command family has enough behavior or helper ownership that this file would otherwise become vague or bloated.
+
+### Local Work Rules
 
 - prefer a small number of readable top-level commands with subcommands over proliferating one-file one-action command names
 - when command discovery, command help shape, or command-specific conventions change, update this file in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- `/commands/lib/supervisor/AGENTS.md` - commands/lib/supervisor/ owns the command-local zero-downtime supervisor used by node space supervise.
