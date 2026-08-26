@@ -24,6 +24,8 @@ The current server routing order is fixed:
 
 This ordering lives centrally in `server/router/router.js`.
 
+API dispatch also owns backend error-log policy: explicit handler 4xx statuses are returned quietly, including expected 404s, while unexpected failures and 5xx statuses still emit one backend diagnostic log and keep browser-facing 5xx bodies redacted.
+
 ## Auth Gating
 
 Authenticated by default:

@@ -41,7 +41,9 @@ Current public shell assets:
 - login-shell social-link SVG assets under `res/`
 - shared transparent helmet favicon assets and `res/site.webmanifest`
 
-## Shell Contracts
+## Local Contracts
+
+### Shell Contracts
 
 `index.html`:
 
@@ -122,7 +124,7 @@ Current public shell assets:
 - should reuse the mirrored public backdrop assets instead of introducing a second standalone visual system
 - `/login` and `/enter` launcher actions plus public footer links must keep a stable clickable hitbox on hover and focus; use opacity, border, background, or outline changes instead of translate-based lift
 
-## Root Discovery File Contracts
+### Root Discovery File Contracts
 
 - `robots.txt` must stay public, static, and conservative: keep public entry pages crawlable while disallowing protected or technical routes such as `/admin`, `/api/`, `/mod/`, and direct app-file paths
 - `robots.txt` may advertise the local `sitemap.xml` and mention `llms.txt` files in comments, but should not invent unsupported crawler directives
@@ -133,7 +135,7 @@ Current public shell assets:
 - both LLM-oriented files should point only at public URLs or raw public markdown sources, never at authenticated app surfaces
 - `sitemap.xml` should list only public URLs that are reasonable to index without authentication; do not include `/admin`, `/api/...`, `/mod/...`, direct app-file paths, or other technical endpoints
 
-## Public Asset Mirroring
+### Public Asset Mirroring
 
 `/login`, `/enter`, and `/share/space/<token>` cannot rely on authenticated module assets for recovery-safe shells, and launcher-gated page shells must redirect before customware loads, so `server/pages/res/space-backdrop.css`, `server/pages/res/space-backdrop.js`, `server/pages/res/browser-compat.js`, and `server/pages/res/enter-guard.js` mirror the public-shell recovery behavior.
 
@@ -152,7 +154,9 @@ Rules:
 - page-shell HTML and mirrored public assets should be served with explicit no-store headers so recovery-safe shells and their helper scripts refresh immediately after source updates on every origin
 - external `https://...` URLs in page shells are allowed only as explicit user navigation targets, never as required runtime assets
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep page shells thin and static
 - expose stable anchors and let browser modules own dynamic composition
@@ -160,3 +164,11 @@ Rules:
 - do not hardwire authenticated app structure into page shells when an extension seam can own it
 - if page-shell contracts or mirrored public assets change, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/server/`
 - if page-shell contracts or mirrored public assets change, update this file and the related app docs
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

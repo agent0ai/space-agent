@@ -19,7 +19,9 @@ Current files:
 - `handlers/user_index.js`: derived user and session graph builder backed by `server/lib/auth/user_index.js`
 - `state_shards.js`: mapping between derived indexes and replicated `area/id` state shards
 
-## Configuration Contract
+## Local Contracts
+
+### Configuration Contract
 
 `config.yaml` is the source of truth for handler loading.
 
@@ -37,7 +39,7 @@ Current default handlers:
 - `group_index` over `group.yaml` files in `L0` and `L1`
 - `user_index` over `user.yaml`, `meta/logins.json`, and `meta/password.json` in `L2`
 
-## Index Contract
+### Index Contract
 
 `file_index`:
 
@@ -95,7 +97,9 @@ Rules:
 - clustered worker replicas consume versioned snapshots and incremental state deltas from the primary watchdog owner
 - if a feature needs a new live derived view, add a handler plus config entry instead of manually wiring one-off logic in `server/app.js`
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - add or change handlers through `config.yaml` plus handler classes, not special cases in bootstrap code
 - keep refresh behavior deterministic and centralized in `watchdog.js`
@@ -103,3 +107,11 @@ Rules:
 - keep backstop rescans infrequent and non-blocking; reuse the yielding full-scan path instead of adding new synchronous polling loops
 - keep index semantics stable because router, auth, and customware depend on them
 - if watched paths, handler names, or index contracts change, update this file and the affected docs in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

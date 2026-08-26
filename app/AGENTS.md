@@ -13,90 +13,18 @@ Frontend-first policy:
 - only push behavior into the backend when the browser cannot safely enforce it because other users, shared data, auth boundaries, or runtime integrity would otherwise be at risk
 - if such a backend change seems necessary and the user did not explicitly request backend work, stop and ask for permission first, explaining why frontend-only behavior would be insufficient
 
-This is one of the five core docs. It owns app-wide architecture, composition rules, and development principles. Detailed module behavior belongs in deeper module-local docs.
+This is a top-level DOX child doc. It owns app-wide architecture, composition rules, and development principles. Detailed module behavior belongs in deeper module-local docs.
 
 Documentation is top priority for this area. After any change under `app/` or any app-facing contract change owned here, update this file, the closest owning module `AGENTS.md` files, and the relevant supplemental docs under `_core/documentation/docs/` in the same session before finishing.
 
-## Documentation Hierarchy
+## Ownership
 
-`/app/AGENTS.md` stays high-level. Module-local docs own the implementation details for major frontend modules.
+- Owns the documentation and operating contract for `/app/`.
+- Direct child DOX docs listed below own their narrower subtrees.
 
-Current module-local docs in the app tree:
+## Local Contracts
 
-- `app/L0/_all/mod/_core/agent/AGENTS.md`
-- `app/L0/_all/mod/_core/agent-chat/AGENTS.md`
-- `app/L0/_all/mod/_core/agent_prompt/AGENTS.md`
-- `app/L0/_all/mod/_core/user/AGENTS.md`
-- `app/L0/_all/mod/_core/user_crypto/AGENTS.md`
-- `app/L0/_all/mod/_core/dashboard/AGENTS.md`
-- `app/L0/_all/mod/_core/dashboard_welcome/AGENTS.md`
-- `app/L0/_all/mod/_core/documentation/AGENTS.md`
-- `app/L0/_all/mod/_core/framework/AGENTS.md`
-- `app/L0/_all/mod/_core/panels/AGENTS.md`
-- `app/L0/_all/mod/_core/login_hooks/AGENTS.md`
-- `app/L0/_all/mod/_core/memory/AGENTS.md`
-- `app/L0/_all/mod/_core/promptinclude/AGENTS.md`
-- `app/L0/_all/mod/_core/router/AGENTS.md`
-- `app/L0/_all/mod/_core/skillset/AGENTS.md`
-- `app/L0/_all/mod/_core/spaces/AGENTS.md`
-- `app/L0/_all/mod/_core/time_travel/AGENTS.md`
-- `app/L0/_all/mod/_core/visual/AGENTS.md`
-- `app/L0/_all/mod/_core/file_explorer/AGENTS.md`
-- `app/L0/_all/mod/_core/huggingface/AGENTS.md`
-- `app/L0/_all/mod/_core/web_browsing/AGENTS.md`
-- `app/L0/_all/mod/_core/webllm/AGENTS.md`
-- `app/L0/_all/mod/_core/admin/AGENTS.md`
-- `app/L0/_all/mod/_core/admin/views/agent/AGENTS.md`
-- `app/L0/_all/mod/_core/admin/views/files/AGENTS.md`
-- `app/L0/_all/mod/_core/admin/views/time_travel/AGENTS.md`
-- `app/L0/_all/mod/_core/admin/views/modules/AGENTS.md`
-- `app/L0/_all/mod/_core/onscreen_agent/AGENTS.md`
-- `app/L0/_all/mod/_core/onscreen_menu/AGENTS.md`
-- `app/L0/_all/mod/_core/open_router/AGENTS.md`
-- `app/L1/_all/mod/metrics/posthog/AGENTS.md`
-- `app/L0/_admin/mod/_core/overlay_agent/AGENTS.md`
-
-Update rules:
-
-- update the nearest module doc when you change a documented module
-- update this file only when the app-wide contract, ownership map, composition model, or shared frontend conventions changed
-- keep implementation-specific detail out of this file when a deeper doc can own it
-
-## How To Document App Child Docs
-
-All app child docs at the same depth should use the same backbone.
-
-Default module-doc section order:
-
-- `Purpose`
-- `Documentation Hierarchy` when the module owns deeper docs or stable sub-areas
-- `Ownership`
-- one or more concrete contract sections that cover the seams this module exposes
-- `Development Guidance`
-
-Required contract coverage for app docs:
-
-- entry points and extension seams: page anchors, routed views, `ext/html/` and `ext/js/` files, module-owned extension metadata folders such as `ext/panels/`, exported runtime namespaces, iframe boundaries, and route mounts
-- state and persistence: stores, `init()` or `mount()` or `unmount()` lifecycle, session or local storage keys, app-file paths, backend endpoints, and background async work
-- component and DOM ownership: which HTML files mount which JS or store files, which components are thin adapters, and which DOM refs or `x-ref` inputs are required
-- visual and style ownership: which CSS is shared versus local, which `_core/visual` primitives are reused, and any mirrored public-shell assets or visual constraints
-- cross-module links: which other modules this one may call, extend, or be extended by, and which dependencies are intentionally forbidden
-
-Child-doc split rules:
-
-- parent app docs own domain-wide composition rules and the map of module docs
-- module docs own the link between HTML, JS, stores, CSS, assets, and extension seams inside that module
-- leaf view or component docs, when added, should own the exact UI, store, and API contract for that surface without re-documenting the whole module
-
-Module-type emphasis:
-
-- platform modules such as `framework/` and `visual/` should emphasize reusable namespaces, primitives, tokens, and import boundaries
-- shell modules such as `router/` and `admin/` should emphasize anchors, routing, layout seams, and child-surface ownership
-- feature modules and admin views should emphasize stores, API calls, persistence, component linkage, and local styling rules
-
-When a module later grows multiple independently owned sub-areas, add a local `Documentation Hierarchy` section there before adding new child docs.
-
-## Structure
+### Structure
 
 The browser runtime is organized into three layers:
 
@@ -140,7 +68,7 @@ Current major first-party modules under `app/L0/_all/mod/_core/`:
 - `time_travel/`: routed writable-layer history surface that defaults to the authenticated user's local Git commits, can switch to write-accessible `L1` or `L2` history repositories through a permission-aware picker, filters by changed file, opens per-file diffs, and calls the server rollback or revert APIs after explicit confirmation
 - `dashboard/`, `dashboard_welcome/`, and `spaces/`: current routed feature surfaces and dashboard-injected surfaces under the router; `_core/dashboard` also injects a route-owned control cluster into `[id="_core/onscreen_menu/bar_start"]` through the framework's delayed-target `x-inject` helper, exposes ordered dashboard-local topbar seams so feature modules can contribute dashboard-only header actions without hardcoding them into the shell, and owns the dashboard route's extra bottom breathing room under the chat overlay
 
-## Layer Rules And Module Model
+### Layer Rules And Module Model
 
 - `L0` is firmware and should stay update-driven
 - `L1` contains per-group customware; `_all` and `_admin` are special groups
@@ -167,7 +95,7 @@ Current major first-party modules under `app/L0/_all/mod/_core/`:
 - first-party application development should happen primarily under `app/L0/_all/mod/_core/`
 - use `L1` and `L2` for layered overrides and customware behavior, not as the main home for repo-owned first-party features
 
-## Frontend Composition Model
+### Frontend Composition Model
 
 The frontend is built as a chain of shells, modules, and extension seams.
 
@@ -192,7 +120,7 @@ Default composition guidance:
 - let the owning module expose the next seam
 - add explicit extension points when downstream customization is realistic
 
-## Extension And Component Contracts
+### Extension And Component Contracts
 
 There are two primary extension styles in the frontend runtime.
 
@@ -254,7 +182,7 @@ Resolution and overrides:
 - component HTML should stay declarative and bind to stores instead of carrying dense inline logic
 - import a feature's store module in the component that owns the feature, not in unrelated parent shells
 
-## Store And Runtime Model
+### Store And Runtime Model
 
 The default frontend pattern is Alpine plus store-backed modules.
 
@@ -291,7 +219,7 @@ Runtime guidance:
 - online-by-nature features such as API LLM providers, model downloads, external embeds, market or weather widgets, feeds, and user-authored remote fetches may still depend on the internet, but they must fail as feature-level online work rather than blocking framework boot or shell rendering
 - browser storage is for small non-authoritative UI state; persistent user state belongs in app files or explicit backend APIs
 
-## Visual Direction
+### Visual Direction
 
 Space Agent frontend work should look like one deliberate system rather than a mix of unrelated component-library defaults.
 
@@ -310,19 +238,7 @@ Space Agent frontend work should look like one deliberate system rather than a m
 
 Detailed visual subsystem rules now live in `app/L0/_all/mod/_core/visual/AGENTS.md`.
 
-## App Development Principles
-
-- build new first-party features as modules under `app/L0/_all/mod/_core/<feature>/`
-- treat page shells as extension roots, not as the application body
-- keep extension files thin and keep real implementation in ordinary module files
-- if another feature needs to modify owned behavior, expose a seam in the owner instead of reaching into private internals
-- extend the onscreen overlay through the JS seams documented in `_core/onscreen_agent/AGENTS.md` instead of patching `store.js`, `prompt.js`, `skills.js`, or `api.js` from another module
-- when a style, helper, or runtime contract will be reused by multiple modules, move it into `_core/visual`, `_core/framework`, or another clearly shared owning module
-- do not grow `server/pages/*.html` beyond shell concerns when modules and extension anchors can own the composition
-- do not request server-side endpoints, page-shell logic, or auth-service changes for frontend features unless the browser truly cannot enforce the needed boundary safely
-- do not build new repo-owned first-party app features directly inside transient `L1` or `L2` customware
-
-## Current Major Module Owners
+### Current Major Module Owners
 
 - `framework/` owns frontend bootstrap and runtime primitives; see `app/L0/_all/mod/_core/framework/AGENTS.md`
 - `login_hooks/` owns frontend-only authenticated bootstrap hooks for first-login and same-origin `/login` arrival events, plus the client-owned `~/meta/login_hooks.json` marker and the shared first-login onboarding seam used by feature modules such as `_core/spaces`; see `app/L0/_all/mod/_core/login_hooks/AGENTS.md`
@@ -347,10 +263,91 @@ Detailed visual subsystem rules now live in `app/L0/_all/mod/_core/visual/AGENTS
 - `spaces/` owns the routed spaces canvas, first-login onboarding-space template bootstrap, empty-canvas prompt, widget SDK and widget-size ceilings, the default spaces camera contract that opens occupied cells horizontally centered with the top-most occupied row on the first visible grid row below the fixed shell bar with `0.5em` breathing room and only clamps panning once an outer occupied cell would leave view, and persisted centered-coordinate space runtime plus dashboard-facing space metadata such as title, icon, color, and agent instructions; see `app/L0/_all/mod/_core/spaces/AGENTS.md`
 - `panels/` owns `ext/panels/*.yaml` manifest discovery and the dashboard-facing secondary panels row; see `app/L0/_all/mod/_core/panels/AGENTS.md`
 
-## Guidance
+## Work Guidance
+
+### Child DOX Guidance
+
+All app child docs at the same depth should use the same DOX backbone:
+
+- `Purpose`
+- `Ownership`
+- `Local Contracts`
+- `Work Guidance`
+- `Verification`
+- `Child DOX Index`
+
+Required contract coverage for app docs:
+
+- entry points and extension seams: page anchors, routed views, `ext/html/` and `ext/js/` files, module-owned extension metadata folders such as `ext/panels/`, exported runtime namespaces, iframe boundaries, and route mounts
+- state and persistence: stores, `init()` or `mount()` or `unmount()` lifecycle, session or local storage keys, app-file paths, backend endpoints, and background async work
+- component and DOM ownership: which HTML files mount which JS or store files, which components are thin adapters, and which DOM refs or `x-ref` inputs are required
+- visual and style ownership: which CSS is shared versus local, which `_core/visual` primitives are reused, and any mirrored public-shell assets or visual constraints
+- cross-module links: which other modules this one may call, extend, or be extended by, and which dependencies are intentionally forbidden
+
+Child-doc split rules:
+
+- parent app docs own domain-wide composition rules and the map of module docs
+- module docs own the link between HTML, JS, stores, CSS, assets, and extension seams inside that module
+- leaf view or component docs, when added, should own the exact UI, store, and API contract for that surface without re-documenting the whole module
+
+Module-type emphasis:
+
+- platform modules such as `framework/` and `visual/` should emphasize reusable namespaces, primitives, tokens, and import boundaries
+- shell modules such as `router/` and `admin/` should emphasize anchors, routing, layout seams, and child-surface ownership
+- feature modules and admin views should emphasize stores, API calls, persistence, component linkage, and local styling rules
+
+When a module later grows multiple independently owned sub-areas, create or update the child DOX docs and refresh the parent's `Child DOX Index` before spreading implementation detail across files.
+
+### App Development Principles
+
+- build new first-party features as modules under `app/L0/_all/mod/_core/<feature>/`
+- treat page shells as extension roots, not as the application body
+- keep extension files thin and keep real implementation in ordinary module files
+- if another feature needs to modify owned behavior, expose a seam in the owner instead of reaching into private internals
+- extend the onscreen overlay through the JS seams documented in `_core/onscreen_agent/AGENTS.md` instead of patching `store.js`, `prompt.js`, `skills.js`, or `api.js` from another module
+- when a style, helper, or runtime contract will be reused by multiple modules, move it into `_core/visual`, `_core/framework`, or another clearly shared owning module
+- do not grow `server/pages/*.html` beyond shell concerns when modules and extension anchors can own the composition
+- do not request server-side endpoints, page-shell logic, or auth-service changes for frontend features unless the browser truly cannot enforce the needed boundary safely
+- do not build new repo-owned first-party app features directly inside transient `L1` or `L2` customware
+
+### Local Work Rules
 
 - keep root HTML shells thin and static; session gating belongs in the server router, not in inline frontend boot code
 - cache empty extension lookups as valid results; a missing extension point should not cause repeated polling
 - because extension lookups are cached in memory, adding new `ext/html/...` or `ext/js/...` files often requires a refresh before the running page discovers them
 - browser-side file changes still require a manual browser refresh; live reload is not wired into the app runtime yet
 - when you add or change a stable app seam, update the owning local doc and this file if the app-wide composition model changed
+
+## Verification
+
+
+
+## Child DOX Index
+
+- `/app/L0/_admin/mod/_core/overlay_agent/AGENTS.md` - L0/_admin/mod/_core/overlay_agent/ owns admin-only skill content for the onscreen overlay agent.
+- `/app/L0/_all/mod/_core/admin/AGENTS.md` - _core/admin/ owns the firmware-backed admin area.
+- `/app/L0/_all/mod/_core/agent-chat/AGENTS.md` - _core/agent-chat/ owns shared feature-level chat helpers reused by first-party agent surfaces.
+- `/app/L0/_all/mod/_core/agent/AGENTS.md` - _core/agent/ owns the routed browser page for basic agent information and personal agent settings.
+- `/app/L0/_all/mod/_core/agent_prompt/AGENTS.md` - _core/agent_prompt/ owns the shared prepared-prompt runtime used by first-party agent surfaces.
+- `/app/L0/_all/mod/_core/dashboard/AGENTS.md` - _core/dashboard/ owns the default routed dashboard view.
+- `/app/L0/_all/mod/_core/dashboard_welcome/AGENTS.md` - _core/dashboard_welcome/ owns the dashboard-injected welcome surface.
+- `/app/L0/_all/mod/_core/documentation/AGENTS.md` - _core/documentation/ owns the supplemental agent-facing documentation module.
+- `/app/L0/_all/mod/_core/file_explorer/AGENTS.md` - _core/file_explorer/ owns the first-party app file explorer.
+- `/app/L0/_all/mod/_core/framework/AGENTS.md` - _core/framework/ is the shared frontend platform layer.
+- `/app/L0/_all/mod/_core/huggingface/AGENTS.md` - _core/huggingface/ owns the first-party browser inference test surface for Hugging Face Transformers.js.
+- `/app/L0/_all/mod/_core/login_hooks/AGENTS.md` - _core/login_hooks/ owns frontend-only login lifecycle hooks for authenticated framework-backed pages.
+- `/app/L0/_all/mod/_core/memory/AGENTS.md` - _core/memory/ owns the first-party persistent-memory workflow for agent surfaces.
+- `/app/L0/_all/mod/_core/onscreen_agent/AGENTS.md` - _core/onscreen_agent/ owns the floating routed overlay agent.
+- `/app/L0/_all/mod/_core/onscreen_menu/AGENTS.md` - _core/onscreen_menu/ owns the viewport-fixed routed header bar, page menu, and Home shortcut.
+- `/app/L0/_all/mod/_core/open_router/AGENTS.md` - _core/open_router/ owns OpenRouter-specific frontend request customization.
+- `/app/L0/_all/mod/_core/panels/AGENTS.md` - _core/panels/ owns the panel-manifest index used by the dashboard.
+- `/app/L0/_all/mod/_core/promptinclude/AGENTS.md` - _core/promptinclude/ owns prompt-include discovery for the onscreen agent.
+- `/app/L0/_all/mod/_core/router/AGENTS.md` - _core/router/ owns the authenticated root app shell.
+- `/app/L0/_all/mod/_core/skillset/AGENTS.md` - _core/skillset/ owns first-party reusable skill packs, skill-local browser helper modules stored inside those skill folders, shared vendored browser assets reused by those helpers, and the shared browser-side skill discovery helper used by both agent surfaces.
+- `/app/L0/_all/mod/_core/spaces/AGENTS.md` - _core/spaces/ owns the main user-facing spaces canvas.
+- `/app/L0/_all/mod/_core/time_travel/AGENTS.md` - _core/time_travel/ owns the user-facing Time Travel page for writable-layer local history.
+- `/app/L0/_all/mod/_core/user/AGENTS.md` - _core/user/ owns the routed browser page for user account settings.
+- `/app/L0/_all/mod/_core/user_crypto/AGENTS.md` - _core/user_crypto/ owns session-scoped frontend decryption state for user-encrypted values.
+- `/app/L0/_all/mod/_core/visual/AGENTS.md` - _core/visual/ owns the shared Space Agent visual system.
+- `/app/L0/_all/mod/_core/web_browsing/AGENTS.md` - _core/web_browsing/ owns the browser overlay module and the generic <x-browser> browser surface element.
+- `/app/L0/_all/mod/_core/webllm/AGENTS.md` - _core/webllm/ owns the first-party browser inference test surface for WebLLM.

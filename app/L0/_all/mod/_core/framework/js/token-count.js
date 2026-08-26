@@ -1,5 +1,5 @@
-import { Tiktoken } from "/mod/_core/framework/js/vendor/js-tiktoken-lite.js";
-import o200kBase from "/mod/_core/framework/js/vendor/js-tiktoken-o200k_base.js";
+import { Tiktoken } from "./vendor/js-tiktoken-lite.js";
+import o200kBase from "./vendor/js-tiktoken-o200k_base.js";
 
 let tokenizer = null;
 

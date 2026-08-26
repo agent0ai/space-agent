@@ -43,7 +43,9 @@ This module owns:
 - `ext/skills/spaces/SKILL.md`: concise always-loaded onscreen-agent guidance for space-level browsing, selection, CRUD, and `space.yaml` edits across spaces
 - `ext/skills/space-widgets/SKILL.md`: current-space widget-authoring guidance that is eligible and auto-loaded only while the page exports `space:open`
 
-## Persistence And Widget Contract
+## Local Contracts
+
+### Persistence And Widget Contract
 
 Spaces persist under the authenticated user's `~/spaces/<spaceId>/` root.
 
@@ -118,7 +120,7 @@ Current widget contract:
 - widgets that fetch remote HTTP data should use runtime-managed `fetch(...)` or `space.fetchExternal(...)`; do not hardcode third-party CORS proxy services such as allorigins or corsproxy inside widget renderers, because the frontend runtime already retries blocked origins through `/api/proxy` and remembers successful proxy-needed origins for the rest of the page lifetime
 - generated widget scaffolds should not inject instructional title blocks or storage-explainer copy into the visible widget output
 
-## Runtime Namespace
+### Runtime Namespace
 
 `store.js` registers both `space.current` and `space.spaces`.
 
@@ -246,7 +248,9 @@ Current dashboard integration:
 - dashboard cards and other list surfaces should keep the icon in a dedicated right-side column, let long titles wrap with word breaking without breaking the row layout, keep launcher cards square at one consistent size instead of stretching them wider for sparse rows, center the row only while the current card count is still below the row capacity, cap the launcher at five columns on wide screens, keep the footer date on the same row as duplicate and delete controls, use a concise no-comma timestamp with a two-digit year, and still show the selected space icon in its stored color plus widget-name pills; row capacity should be calculated from fixed card size plus a required minimum gutter so five cards fit across the full dashboard width when that width truly supports them, and once the launcher reaches that capacity it should switch to one explicit left-to-right column stage built from stretched parent slots while the cards inside those slots stay square; wrapped remainder rows should reuse that same slot spacing from the left edge, and widget-name pills inside each card should be capped to two visible rows so the square size can stay compact; when the stored title is empty, render the `Untitled` placeholder instead of exposing the internal space id as user-facing copy
 - dashboard-specific spaces UI should stay in this module, not in the dashboard owner
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep persistence in logical app files under `~/spaces/`; do not introduce server-owned special storage for ordinary spaces, and keep hosted-share UI limited to ZIP export/import plus explicit uploads to the separate cloud-share receiver
 - keep `space.yaml` and widget YAML files within the lightweight YAML subset that the shipped parser can round-trip reliably, including multiline block scalars for renderer source
@@ -289,3 +293,11 @@ Current dashboard integration:
 - do not rebuild widget primitive helper DSLs here; prefer direct DOM rendering and `space.utils.markdown.render(...)`
 - if the spaces runtime surface or widget workflow changes, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/app/` and `docs/agent/`
 - if the routed feature contract, runtime namespace, or persisted space layout changes, update this file and `/app/AGENTS.md`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

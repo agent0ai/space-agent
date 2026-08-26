@@ -395,6 +395,7 @@ export async function execute(context) {
   const releasesDir = path.join(stateDir, "releases");
   const auth = await loadSupervisorAuthEnv({
     env: process.env,
+    projectRoot: context.projectRoot,
     stateDir
   });
   const updateSource = await resolveSupervisorSource(

@@ -22,7 +22,8 @@ export const DEFAULT_ADMIN_CHAT_SETTINGS = {
   model: "openai/gpt-5.4-mini",
   paramsText: "temperature:0.2",
   promptBudgetRatios: { ...DEFAULT_PROMPT_BUDGET_RATIOS },
-  provider: ADMIN_CHAT_LLM_PROVIDER.API
+  provider: ADMIN_CHAT_LLM_PROVIDER.API,
+  supportsVision: true
 };
 
 export function normalizeAdminChatLlmProvider(value) {
@@ -33,6 +34,10 @@ export function normalizeAdminChatLlmProvider(value) {
 
 export function normalizeAdminChatLocalProvider(value) {
   return ADMIN_CHAT_LOCAL_PROVIDER.HUGGINGFACE;
+}
+
+export function normalizeAdminChatSupportsVision(value) {
+  return value === true || value === "true" || value === 1 || value === "1";
 }
 
 export function createAdminChatHuggingFaceSelectionValue(modelId, dtype) {

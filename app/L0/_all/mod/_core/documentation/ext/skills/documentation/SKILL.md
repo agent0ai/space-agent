@@ -14,12 +14,12 @@ workflow
 - Start with the built-in documentation index below unless you already know the exact doc path
 - Use one focused `read("path/to/file.md")` call instead of loading many large docs blindly
 - Treat `/README.md` as the public product source of truth for the project pitch, quick starts, release links, community links, and DeepWiki discovery
-- After orientation, confirm the concrete contract in the owning `AGENTS.md` file and then inspect code when needed
+- After orientation, walk the DOX chain from `/AGENTS.md` to the owning `AGENTS.md` file and then inspect code when needed
 - For visual or modal work, confirm `app/L0/_all/mod/_core/visual/AGENTS.md` before changing dialog shells, buttons, cards, popovers, or other shared UI primitives
 - For dashboard panel creation, panel manifests, or panel-navigation helpers, start with `app/modules-and-extensions.md`
 - Keep the repo's frontend-first rule in mind while reading: backend docs explain constraints and existing contracts, not default permission to edit `server/`
 - If the change appears to require backend work and the user did not explicitly ask for backend edits, ask for permission and explain the security, integrity, or stability reason before changing backend files
-- When you change a stable contract or workflow, update both the relevant `AGENTS.md` files and the matching docs in `/mod/_core/documentation/docs/`
+- When you change a stable contract or workflow, update the relevant DOX `AGENTS.md` files, including affected `Child DOX Index` entries, and the matching docs in `/mod/_core/documentation/docs/`
 - When you add, remove, rename, or substantially repurpose a doc file, update this skill's in-file index in the same session
 
 recommended starting points
@@ -47,7 +47,7 @@ recommended starting points
 docs path|name|description↓
 architecture/overview.md|Runtime Overview|Browser-first architecture, major entry surfaces, and the layered runtime model.
 architecture/desktop-host-and-packaging.md|Desktop Host And Packaging|Electron host startup, free-port binding, packaged single-user behavior, and desktop build outputs.
-architecture/documentation-system.md|Documentation System|How `AGENTS.md`, the documentation module, and code fit together, plus update rules.
+architecture/documentation-system.md|Documentation System|How DOX `AGENTS.md`, the documentation module, and code fit together, plus update rules.
 app/runtime-and-layers.md|App Runtime And Layers|Frontend boot flow, `space` runtime namespaces, entry shells, and `L0/L1/L2` rules.
 app/admin-agent-runtime.md|Admin Agent Runtime|Admin chat ownership, config persistence, shared execution loop, and API-versus-local-Hugging-Face transport switching.
 app/modules-and-extensions.md|Modules And Extensions|`/mod/...` delivery, router path resolution, dashboard panel manifests, `ext/html`, `ext/js`, and `<x-component>` behavior.

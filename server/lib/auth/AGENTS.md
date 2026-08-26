@@ -20,7 +20,9 @@ Current files:
 - `user_index.js`: derived user and session index snapshot builder
 - `user_manage.js`: create user, delete user, set password, and create guest user helpers
 
-## Storage Contract
+## Local Contracts
+
+### Storage Contract
 
 Current user storage layout:
 
@@ -36,7 +38,7 @@ Current user storage layout:
 
 `user_files.js` is the canonical helper layer for those files. Do not write them through ad hoc path logic elsewhere.
 
-## Session And Login Contract
+### Session And Login Contract
 
 Current session rules:
 
@@ -74,7 +76,7 @@ Current user-index rules:
 - `user_index.js` derives user records, sealed-password presence, and stored session graphs from `user.yaml`, `password.json`, and `logins.json`
 - request auth state should flow from the replicated derived index shards for loaded users, while `service.js` remains the owner of password-record opening and session-signature validation
 
-## User-Management Contract
+### User-Management Contract
 
 `user_manage.js` currently owns:
 
@@ -95,7 +97,9 @@ Rules:
 - guest deletion removes the whole `L2/<username>/` root, deletes any backend-only `userCrypto` server share, and publishes that logical path through the shared mutation path so replicated user and session indexes drop the guest immediately
 - periodic guest cleanup policy belongs in `server/jobs/`; `user_manage.js` owns the deletion primitive, not the schedule or file-index policy
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep auth state and session rules centralized here
 - do not add direct cookie or session-file manipulation elsewhere when the auth service already owns the flow
@@ -104,3 +108,11 @@ Rules:
 - if user storage, session semantics, or login flow change, also update `app/L0/_all/mod/_core/skillset/ext/skills/development/` because the shared development skill mirrors this contract
 - if user storage, session semantics, or login flow change, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/server/`
 - if user storage, session semantics, or login flow change, update this file and the relevant router or API docs in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

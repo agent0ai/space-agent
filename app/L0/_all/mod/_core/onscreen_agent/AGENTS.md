@@ -8,32 +8,6 @@ It mounts into the router overlay layer, keeps its own floating shell, prompt fi
 
 Documentation is top priority for this module. After any change under `_core/onscreen_agent/`, update this file and any affected parent docs in the same session.
 
-## Documentation Hierarchy
-
-`_core/onscreen_agent/AGENTS.md` owns the overlay runtime and the shared onscreen skill-loading contract.
-
-Current deeper docs:
-
-- `app/L0/_all/mod/_core/onscreen_agent/prompts/AGENTS.md`
-
-Parent vs child split:
-
-- this file owns overlay-wide runtime behavior, persistence, execution flow, skill loading, and cross-surface prompt contracts
-- `prompts/AGENTS.md` owns the shipped prompt files, token-budget rules, and prompt-text editing guidance
-
-Child doc section pattern:
-
-- `Purpose`
-- `Ownership`
-- `Local Contracts`
-- `Development Guidance`
-
-Update rules:
-
-- update this file when overlay-wide runtime behavior, skill loading, or ownership boundaries change
-- update the deeper prompt doc when shipped prompt file behavior, wording strategy, or token-budget rules change
-- when framework, router, API, path, permission, or auth contracts change in ways that affect the shared development skill tree, update `app/L0/_all/mod/_core/skillset/ext/skills/development/AGENTS.md` in the same session
-
 ## Ownership
 
 This module owns:
@@ -55,8 +29,11 @@ This module owns:
 - `config.js` and `storage.js`: persisted settings, owner-tagged browser UI state, and history
 - `prompts/`: shipped prompt files and prompt-local documentation
 - the `space.onscreenAgent` runtime namespace for overlay display control and externally triggered prompt submission
+- Direct child DOX docs listed below own their narrower subtrees.
 
-## Persistence And Prompt Contract
+## Local Contracts
+
+### Persistence And Prompt Contract
 
 Current persistence paths:
 
@@ -193,7 +170,7 @@ Prompt rules:
 - `prompts/compact-prompt.md` is used for user-triggered history compaction
 - `prompts/compact-prompt-auto.md` is used for automatic compaction during the loop
 
-## JS Extension Seams
+### JS Extension Seams
 
 Overlay chat behavior is intentionally extensible through `ext/js/` hooks rather than private store patching.
 
@@ -227,7 +204,7 @@ Current `processOnscreenAgentMessage` phases:
 
 Phase-specific context fields may include `draftSubmission`, `responseMeta`, `executionResults`, `executionOutputMessage`, or compaction `mode`.
 
-## Overlay Contract
+### Overlay Contract
 
 Current overlay behavior:
 
@@ -309,7 +286,9 @@ Current overlay behavior:
 - readable group-scoped modules such as `L0/_admin/mod/...` may contribute additional onscreen skills; those skills are visible only to users who can read that group root
 - skill ids must be unique across readable modules; conflicting ids are omitted from the prompt catalog and load attempts fail with an ambiguity error
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep overlay-specific behavior local to this module
 - do not import admin-agent internals for convenience
@@ -319,8 +298,17 @@ Current overlay behavior:
 - keep `_core/onscreen_agent` generic: do not add task-specific execution validators, helper workflows, or module-owned prompt rules here when the owning module can supply them through `ext/js/` or skills
 - keep onscreen skill discovery and runtime behavior separate from the admin agent even when copying skill content for starter coverage
 - keep overlay-local Hugging Face glue limited to snapshot shaping, settings state, and calls into the shared `_core/huggingface/manager.js`; do not fork a second Hugging Face worker or import admin-agent local-provider helpers
+- keep directly Node-tested helpers such as `attachments.js` on relative imports for shared pure modules so the same source resolves in both the browser module tree and direct verification imports
 - keep `ext/skills/development/` aligned with the current frontend and read-only backend contracts so the onscreen agent's development guidance does not drift
 - keep prompt-surface strings lean: prefer `id|name|description` rows, short block labels, and body-only auto-loaded skill text over verbose wrappers
 - if behavior becomes meaningfully shared with the admin agent, promote it into `_core/framework` or `_core/visual` instead of creating cross-surface dependencies
 - if overlay runtime, prompt construction, execution protocol, or skill loading changes, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/agent/`
 - if you change the router overlay contract, persistence paths, skill discovery, or prompt execution behavior, update this file and the relevant parent docs in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- `/app/L0/_all/mod/_core/onscreen_agent/prompts/AGENTS.md` - prompts/ owns the model-facing prompt files for _core/onscreen_agent/

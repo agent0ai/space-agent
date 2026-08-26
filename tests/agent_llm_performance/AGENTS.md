@@ -27,6 +27,8 @@ This scope owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 - prompt files are standalone system prompts and are ranked by filename id plus saved results, not by hidden script state
 - prompt variants that cover browser-navigation behavior should say near the top that visiting another website means using `browser-control` and a stand-alone browser window, and that leaving the current runtime page via `window.location`, `location.href`, `location.assign(...)`, or `location.replace(...)` is forbidden
 - prompt variants that carry compact widget-authoring guidance should keep it aligned with the live firmware prompt and `_core/spaces`: prefer `async (parent, currentSpace, context) => { ... }` and use `await context.import("scripts/...")` for current-space shared modules, shared state, cross-widget communication, space-global helpers, and large widget splits
@@ -82,7 +84,9 @@ This scope owns:
 - `case-coverage.md` must stay current when cases are added removed or reclassified
 - when prompt wording, case assertions, or scoring rules change, update this doc and regenerate results in the same session
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - prefer adding new failures as prepared histories and assertions before changing scoring code
 - when a real conversation exposes a logic bug, distill it into the shortest history that still reproduces the control-flow mistake
@@ -138,3 +142,11 @@ This scope owns:
 - during manual review, reject a nominally good `C` if it is not actually wild enough to expand the search space
 - when a prompt variant wins, sync the proven changes back into the live onscreen firmware prompt deliberately rather than implicitly, and only after manual review agrees with the automated score
 - if a full matrix run shows widespread `request error: fetch failed` across otherwise unrelated cases, treat that as likely transport saturation and rerun with lower prompt or case concurrency before treating it as prompt signal
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

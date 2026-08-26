@@ -19,7 +19,9 @@ This module owns:
 - `router-page.js`: router entry module and static backdrop install
 - `router.css`: shell layout and routed-stage styling
 
-## Route Contract
+## Local Contracts
+
+### Route Contract
 
 The router is hash-based.
 
@@ -45,7 +47,7 @@ Current route rules:
 
 `router-store.js` persists per-route scroll positions in `sessionStorage` under `space.router.scrollPositions`.
 
-## Shell And Extension Seams
+### Shell And Extension Seams
 
 `view.html` owns the routed shell and its stable extension points.
 
@@ -74,7 +76,9 @@ Current shell layout note:
 - the shell also exports the active route path through a hidden `<x-context>` tag in the form `route:<path>` so skill discovery can follow the live route without a separate registry
 - route-specific shell layout overrides that affect routed frame width, routed height, or routed scroll ownership belong here in router-owned CSS; `_core/spaces` uses a zero-padding, full-height, overflow-hidden stage override keyed by `data-route-path="spaces"`, and the routed frame wrappers should keep stretching to full width and full height so full-bleed routes are not trapped by intermediate grid items
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - use extension anchors for shell-level additions instead of editing `view.html` directly whenever possible
 - keep route resolution rules centralized in `route-path.js`
@@ -85,3 +89,11 @@ Current shell layout note:
 - if route resolution or stable router seams change, also update the matching docs under `app/L0/_all/mod/_core/documentation/docs/app/`
 - if shell-row layout changes, update `_core/onscreen_menu/AGENTS.md` and any routed shell docs that depend on reserved chrome space
 - if you add or rename a stable router seam, update this file and `/app/AGENTS.md`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

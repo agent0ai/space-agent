@@ -6,33 +6,6 @@
 
 Keep test workflows explicit scriptable and isolated from app runtime behavior unless a test explicitly targets that runtime
 
-## Documentation Hierarchy
-
-`tests/AGENTS.md` owns the top-level test tree and the contract for deeper test harness docs
-
-Current deeper docs:
-
-- `tests/agent_llm_performance/AGENTS.md`
-- `tests/browser_component_harness/AGENTS.md`
-- `tests/agent_llm_performance_structured/AGENTS.md`
-- `tests/agent_llm_turn_flags/AGENTS.md`
-
-Parent vs child split:
-
-- this file owns the top-level test layout and shared test-workflow boundaries
-- `agent_llm_performance/AGENTS.md` owns the LLM prompt-performance harness, its config, cases, prompts, and scoring rules
-- `browser_component_harness/AGENTS.md` owns the standalone Electron browser-component harness under `tests/browser_component_harness/`
-- `agent_llm_performance_structured/AGENTS.md` owns the structured-output LLM prompt-performance harness, its schema contract, cases, prompts, and scoring rules
-  - this harness is currently an experimental comparison track, not the default replacement for the free-text harness
-- `agent_llm_turn_flags/AGENTS.md` owns the flagged-turn LLM prompt-performance harness, its config, cases, prompts, and scoring rules
-
-Child doc section pattern:
-
-- `Purpose`
-- `Ownership`
-- `Local Contracts`
-- `Development Guidance`
-
 ## Ownership
 
 This scope owns:
@@ -62,7 +35,7 @@ This scope owns:
 - `server_cluster_write_stress_test.mjs`: CLI write pressure harness that seeds temporary `L2/<user>/` trees, can fan that seed across many synthetic users, drives concurrent `/api/file_write` requests through a single-process `--workers 1` baseline or multiple clustered workers, records startup plus restart timings on the same dataset, can toggle `CUSTOMWARE_WATCHDOG` to isolate background watcher cost from the explicit clustered mutation path, reports throughput plus latency percentiles and per-process CPU deltas, and can optionally sample the clustered primary CPU profile to highlight primary-side write bottlenecks such as replicated-state cloning or watchdog path rebuild work
 - `watchdog_external_changes_test.mjs`: focused watchdog coverage for raw external L2 changes staying unloaded until demand-loaded, auth-only L2 state loading without a full user-tree scan, CLI-style group writes remaining live-indexed while user writes load on demand, explicit project-path sync hydrating newly created ancestor directories without a whole-layer rescan, and completion-anchored backstop reconcile scheduling when periodic full rescans are disabled or slowed
 - `set_command_test.mjs`: focused coverage for `space set` `KEY=VALUE` parsing, rejection of non-assignment arguments, ordered multi-assignment application, and runtime-param schema validation for stored server config keys
-- `supervise_command_test.mjs`: focused coverage for `supervise` argument partitioning, opaque child `space serve` arg forwarding, child `HOST` and `PORT` rewriting, `CUSTOMWARE_PATH` resolution, and the default project-root `supervisor/` state directory
+- `supervise_command_test.mjs`: focused coverage for `supervise` argument partitioning, opaque child `space serve` arg forwarding, child `HOST` and `PORT` rewriting, `CUSTOMWARE_PATH` resolution, the default project-root `supervisor/` state directory, canonical auth-key reuse, and legacy supervisor auth-key migration
 - `state_system_test.mjs`: focused coverage for the unified primary-owned state system, delta pruning, TTL behavior, and named lock semantics
 - `update_remote_test.mjs`: focused coverage for shared update-repository URL resolution from explicit config, runtime `GIT_URL`, environment, and local git origin fallback
 - `user_home_tree_transient_test.mjs`: focused prompt-context coverage for the bounded current-user `~/` transient tree, including folder-first ordering, per-folder limits, depth-limit summaries, and explicit line-limit summaries
@@ -76,9 +49,14 @@ This scope owns:
 - `onscreen_agent_turn_boundary_test.mjs`: focused overlay send-loop coverage for queued follow-up boundary handling around pending assistant `_____javascript` execution
 - `huggingface_prompt_shape_test.mjs`: focused local-LLM prompt-shaping coverage for the Hugging Face API-style fallback prompt format and the onscreen local-client folded-transport message contract
 - `router_cache_headers_test.mjs`: focused server-router coverage for no-store cache headers on `/mod/...`, page shells, and public page resources so runtime code updates replace stale origin-scoped module caches after reload
+- `router_api_logging_test.mjs`: focused server-router coverage for API handler logging so expected client-error statuses such as 404 are returned without backend error-log noise while 5xx failures keep one backend diagnostic log
+- `visual_data_test.mjs`: focused shared agent-vision coverage for provider content-part shaping, removal of internal prompt metadata at the outbound transport boundary, non-vision fallback, consecutive-message visual deduplication, and visual token accounting
 - shared expectations for test config, fixtures, scripted execution, and saved evaluation results
+- Direct child DOX docs listed below own their narrower subtrees.
 
 ## Local Contracts
+
+### Local Contracts
 
 - keep harnesses runnable from the CLI with explicit file paths or config-driven defaults
 - keep provider config local to each harness and load secrets from environment or repo `.env`, never hardcode them
@@ -108,7 +86,9 @@ This scope owns:
 - standalone browser-harness lifecycle waits should follow the latest guest document and should not let late same-document navigation events clear a bridge that remains usable for subsequent `content(...)` or `detail(...)` reads
 - standalone browser-harness ref-targeted actions should match the real browser contract closely enough to return `{ action, state }`, including action status flags such as `reacted` and `noObservedEffect` plus visible-effect hints such as validation text or semantic cues, so loop-prevention and actionability regressions stay testable outside the full app shell
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep fixtures hand-authored and readable
 - keep fixtures independent and side-effect-free so harnesses can parallelize them safely
@@ -116,3 +96,12 @@ This scope owns:
 - prune stale result commentary and keep only durable signal in the always-read summaries; full history can live in dedicated archive outputs
 - when iterating generations, expand the search space on purpose instead of writing three near-duplicate prompts
 - update the root `AGENTS.md` when the top-level test workflow or ownership map changes
+
+## Verification
+
+
+
+## Child DOX Index
+
+- `/tests/agent_llm_performance/AGENTS.md` - tests/agent_llm_performance/ owns prompt-performance evaluation for the onscreen agent LLM
+- `/tests/browser_component_harness/AGENTS.md` - tests/browser_component_harness/ owns the standalone Electron browser-component harness used to debug the desktop browser bridge without booting the full app shell.

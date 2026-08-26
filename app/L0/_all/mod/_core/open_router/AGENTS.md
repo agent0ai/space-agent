@@ -18,13 +18,25 @@ This module owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 - this module contributes behavior only through JS extension hooks and shared helpers; it must not fork or duplicate the admin or onscreen chat runtimes
 - OpenRouter detection should use the configured upstream API endpoint, not the proxied fetch URL, because frontend fetches may be rerouted through `/api/proxy`
 - the two shipped extension hooks may mutate the prepared API request object, including headers, body, URL, method, or extra fetch-init fields, but they should leave non-OpenRouter requests untouched
 - provider-specific HTTP policy belongs here or in similar headless provider modules, not hard-coded into `_core/onscreen_agent/llm.js` or `_core/admin/views/agent/api.js`
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep provider detection small and explicit
 - prefer one shared helper for endpoint matching and header mutation so the admin and onscreen hooks stay in sync
 - if additional OpenRouter request shaping is needed later, extend the prepared request object here instead of reintroducing per-surface hard-coded branches
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

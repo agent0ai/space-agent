@@ -61,7 +61,7 @@ Important consequences:
 For work in this repo, use these in order:
 
 1. user request and explicit local context
-2. relevant `AGENTS.md` files
+2. the relevant DOX `AGENTS.md` chain
 3. the docs in this module
 4. concrete code
 

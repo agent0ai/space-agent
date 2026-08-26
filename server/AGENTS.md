@@ -13,70 +13,18 @@ Backend changes are exceptional in this project:
 - backend work is justified only when security, shared-data integrity, multi-user isolation, or runtime-stability requirements cannot be trusted to browser code alone
 - when backend work is needed without an explicit backend request, stop and ask the user for permission, explain why the behavior is non-standard here, and describe the narrow server change required
 
-This is one of the five core docs. It owns server-wide responsibilities, request flow, and infrastructure boundaries. Detailed subsystem contracts belong in deeper docs inside `server/`.
+This is a top-level DOX child doc. It owns server-wide responsibilities, request flow, and infrastructure boundaries. Detailed subsystem contracts belong in deeper docs inside `server/`.
 
 Documentation is top priority for this area. After any change under `server/` or any server contract change owned here, update this file, the closest owning subsystem `AGENTS.md` files, and the relevant supplemental docs under `app/L0/_all/mod/_core/documentation/docs/` in the same session before finishing.
 
-## Documentation Hierarchy
+## Ownership
 
-`/server/AGENTS.md` stays high-level. Deeper docs own the technical details for major server subsystems.
+- Owns the documentation and operating contract for `/server/`.
+- Direct child DOX docs listed below own their narrower subtrees.
 
-Current subsystem-local docs in the server tree:
+## Local Contracts
 
-- `server/api/AGENTS.md`
-- `server/jobs/AGENTS.md`
-- `server/router/AGENTS.md`
-- `server/pages/AGENTS.md`
-- `server/runtime/AGENTS.md`
-- `server/lib/customware/AGENTS.md`
-- `server/lib/auth/AGENTS.md`
-- `server/lib/file_watch/AGENTS.md`
-- `server/lib/share/AGENTS.md`
-- `server/lib/tmp/AGENTS.md`
-- `server/lib/git/AGENTS.md`
-
-Update rules:
-
-- update the nearest subsystem doc when you change a documented server area
-- update this file only when the server-wide contract, request flow, or ownership map changed
-- keep endpoint- or module-specific detail out of this file when a deeper doc can own it
-- when a stable server contract changes, keep the matching documentation-module docs aligned in the same session
-
-## How To Document Server Child Docs
-
-All server child docs at the same depth should share one spine.
-
-Default subsystem-doc section order:
-
-- `Purpose`
-- `Documentation Hierarchy` when deeper docs exist or are about to be added
-- `Ownership`
-- concrete contract sections for the area's stable behaviors
-- `Development Guidance`
-
-Required contract coverage for server docs:
-
-- discovery and ownership: which files are discovered dynamically, which files are canonical entry points, and which helper modules are authoritative
-- input and output contract: request methods, handler context, return shapes, function APIs, CLI-facing exports, and caller expectations
-- storage or path or index contract: logical paths, on-disk locations, watched sources, caches, indexes, and naming rules
-- security and permission contract: auth defaults, anonymous exceptions, read or write boundaries, and trust assumptions
-- mutation and refresh side effects: watchdog refreshes, cache invalidation, session revocation, derived-index rebuild expectations, and any ordering requirements
-- dependency boundaries: which shared helpers must be reused and which duplicate local implementations are forbidden
-
-Subsystem-type emphasis:
-
-- endpoint docs should enumerate families, auth mode, request body or query expectations, response shapes, and delegated helper owners
-- router and pages docs should document routing order, gating, shell assets, injected meta tags, public-versus-authenticated behavior, and mirrored assets
-- service or library docs should document canonical helpers, data files, path normalization, invariants, and who may call them
-- filesystem or index docs should document watched inputs, derived outputs, rebuild triggers, and how logical paths relate to disk paths
-
-Parent and child split rules:
-
-- `/server/AGENTS.md` owns cross-subtree request flow and shared infrastructure boundaries
-- subsystem docs own the precise contracts for one server area
-- if a subsystem later grows endpoint-family docs, page-specific docs, or handler docs, the parent subsystem doc must first define the template those deeper docs will use
-
-## Responsibilities
+### Responsibilities
 
 - serve the root HTML entry shells and public page-shell assets from `server/pages/`, including the public hosted-share clone shell at `/share/space/<token>` when guest users are enabled
 - resolve browser-delivered modules from the layered `app/L0`, `app/L1`, and `app/L2` customware model, with writable `L1` and `L2` optionally rooted under `CUSTOMWARE_PATH`
@@ -96,7 +44,7 @@ Parent and child split rules:
 - expose the resolved project version string to page shells that declare the `SPACE_PROJECT_VERSION` placeholder, using `server/lib/utils/project_version.js` as the shared resolver
 - support local development and source-checkout update flows without turning the server into business-logic orchestration
 
-## Structure
+### Structure
 
 Current server layout:
 
@@ -123,7 +71,7 @@ Current server layout:
 - `server/lib/git/`: Git backend abstraction used by update flows and Git-backed module installs
 - `server/tmp/`: transient disk-backed artifacts such as folder-download ZIP files
 
-## Request Flow And Runtime Contracts
+### Request Flow And Runtime Contracts
 
 Request routing order is:
 
@@ -164,7 +112,7 @@ Core runtime contracts:
 - `/logout` is handled by the pages layer and clears the current session cookie before redirecting to `/login`
 - autoscaled or multi-instance deployments must inject the same `SPACE_AUTH_PASSWORD_SEAL_KEY` and `SPACE_AUTH_SESSION_HMAC_KEY` values into every instance; the local `server/data/` or `SPACE_AUTH_DATA_DIR` fallback is for single-instance development and other shared-filesystem setups
 
-## Shared Infrastructure Contracts
+### Shared Infrastructure Contracts
 
 The server relies on a small set of shared infrastructure contracts. Do not re-implement them inside endpoints or handlers.
 
@@ -201,7 +149,7 @@ Infrastructure rules:
 - keep startup and restart indexing bounded to `L0`, `L1`, and layer roots; full `L2/<user>` file-index shards are demand-loaded and must not be preloaded to make stale users visible
 - keep periodic full rescans rare and completion-anchored, and route any unavoidable backstop rebuild through the shared yielding reconcile path over currently loaded shards instead of adding new synchronous polling loops
 
-## API Contract
+### API Contract
 
 Endpoint files in `server/api/` are loaded by filename. Multiword API route names should use object-first underscore naming so related routes stay grouped together alphabetically, for example `login_check`, `guest_create`, and `extensions_load`.
 
@@ -222,6 +170,8 @@ Handlers may return:
 - explicit HTTP-style response objects when status, headers, binary bodies, or streaming behavior matter
 - Web `Response` objects for advanced cases
 
+Endpoint handlers should throw errors with an explicit 4xx `statusCode` for expected client-error responses such as missing resources, invalid input, or denied access. The router returns those responses without backend error-log noise, while unexpected failures and 5xx statuses still produce one backend diagnostic log and keep browser-facing 5xx bodies redacted.
+
 Current endpoint families:
 
 - public auth and health: `health`, `guest_create`, `login_challenge`, `login`, `login_check`
@@ -237,7 +187,42 @@ Current endpoint families:
 
 Detailed endpoint behavior now lives in `server/api/AGENTS.md`.
 
-## Server Implementation Guide
+## Work Guidance
+
+### Child DOX Guidance
+
+All server child docs at the same depth should share the DOX spine:
+
+- `Purpose`
+- `Ownership`
+- `Local Contracts`
+- `Work Guidance`
+- `Verification`
+- `Child DOX Index`
+
+Required contract coverage for server docs:
+
+- discovery and ownership: which files are discovered dynamically, which files are canonical entry points, and which helper modules are authoritative
+- input and output contract: request methods, handler context, return shapes, function APIs, CLI-facing exports, and caller expectations
+- storage or path or index contract: logical paths, on-disk locations, watched sources, caches, indexes, and naming rules
+- security and permission contract: auth defaults, anonymous exceptions, read or write boundaries, and trust assumptions
+- mutation and refresh side effects: watchdog refreshes, cache invalidation, session revocation, derived-index rebuild expectations, and any ordering requirements
+- dependency boundaries: which shared helpers must be reused and which duplicate local implementations are forbidden
+
+Subsystem-type emphasis:
+
+- endpoint docs should enumerate families, auth mode, request body or query expectations, response shapes, and delegated helper owners
+- router and pages docs should document routing order, gating, shell assets, injected meta tags, public-versus-authenticated behavior, and mirrored assets
+- service or library docs should document canonical helpers, data files, path normalization, invariants, and who may call them
+- filesystem or index docs should document watched inputs, derived outputs, rebuild triggers, and how logical paths relate to disk paths
+
+Parent and child split rules:
+
+- `/server/AGENTS.md` owns cross-subtree request flow and shared infrastructure boundaries
+- subsystem docs own the precise contracts for one server area
+- if a subsystem later grows endpoint-family docs, page-specific docs, or handler docs, the parent subsystem doc must first refresh its `Child DOX Index` and state which local contracts stay parent-owned
+
+### Server Implementation Guide
 
 - keep endpoints narrow and explicit
 - keep routing order explicit and easy to reason about
@@ -249,3 +234,21 @@ Detailed endpoint behavior now lives in `server/api/AGENTS.md`.
 - do not move browser-side agent logic onto the server by default
 - reject backend convenience changes that merely duplicate frontend orchestration or UI workflow logic
 - when server responsibilities, request flow, API contracts, watched-file behavior, or persistence architecture change, update this file and the owning subsystem docs in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- `/server/api/AGENTS.md` - server/api/ contains the HTTP endpoint modules loaded under /api/<endpoint>.
+- `/server/jobs/AGENTS.md` - server/jobs/ owns primary-run periodic maintenance jobs.
+- `/server/lib/auth/AGENTS.md` - server/lib/auth/ owns the local auth and session system.
+- `/server/lib/customware/AGENTS.md` - server/lib/customware/ owns the layered app filesystem and module model.
+- `/server/lib/file_watch/AGENTS.md` - server/lib/file_watch/ owns the config-driven watchdog and the derived live indexes built from the logical app tree.
+- `/server/lib/git/AGENTS.md` - server/lib/git/ owns the Git backend abstraction used by source-checkout update flows and Git-backed module installs.
+- `/server/lib/share/AGENTS.md` - server/lib/share/ owns the backend-hosted space-share helper.
+- `/server/lib/tmp/AGENTS.md` - server/lib/tmp/ owns transient server-side file storage under server/tmp/.
+- `/server/pages/AGENTS.md` - server/pages/ contains the server-owned HTML shells and public shell assets.
+- `/server/router/AGENTS.md` - server/router/ owns top-level HTTP request handling for the local server runtime.
+- `/server/runtime/AGENTS.md` - server/runtime/ owns the multi-worker server runtime glue.

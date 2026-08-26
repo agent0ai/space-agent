@@ -19,7 +19,9 @@ This module owns:
 - `ext/panels/file_explorer.yaml`: dashboard panel manifest for the routed Files page
 - `ext/html/_core/onscreen_menu/items/file-explorer.html`: routed header-menu item adapter for the Files route
 
-## Runtime And API Contract
+## Local Contracts
+
+### Runtime And API Contract
 
 This module talks to the shared server file APIs through `space.api`.
 
@@ -43,7 +45,7 @@ Current editor rule:
 
 - text editing is refused for files larger than `1 MB` based on `fileInfo(...)` metadata before the editor dialog opens
 
-## UI And State Contract
+### UI And State Contract
 
 `store.js` owns:
 
@@ -60,7 +62,9 @@ Current editor rule:
 - routed-page and list-row sizing clamps the explorer to its route column with `min-width: 0`, `max-width: 100%`, `overflow: hidden`, and border-box sizing on the internal card, list, and rows so padding or borders cannot create horizontal scroll
 - the routed `view.html` wrapper should stay flush with the shared route column and should not add extra horizontal padding around the reusable explorer card
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep file-explorer workflow logic centralized in `store.js`
 - keep admin-specific shell behavior in `_core/admin/views/files/`; this module should stay reusable outside `/admin`
@@ -68,3 +72,11 @@ Current editor rule:
 - keep layout overflow fixes inside this reusable module instead of relying on the admin shell to hide route-page sizing issues
 - keep server permission rules authoritative; do not duplicate them in the browser beyond UI affordances
 - if you change file-API expectations, update this file and the relevant server docs in the same session
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

@@ -1,3 +1,9 @@
+import {
+  formatVisualDataDimensions,
+  normalizeVisualDataList,
+  serializeVisualDataList
+} from "/mod/_core/agent-chat/visual-data.js";
+
 const ATTACHMENT_ID_PREFIX = "attachment";
 const DEFAULT_ATTACHMENT_TYPE = "application/octet-stream";
 
@@ -106,6 +112,14 @@ function buildAttachmentListLines(attachments) {
   });
 }
 
+function buildVisualDataListLines(visualData) {
+  return normalizeVisualDataList(visualData).map((entry) => {
+    const dimensions = formatVisualDataDimensions(entry);
+    const source = entry.source ? ` | source: ${entry.source}` : "";
+    return `- ${entry.id} | name: ${JSON.stringify(entry.name)} | type: ${entry.mediaType}${dimensions ? ` | dimensions: ${dimensions}` : ""}${source}`;
+  });
+}
+
 export function formatAttachmentSize(bytes) {
   const normalizedBytes = normalizeAttachmentSize(bytes);
 
@@ -183,8 +197,9 @@ export function buildMessageContentForApi(message) {
   const attachments = Array.isArray(message?.attachments)
     ? message.attachments.map((attachment) => serializeAttachmentMetadata(attachment))
     : [];
+  const visualData = serializeVisualDataList(message?.visualData);
 
-  if (message?.role !== "user" || !attachments.length) {
+  if (message?.role !== "user" || (!attachments.length && !visualData.length)) {
     return content;
   }
 
@@ -192,21 +207,45 @@ export function buildMessageContentForApi(message) {
   const availabilityNote = attachments.some((attachment) => !attachment.available)
     ? "Some files listed below are metadata-only because the page was reloaded. Those bytes are no longer readable in JavaScript."
     : "These files are live in the browser runtime for this message.";
-
-  const attachmentBlock = [
-    "Chat runtime access:",
+  const attachmentBlock = attachments.length
+    ? [
+        "Attachments↓",
+        ...buildAttachmentListLines(attachments)
+      ].join("\n")
+    : "";
+  const visualDataBlock = visualData.length
+    ? [
+        "Visual data↓",
+        ...buildVisualDataListLines(visualData)
+      ].join("\n")
+    : "";
+  const runtimeAccessLines = [
+    "Chat runtime access↓",
     "The current thread is available in JavaScript as `space.chat`.",
-    "Read current messages with `space.chat.messages`.",
-    availabilityNote,
-    "Read live attachments with `space.chat.attachments.current()`, `space.chat.attachments.forMessage(\"" +
-      messageId +
-      "\")`, or `space.chat.attachments.get(\"<attachment-id>\")`.",
-    "Each attachment object exposes `id`, `messageId`, `name`, `type`, `size`, `lastModified`, `file`, and async methods `text()`, `json()`, `arrayBuffer()`, `dataUrl()`.",
-    "Attachments:",
-    ...buildAttachmentListLines(attachments)
-  ].join("\n");
+    "Read current messages with `space.chat.messages`."
+  ];
 
-  return content ? `${content}\n\n${attachmentBlock}` : attachmentBlock;
+  if (attachments.length) {
+    runtimeAccessLines.push(
+      availabilityNote,
+      "Read live attachments with `space.chat.attachments.current()`, `space.chat.attachments.forMessage(\"" +
+        messageId +
+        "\")`, or `space.chat.attachments.get(\"<attachment-id>\")`.",
+      "Each attachment object exposes `id`, `messageId`, `name`, `type`, `size`, `lastModified`, `file`, and async methods `text()`, `json()`, `arrayBuffer()`, `dataUrl()`."
+    );
+  }
+
+  runtimeAccessLines.push(
+    "Read visual data with `space.chat.visual.current()`, `space.chat.visual.forMessage(\"" +
+      messageId +
+      "\")`, or `space.chat.visual.get(\"<visual-id>\")`.",
+    "Load image data into model context with `await space.chat.visual.loadImage(dataUrlOrBlobOrFile, { name })` or `await space.chat.visual.loadAttachment(\"<attachment-id>\")`."
+  );
+
+  const runtimeAccessBlock = runtimeAccessLines.join("\n");
+  const messageContent = [content, attachmentBlock, visualDataBlock, runtimeAccessBlock].filter(Boolean).join("\n\n");
+
+  return messageContent;
 }
 
 export function createAttachmentRuntime() {

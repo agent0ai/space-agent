@@ -18,6 +18,8 @@ This module owns:
 
 ## Local Contracts
 
+### Local Contracts
+
 Current panel-manifest contract:
 
 - panel manifests live at `mod/<author>/<repo>/ext/panels/*.yaml` or `*.yml`
@@ -37,8 +39,18 @@ Current dashboard integration:
 - panel chips should open routes through `space.router.goTo(...)` when the router runtime is available and fall back to updating `location.hash`
 - the dashboard section should stay read-only; panel manifests describe existing routed pages and do not create or mutate app files
 
-## Development Guidance
+## Work Guidance
+
+### Local Work Rules
 
 - keep panel discovery browser-owned and permission-aware through `file_paths` plus batched `fileRead(...)` instead of introducing a dedicated backend endpoint or per-manifest fetch fanout
 - keep panel manifests lightweight and display-oriented; this module should not become a second router config system
 - if the manifest schema, discovery path, or dashboard seam changes, update this file, `/app/AGENTS.md`, and the matching docs under `_core/documentation/docs/`
+
+## Verification
+
+
+
+## Child DOX Index
+
+- No child DOX docs.

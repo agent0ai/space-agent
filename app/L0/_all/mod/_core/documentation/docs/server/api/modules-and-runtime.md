@@ -139,6 +139,10 @@ The frontend API client exposes `space.api.health()` for the health endpoint.
 
 It returns a small status shape rather than a broad runtime dump.
 
+## API Error Logging
+
+Endpoint handlers should throw errors with an explicit `statusCode` when returning an expected HTTP failure. Router dispatch returns explicit 4xx statuses, including expected 404s, without backend `console.error` logging so routine missing-resource probes do not flood server logs. Unexpected failures and 5xx statuses still produce one backend diagnostic log, and 5xx response bodies stay redacted to `Internal server error`.
+
 ## Related Docs
 
 - `server/customware-layers-and-paths.md`

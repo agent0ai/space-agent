@@ -36,6 +36,8 @@ They come from:
 
 or the local fallback `server/data/auth_keys.json` when `SPACE_AUTH_DATA_DIR` is unset.
 
+`node space supervise` injects those same canonical backend auth keys into child `serve` processes. Older `supervisor/auth/auth_keys.json` state is migrated only when the canonical auth-key file is absent, so CLI-created users and supervised runtime children share one verifier-sealing key source.
+
 Per-user `userCrypto` server shares are also backend-only and live under gitignored `server/data/user_crypto/<username>.json`, or under `SPACE_AUTH_DATA_DIR/user_crypto/<username>.json` when that override is set.
 
 ## Session Contract
