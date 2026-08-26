@@ -4,6 +4,7 @@ import {
   DEFAULT_DTYPE,
   DEFAULT_MAX_NEW_TOKENS,
   DEFAULT_MODEL_INPUT,
+  LEGACY_DEFAULT_MODEL_INPUT,
   discardCachedModelEntries,
   describeModelSelection,
   DTYPE_OPTIONS,
@@ -270,6 +271,11 @@ function readPersistedModelSelection() {
 
     const modelId = normalizeHuggingFaceModelInput(parsedValue.modelId || parsedValue.modelInput);
     if (!modelId) {
+      return null;
+    }
+
+    if (modelId === LEGACY_DEFAULT_MODEL_INPUT) {
+      globalThis.localStorage?.removeItem(PERSISTED_MODEL_STORAGE_KEY);
       return null;
     }
 

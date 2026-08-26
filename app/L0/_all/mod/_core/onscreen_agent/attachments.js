@@ -2,7 +2,7 @@ import {
   formatVisualDataDimensions,
   normalizeVisualDataList,
   serializeVisualDataList
-} from "/mod/_core/agent-chat/visual-data.js";
+} from "../agent-chat/visual-data.js";
 
 const ATTACHMENT_ID_PREFIX = "attachment";
 const DEFAULT_ATTACHMENT_TYPE = "application/octet-stream";

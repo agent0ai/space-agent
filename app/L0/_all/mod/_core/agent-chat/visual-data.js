@@ -1,4 +1,4 @@
-import { countTextTokens } from "/mod/_core/framework/js/token-count.js";
+import { countTextTokens } from "../framework/js/token-count.js";
 
 const DATA_URL_PATTERN = /^data:([^;,]+)?((?:;[^,]+)*),(.*)$/isu;
 const DEFAULT_IMAGE_MEDIA_TYPE = "image/png";
@@ -677,8 +677,12 @@ export function prepareChatMessagesForVisionTransport(messages = [], options = {
         return null;
       }
 
+      const transportMessage = { ...message };
+      delete transportMessage.tokenCount;
+      delete transportMessage.visualData;
+
       return {
-        ...message,
+        ...transportMessage,
         content: buildVisionContentParts(message, options)
       };
     })

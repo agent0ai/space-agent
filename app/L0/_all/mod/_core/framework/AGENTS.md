@@ -31,6 +31,7 @@ This module owns:
 - Alpine directives and magic helpers registered during bootstrap, including delayed-target `x-inject`
 - shared browser API helpers in `js/api-client.js`, `js/api.js`, `js/fetch-proxy.js`, `js/download.js`, and `js/proxy-url.js`
 - small shared parsing and utility helpers such as markdown frontmatter, the browser YAML wrapper, and token counting
+- `js/token-count.js`: shared token counting with relative vendor imports so direct Node tests and browser module loading execute the same implementation
 - shared framework CSS and icon font assets under `css/`, including non-visual helper-tag defaults such as hidden `x-context` elements
 
 ## Local Contracts
@@ -141,6 +142,7 @@ Rules:
 ### Local Work Rules
 
 - keep this module focused on platform concerns, not feature logic
+- keep pure framework utilities that are directly imported by Node tests on relative internal imports; browser-absolute `/mod/...` specifiers remain appropriate for browser-only runtime entry points
 - add shared runtime helpers here only when multiple modules genuinely need them
 - prefer explicit small runtime namespaces over loose globals
 - if a contract is used by only one module, keep it in that module instead of promoting it here too early

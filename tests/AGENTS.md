@@ -50,6 +50,7 @@ This scope owns:
 - `huggingface_prompt_shape_test.mjs`: focused local-LLM prompt-shaping coverage for the Hugging Face API-style fallback prompt format and the onscreen local-client folded-transport message contract
 - `router_cache_headers_test.mjs`: focused server-router coverage for no-store cache headers on `/mod/...`, page shells, and public page resources so runtime code updates replace stale origin-scoped module caches after reload
 - `router_api_logging_test.mjs`: focused server-router coverage for API handler logging so expected client-error statuses such as 404 are returned without backend error-log noise while 5xx failures keep one backend diagnostic log
+- `visual_data_test.mjs`: focused shared agent-vision coverage for provider content-part shaping, removal of internal prompt metadata at the outbound transport boundary, non-vision fallback, consecutive-message visual deduplication, and visual token accounting
 - shared expectations for test config, fixtures, scripted execution, and saved evaluation results
 - Direct child DOX docs listed below own their narrower subtrees.
 
