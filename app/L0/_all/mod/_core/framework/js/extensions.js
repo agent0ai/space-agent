@@ -70,6 +70,19 @@ const JS_EXTENSION_SCOPE = "js";
 const FRAMEWORK_HEAD_EXTENSION_POINT = "_core/framework/head/end";
 export const HTML_EXTENSION_READY_ATTRIBUTE = "data-space-extension-ready";
 
+// A JS hook that throws is caught so one broken extension cannot take down a
+// framework seam. That catch must not also hide the failure: the last failures
+// stay on the runtime (`space.extensionFailures`) and are announced as a
+// `space:extension-failure` event, so a hook that silently stops enforcing is
+// visible to the app instead of only to the browser console.
+const EXTENSION_FAILURE_LOG_LIMIT = 25;
+const EXTENSION_FAILURE_EVENT = "space:extension-failure";
+// Enforcement seams are `validate*` extension points: their hooks exist to reject
+// what must not run, so a hook that throws there fails the wrapped call instead
+// of being indistinguishable from a passing hook.
+const ENFORCEMENT_EXTENSION_POINT_PATTERN = /(?:^|\/)validate[A-Za-z0-9_]*\/end$/u;
+const EXTENSION_LOAD_FAILURE_PATH = "(js extension modules)";
+
 export const API_EXTENSION_EXCLUDED_ENDPOINTS = new Set([
   "/api/extensions_load",
 ]);
@@ -385,6 +398,9 @@ function createExtensionCacheKey(extensionPoint, scope) {
 /** @type {Map<string, Promise<ExtensionPath[]>>} */
 const pendingExtensionLookups = new Map();
 
+/** @type {Map<string, { at: string, extensionPath: string, extensionPoint: string, message: string, stack: string }>} */
+const failedJsExtensionLoads = new Map();
+
 /** @type {Map<string, QueuedExtensionLookup>} */
 const queuedExtensionLookups = new Map();
 
@@ -560,6 +576,111 @@ function loadExtensionPaths(extensionPoint, filters, scope) {
   return lookupPromise;
 }
 
+function formatExtensionError(error) {
+  if (error instanceof Error) {
+    return `${error.name || "Error"}: ${error.message}`;
+  }
+
+  return String(error);
+}
+
+function getExtensionFailureLog() {
+  const runtime = ensureSpaceRuntime();
+
+  if (!Array.isArray(runtime.extensionFailures)) {
+    runtime.extensionFailures = [];
+  }
+
+  return runtime.extensionFailures;
+}
+
+/**
+ * Record a failed JS extension hook so it is visible outside the browser
+ * console (runtime log plus a `space:extension-failure` window event).
+ *
+ * @param {{ error: any, extensionPath: string, extensionPoint: string }} failure
+ * @returns {{ at: string, extensionPath: string, extensionPoint: string, message: string, stack: string }}
+ */
+export function recordJsExtensionFailure({ error, extensionPath, extensionPoint }) {
+  const record = {
+    at: new Date().toISOString(),
+    extensionPath,
+    extensionPoint,
+    message: formatExtensionError(error),
+    stack: error instanceof Error && typeof error.stack === "string" ? error.stack : ""
+  };
+
+  const failures = getExtensionFailureLog();
+  failures.push(record);
+
+  if (failures.length > EXTENSION_FAILURE_LOG_LIMIT) {
+    failures.splice(0, failures.length - EXTENSION_FAILURE_LOG_LIMIT);
+  }
+
+  if (
+    typeof globalThis.CustomEvent === "function" &&
+    typeof globalThis.window?.dispatchEvent === "function"
+  ) {
+    try {
+      globalThis.window.dispatchEvent(
+        new globalThis.CustomEvent(EXTENSION_FAILURE_EVENT, { detail: record })
+      );
+    } catch {
+      // Failure reporting must never break the failing hook path.
+    }
+  }
+
+  return record;
+}
+
+function isEnforcementExtensionPoint(extensionPoint) {
+  return ENFORCEMENT_EXTENSION_POINT_PATTERN.test(normalizeExtensionSegment(extensionPoint));
+}
+
+function createExtensionHookError(error, extensionPath, extensionPoint) {
+  const failureError = new Error(
+    `Extension hook failed: ${extensionPath} (${extensionPoint}) — ${formatExtensionError(error)}`
+  );
+  failureError.name = "ExtensionHookError";
+  failureError.cause = error;
+  failureError.extensionPath = extensionPath;
+  failureError.extensionPoint = extensionPoint;
+  return failureError;
+}
+
+function failClosedExtensionHook(error, extensionPath, extensionPoint, data) {
+  const hookContext = Array.isArray(data) ? data[0] : null;
+
+  if (!hookContext || typeof hookContext !== "object" || Array.isArray(hookContext)) {
+    return false;
+  }
+
+  const failureError = createExtensionHookError(error, extensionPath, extensionPoint);
+  const validationResult = hookContext.result;
+
+  // Validation seams report through the errors they return (the execution-plan
+  // error channel the turn reads back to the model), so a throwing hook is
+  // reported there and the block is rejected instead of passing.
+  if (validationResult && typeof validationResult === "object" && !Array.isArray(validationResult)) {
+    if (!Array.isArray(validationResult.errors)) {
+      validationResult.errors = [];
+    }
+
+    if (!validationResult.errors.includes(failureError)) {
+      validationResult.errors.push(failureError);
+    }
+
+    return true;
+  }
+
+  if ("error" in hookContext && hookContext.error == null) {
+    hookContext.error = failureError;
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * Call all JS extensions for a given extension point.
  *
@@ -574,11 +695,36 @@ export async function callJsExtensions(extensionPoint, ...data){
     cachedExtensions !== undefined
       ? cachedExtensions
       : await loadJsExtensions(extensionPoint);
+
+  const loadFailure = failedJsExtensionLoads.get(cacheKey);
+
+  if (loadFailure) {
+    failedJsExtensionLoads.delete(cacheKey);
+
+    if (isEnforcementExtensionPoint(extensionPoint)) {
+      failClosedExtensionHook(
+        new Error(loadFailure.message),
+        EXTENSION_LOAD_FAILURE_PATH,
+        extensionPoint,
+        data
+      );
+    }
+  }
+
   for(const extension of extensions){
     try{
       await extension.module.default(...data);
     }catch(error){
       console.error(`Error calling extension: ${extension.path}`, error);
+      recordJsExtensionFailure({
+        error,
+        extensionPath: extension.path,
+        extensionPoint
+      });
+
+      if (isEnforcementExtensionPoint(extensionPoint)) {
+        failClosedExtensionHook(error, extension.path, extensionPoint, data);
+      }
     }
   }
 }
@@ -611,6 +757,14 @@ export async function loadJsExtensions(extensionPoint) {
     return imports;
   } catch (error) {
     console.error("Error loading JS extensions:", error);
+    failedJsExtensionLoads.set(
+      createExtensionCacheKey(extensionPoint, JS_EXTENSION_SCOPE),
+      recordJsExtensionFailure({
+        error,
+        extensionPath: EXTENSION_LOAD_FAILURE_PATH,
+        extensionPoint
+      })
+    );
     return [];
   }
 }

@@ -129,6 +129,13 @@ Rules:
 - `_core/user_crypto` is a headless runtime helper module: it extends `_core/framework/initializer.js/initialize/end`, reads `space.api.userSelfInfo()` for the current backend `sessionId` plus `userCrypto` state, restores the unlocked browser key from per-tab session storage when available and otherwise from the encrypted `localStorage` blob through `/api/user_crypto_session_key`, uses that same endpoint to backfill the persisted local blob from an already-unlocked tab, stores that blob under one fixed key, logs concise `console.warn(...)` messages when cache or bootstrap restore paths fail but the module can still continue fail-soft, and signs the browser out when the backend reports that the user still needs a first-login `userCrypto` provisioning run at `/login` or when the persisted blob is stale for the current session
 - `_core/open_router` is a headless provider-policy module: it extends `_core/onscreen_agent/api.js/prepareOnscreenAgentApiRequest/end` and `_core/admin/views/agent/api.js/prepareAdminAgentApiRequest/end`, detects when API mode targets an OpenRouter upstream endpoint, and applies the OpenRouter-specific request headers there instead of hardcoding them inside the chat runtimes
 
+A hook that throws is caught so one broken extension cannot break a framework seam, but the failure stays visible:
+
+- the hook keeps its `console.error` line and is recorded as one bounded `space.extensionFailures` entry with `at`, `extensionPath`, `extensionPoint`, `message`, and `stack`, plus one `space:extension-failure` window event carrying that record
+- enforcement seams are the `validate*/end` extension points: a hook that throws there fails the wrapped call closed instead of passing silently, reporting an `ExtensionHookError` with the message `Extension hook failed: <extension path> (<extension point>) — <error>` through the returned validation `errors` when the seam has one, and otherwise through `hookContext.error` so the wrapped call rejects
+- an enforcement seam whose hook modules cannot be imported fails closed the same way, attributed to the `(js extension modules)` path
+- seams that are not enforcement seams still fail open and are only recorded, so an enforcement seam must be named `validate*` for a broken validator to reject its wrapped call
+
 Uncached HTML `<x-extension>` lookups are grouped before they hit `/api/extensions_load`:
 
 - by default the frontend flushes the lookup queue on the next animation frame

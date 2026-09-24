@@ -148,6 +148,9 @@ JS extension hooks:
 - use `callJsExtensions("name", data)` only when the seam is an explicit event rather than a function lifecycle
 - `_core/login_hooks` is a first-party example of an explicit event seam: it runs from `_core/framework/initializer.js/initialize/end`, checks `~/meta/login_hooks.json`, then dispatches `_core/login_hooks/first_login` once per user and `_core/login_hooks/any_login` when the authenticated shell was reached from `/login`; `_core/spaces` currently uses that first-login seam to copy or reuse the module-owned `Big Bang` onboarding space and rewrite the main-shell default route before the router falls back to `#/dashboard`
 - when a feature module needs onscreen-agent prompt shaping, execution-plan validation, or other module-specific chat behavior for its own helpers, add an `ext/js/_core/onscreen_agent/...` hook from the owning module; do not hardcode feature-specific policy into `_core/onscreen_agent`
+- a throwing JS hook is caught, but the failure must stay visible: it keeps its `console.error` line, is recorded as one bounded `space.extensionFailures` entry with the extension path, extension point, message, and stack, and dispatches one `space:extension-failure` window event with that record
+- enforcement seams are the `validate*/end` extension points, and a hook that throws there fails the wrapped call closed instead of passing silently: the failure lands in the returned validation `errors`, or rejects the wrapped call as an `ExtensionHookError` when the seam has no validation result, and an enforcement seam whose hook modules cannot be imported fails closed the same way
+- seams that are not enforcement seams keep failing open and are only recorded, so name an enforcement seam `validate*` when a hook must be able to reject the wrapped call
 
 Module-owned extension metadata:
 

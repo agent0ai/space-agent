@@ -34,6 +34,10 @@ Example:
 - `space.extend()` requires a valid module ref and a standalone named function or explicit extension point name.
 - Framework-backed pages expose `_core/framework/initializer.js/initialize`; use `_core/framework/head/end` when the work can stay declarative, and keep the initializer `/end` hook for once-per-page shell setup that must stay imperative.
 - If a feature needs onscreen-agent-specific prompt shaping or execution validation for its own helpers, add an `ext/js/_core/onscreen_agent/...` hook from that feature instead of editing `_core/onscreen_agent` directly.
+- A hook that throws stays `console.error`ed and is recorded as one bounded `space.extensionFailures` entry with the extension path, extension point, message, and stack plus one `space:extension-failure` window event with that record.
+- Enforcement seams are the `validate*/end` extension points: a hook that throws there fails the wrapped call closed instead of passing silently, so the failure lands in the returned validation `errors`, or rejects the wrapped call as an `ExtensionHookError` when the seam has no validation result.
+- An enforcement seam whose hook modules cannot be imported fails closed the same way, attributed to `(js extension modules)`, so a validator module that cannot load is never silently absent.
+- Other seams still fail open and are only recorded, so name an enforcement seam `validate*` when a hook must be able to reject the wrapped call.
 
 ## Extension Metadata Rules
 

@@ -21,7 +21,7 @@ This module owns:
 - `js/yaml-lite.js`: project-owned lightweight YAML parser and serializer shared directly by browser runtime helpers, server modules, and agent-surface param parsers
 - `js/execution-format.js`: shared YAML-first execution transcript formatting helpers used by first-party agent runtimes for console-log and returned-value serialization
 - `js/server-config.js`: injected page-meta parsing for frontend-exposed backend runtime parameters
-- `js/extensions.js`: `space.extend`, HTML extension loading, the framework-managed `_core/framework/head/end` head seam, JS hook loading, lookup caching, and batching
+- `js/extensions.js`: `space.extend`, HTML extension loading, the framework-managed `_core/framework/head/end` head seam, JS hook loading, lookup caching, batching, and JS hook failure telemetry plus fail-closed enforcement seams
 - `js/moduleResolution.js`: propagation of `maxLayer` into framework-managed module and extension requests
 - `js/components.js`: `<x-component>` loading, recursive component imports, and `xAttrs(...)`
 - `js/modals.js`: the generic framework modal wrapper used for separately loaded modal documents that are not mounted as feature-owned native dialogs
@@ -111,6 +111,10 @@ Important contracts:
 - uncached HTML `<x-extension>` lookups are batched to one `/api/extensions_load` request per flush window; by default that window ends on the next animation frame, and frontend constant `HTML_EXTENSIONS_LOAD_BATCH_WAIT_MS` in `js/extensions.js` adds an extra wait window in milliseconds before the frame-aligned flush
 - `extensions_load` transport keeps `maxLayer` at the top level of the call; grouped requests carry only ordered `patterns` arrays, and grouped responses come back in that same order with the matching `patterns` plus resolved `extensions` instead of synthetic transport keys
 - JS hook lookups do not use that frame wait window; they request extension paths immediately because hook callers await them directly
+- a JS hook that throws is caught so one broken extension cannot break a framework seam, and that catch still reports the failure instead of hiding it: the hook stays `console.error`ed, one bounded (25 entries) `space.extensionFailures` record with `at`, `extensionPath`, `extensionPoint`, `message`, and `stack` is kept on the runtime, and one `space:extension-failure` window event carrying that record is dispatched; `recordJsExtensionFailure(...)` is the exported helper other framework code can reuse for the same shape
+- enforcement seams are the `validate*/end` extension points, and a hook that throws there fails the wrapped call closed instead of passing silently: the failure becomes a `name === "ExtensionHookError"` error with the message `Extension hook failed: <extension path> (<extension point>) — <error>`, pushed into the validation result's `errors` when the hook context carries one, and otherwise set as `hookContext.error` so the wrapped call rejects
+- an enforcement seam whose hook modules cannot be imported fails closed the same way, attributed to the `(js extension modules)` path, so a validator that cannot even load is never silently absent
+- seams that are not enforcement seams still fail open, with the wrapped function keeping its result, and are only recorded through that failure telemetry
 - empty extension lookups are cached as valid results
 - `moduleResolution.js` preserves page-level `maxLayer` for `/mod/...` and `/api/extensions_load` requests
 - `fetch-proxy.js` also stamps same-origin `fetch("/mod/...")` requests with `X-Space-Max-Layer` when the current page declares a module clamp, so ad hoc module reads follow the same L0 or L1 or L2 ceiling as declarative module loading
@@ -132,6 +136,7 @@ Rules:
 
 - keep `ext/html/` adapter files thin and mount real components from owning modules
 - keep `ext/js/` hook files focused on hook behavior instead of turning them into alternate feature entry points
+- name enforcement seams `validate*` so a throwing or unloadable validator fails its wrapped call closed instead of only being recorded
 - keep components declarative and import feature stores explicitly
 - non-visual helper tags such as `<x-context>` may live in mounted DOM for module-owned runtime discovery; framework CSS should keep them out of layout, and framework bootstrap now owns the one hidden runtime context element with `data-runtime="browser|app"` plus derived `runtime-browser` or `runtime-app` tags, while other tags remain owned by the emitting module
 - if a hook or component behavior becomes feature-specific, move it out of framework
