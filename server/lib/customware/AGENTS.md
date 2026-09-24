@@ -81,6 +81,10 @@ Important rules:
 - worker-side module lookup must read shared `file_index` and group shards from the shared `stateSystem`; only the primary watchdog owns filesystem scanning and shard publication, and `L2/<user>` file-index shards are loaded on demand
 - auth-only request context does not imply the authenticated user's full L2 shard is loaded; file, module, extension, quota, and direct app-file callers must use the router-provided full-shard ensure hook before relying on user-owned file-index entries
 - frontend HTML anchors resolve through module `ext/html/...` paths and JS hooks resolve through module `ext/js/...` paths
+- extension-override resolution decides which hook files a seam receives, but not what those hooks do with a failure; the framework owns that after the call
+- a JS hook file that throws at a `validate*/end` enforcement seam fails its wrapped call closed and is recorded as a bounded `space.extensionFailures` entry plus a `space:extension-failure` window event
+- an enforcement seam whose hook modules cannot be imported also fails closed, attributed to `(js extension modules)`, so a validator module that cannot load is never silently absent
+- a hook that throws at any other seam keeps its `console.error` line and is recorded the same way, and the wrapped call still fails open
 - modules may also resolve other extension-owned assets through the same ranked `ext/...` override model when the frontend calls `extensions_load` directly; the current first-party example is `ext/panels/*.yaml`, and grouped lookups preserve request order while returning each request's normalized `patterns` with its resolved `extensions`
 - exact same override keys replace lower-ranked entries
 - different extension filenames under the same extension point compose together

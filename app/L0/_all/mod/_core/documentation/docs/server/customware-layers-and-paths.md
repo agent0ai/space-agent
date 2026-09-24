@@ -124,6 +124,16 @@ Resolution rules:
 - `extension_overrides.js` owns extension lookup resolution
 - request-time module and extension lookup reads shared-state file-index shards for the relevant readable owners instead of scanning the full watchdog path index; the current user's `L2/<username>` shard is loaded on demand if it was not present in the worker startup snapshot
 
+## JS Extension Hook Failures
+
+Extension resolution only decides which hook files a seam receives; the framework owns what happens after a hook runs.
+
+Current contract:
+
+- a hook that throws keeps its frontend `console.error` line and is recorded as one bounded `space.extensionFailures` entry plus one `space:extension-failure` window event
+- a hook that throws at a `validate*/end` enforcement seam fails its wrapped call closed instead of passing silently, and an enforcement seam whose hook modules cannot be imported fails closed too, attributed to `(js extension modules)`
+- seams that are not enforcement seams keep failing open and are only recorded
+
 ## `maxLayer`
 
 `maxLayer` limits module and extension lookup, not normal app-file APIs. The narrow first-party exception is explicit module-oriented `file_paths` discovery when a caller passes `maxLayer` intentionally, such as the dashboard panel index resolving readable `mod/*/*/ext/panels/*.yaml` files before batch-reading them through `file_read`.
